@@ -5,21 +5,19 @@ Session-based 'Remember Me' – If enabled, session persists and keeps the user 
 Authorization – Only authenticated users can access protected resources like the navbar.
 Middleware for JWT handling – Verifies token validity.
 Repository & Service Pattern – For clean code separation.
+
 🔹 Step 1: Install Required NuGet Packages
 Run the following commands in the Package Manager Console:
 
-powershell
-Copy
-Edit
 Install-Package Microsoft.AspNetCore.Authentication.JwtBearer
 Install-Package Microsoft.AspNetCore.Mvc.NewtonsoftJson
 Install-Package Microsoft.AspNetCore.Session
+
+
 🔹 Step 2: Configure appsettings.json
 Add JWT settings for token generation:
 
-json
-Copy
-Edit
+
 {
   "JwtSettings": {
     "SecretKey": "ThisIsASecretKeyForJWTAuthentication123456",
@@ -29,12 +27,11 @@ Edit
   },
   "AllowedHosts": "*"
 }
+
+
 🔹 Step 3: Configure Middleware in Program.cs
 Modify Program.cs to configure Session, JWT, and Authentication:
 
-csharp
-Copy
-Edit
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -93,12 +90,11 @@ app.UseEndpoints(endpoints =>
 });
 
 app.Run();
+
 🔹 Step 4: Create AuthService.cs (Service for JWT & Authentication)
 Create a service layer in Services/AuthService.cs to handle JWT generation & authentication.
 
-csharp
-Copy
-Edit
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
@@ -138,12 +134,11 @@ public class AuthService
         return tokenHandler.WriteToken(token);
     }
 }
+
+
 🔹 Step 5: Create AuthController.cs (Login & Logout API)
 Handles Login & JWT Token Generation
 
-csharp
-Copy
-Edit
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -184,12 +179,11 @@ public class LoginModel
     public string Username { get; set; }
     public string Password { get; set; }
 }
+
 🔹 Step 6: Protect Routes using JWT Authorization
 Modify HomeController.cs to require authentication before accessing content.
 
-csharp
-Copy
-Edit
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -201,20 +195,17 @@ public class HomeController : Controller
         return View();
     }
 }
+
 🔹 Step 7: Add JWT to Header in Requests
 Whenever making API calls, include the JWT Token in the Authorization Header.
 
-http
-Copy
-Edit
+
 GET /protected-endpoint
 Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
 🔹 Step 8: Use JWT in Views for UI Authorization
 In Views/Shared/_Layout.cshtml, modify the Navbar to show authenticated content.
 
-html
-Copy
-Edit
 @{
     var isAuthenticated = Context.Session.GetString("JwtToken") != null;
 }
@@ -233,6 +224,7 @@ Edit
         </li>
     }
 </ul>
+
 🎯 Final Outcome
 ✅ Users can log in and receive a JWT Token.
 ✅ The token is stored in a session when "Remember Me" is enabled.
