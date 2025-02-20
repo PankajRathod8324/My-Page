@@ -1,0 +1,296 @@
+Project Structure
+pgsql
+Copy code
+/YourProject
+│── /Controllers
+│   ├── AuthController.cs
+│   ├── ProtectedController.cs
+│── /Models
+│   ├── LoginModel.cs
+│   ├── UserModel.cs
+│── /Services
+│   ├── IAuthService.cs
+│   ├── AuthService.cs
+│── Program.cs
+│── appsettings.json
+1️⃣ Models (Login & User)
+LoginModel.cs
+csharp
+Copy code
+namespace YourProject.Models
+{
+    public class LoginModel
+    {
+        public string Username { get; set; }
+        public string Password { get; set; }
+        public bool RememberMe { get; set; }
+    }
+}
+UserModel.cs
+csharp
+Copy code
+namespace YourProject.Models
+{
+    public class UserModel
+    {
+        public string Username { get; set; }
+        public string Password { get; set; }
+        public string Role { get; set; }
+    }
+}
+2️⃣ Authentication Service
+Handles user authentication and JWT generation.
+
+IAuthService.cs
+csharp
+Copy code
+using YourProject.Models;
+
+namespace YourProject.Services
+{
+    public interface IAuthService
+    {
+        string Authenticate(LoginModel model, out string role);
+    }
+}
+AuthService.cs
+csharp
+Copy code
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using YourProject.Models;
+
+namespace YourProject.Services
+{
+    public class AuthService : IAuthService
+    {
+        private readonly IConfiguration _config;
+
+        // Dummy users for demonstration (Replace with Database)
+        private readonly List<UserModel> users = new()
+        {
+            new UserModel { Username = "admin", Password = "admin123", Role = "Admin" },
+            new UserModel { Username = "user", Password = "user123", Role = "User" }
+        };
+
+        public AuthService(IConfiguration config)
+        {
+            _config = config;
+        }
+
+        public string Authenticate(LoginModel model, out string role)
+        {
+            var user = users.FirstOrDefault(u => u.Username == model.Username && u.Password == model.Password);
+            role = user?.Role;
+
+            if (user == null) return null;
+
+            return GenerateJwtToken(user.Username, user.Role);
+        }
+
+        private string GenerateJwtToken(string username, string role)
+        {
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.UniqueName, username),
+                new Claim(ClaimTypes.Role, role),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                _config["Jwt:Issuer"],
+                _config["Jwt:Issuer"],
+                claims,
+                expires: DateTime.UtcNow.AddHours(1),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+    }
+}
+3️⃣ Authentication Controller
+Handles user login and JWT issuance.
+
+AuthController.cs
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using YourProject.Models;
+using YourProject.Services;
+
+[Route("api/auth")]
+[ApiController]
+public class AuthController : ControllerBase
+{
+    private readonly IAuthService _authService;
+
+    public AuthController(IAuthService authService)
+    {
+        _authService = authService;
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginModel model)
+    {
+        var token = _authService.Authenticate(model, out string role);
+
+        if (token == null)
+            return Unauthorized(new { Message = "Invalid credentials" });
+
+        // Store token in session cookie if "Remember Me" is checked
+        if (model.RememberMe)
+        {
+            Response.Cookies.Append("AuthToken", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddDays(7)
+            });
+        }
+
+        return Ok(new
+        {
+            Message = "Login successful!",
+            Token = token,
+            Role = role,
+            RedirectUrl = "/dashboard"
+        });
+    }
+}
+4️⃣ Protected Controller
+Restricts access based on user roles.
+
+ProtectedController.cs
+csharp
+Copy code
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+
+[Authorize]
+[Route("api/protected")]
+[ApiController]
+public class ProtectedController : ControllerBase
+{
+    [HttpGet]
+    public IActionResult GetProtectedData()
+    {
+        var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
+
+        if (token == null)
+            return Unauthorized(new { Message = "Token is missing" });
+
+        // Decode JWT Token
+        var jwtToken = new JwtSecurityTokenHandler().ReadToken(token) as JwtSecurityToken;
+        var username = jwtToken?.Claims.FirstOrDefault(c => c.Type == "unique_name")?.Value;
+        var role = jwtToken?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+        return Ok(new
+        {
+            Message = "This is a protected endpoint!",
+            User = username,
+            Role = role,
+            RedirectUrl = "/dashboard"
+        });
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("admin-only")]
+    public IActionResult AdminEndpoint()
+    {
+        return Ok(new { Message = "Only Admins can see this!" });
+    }
+}
+5️⃣ JWT & Authentication Configuration
+Update Program.cs to configure JWT and Role-based Authorization.
+
+Program.cs
+csharp
+Copy code
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using YourProject.Services;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services
+builder.Services.AddControllers();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+// JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+            ValidateIssuer = true,
+            ValidateAudience = false,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            RoleClaimType = ClaimTypes.Role
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+app.Run();
+6️⃣ appsettings.json
+Add JWT settings.
+
+json
+Copy code
+{
+  "Jwt": {
+    "Key": "YourSecretKeyHere",
+    "Issuer": "YourApp"
+  }
+}
+7️⃣ Frontend: Send JWT Token in Requests
+After login, store the token.
+
+javascript
+Copy code
+localStorage.setItem("jwtToken", data.Token);
+For protected API calls:
+
+javascript
+Copy code
+fetch("https://yourapi.com/api/protected", {
+    method: "GET",
+    headers: { "Authorization": "Bearer " + localStorage.getItem("jwtToken") }
+})
+.then(response => response.json())
+.then(data => console.log(data));
+✅ Summary
+Component	Implementation
+User Login	AuthController
+JWT Generation & Validation	AuthService
+Role-Based Access	[Authorize(Roles = "Admin")]
+Protected Routes	ProtectedController
+JWT Middleware	Program.cs
+This implementation ensures secure authentication, role-based access, session management, and JWT validation. 🚀 Let me know if you need modifications!
+
+
+
+
+
+
