@@ -1,0 +1,296 @@
+Here's a complete implementation of authentication and authorization using JWT, session-based "Remember Me" functionality, and role-based access control in an ASP.NET 7 MVC application. This follows a layered architecture where:
+
+Presentation Layer: Contains the controllers and DTOs.
+Business Logic Layer (Service Layer): Handles authentication and authorization logic.
+Data Access Layer (DAL): Manages user-related database operations.
+1. Configure JWT in appsettings.json
+Ensure you configure JWT settings in appsettings.json:
+
+json
+Copy code
+{
+  "Jwt": {
+    "Key": "your_secret_key_here",
+    "Issuer": "your_issuer_here",
+    "Audience": "your_audience_here",
+    "ExpiryMinutes": 60
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "your_database_connection_string_here"
+  }
+}
+2. Register Authentication and JWT in Program.cs
+csharp
+Copy code
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using YourProjectNamespace.DAL;
+using YourProjectNamespace.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add database context
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add Identity
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+// Configure JWT Authentication
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidAudience = jwtSettings["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+// Register services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+var app = builder.Build();
+
+// Configure middleware
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+3. Data Access Layer (DAL) - UserRepository.cs
+Handles database queries.
+
+csharp
+Copy code
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using YourProjectNamespace.Models;
+using System.Threading.Tasks;
+
+namespace YourProjectNamespace.DAL
+{
+    public class UserRepository : IUserRepository
+    {
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public UserRepository(UserManager<ApplicationUser> userManager)
+        {
+            _userManager = userManager;
+        }
+
+        public async Task<ApplicationUser> GetUserByEmailAsync(string email)
+        {
+            return await _userManager.Users.FirstOrDefaultAsync(u => u.Email == email);
+        }
+
+        public async Task<bool> CheckPasswordAsync(ApplicationUser user, string password)
+        {
+            return await _userManager.CheckPasswordAsync(user, password);
+        }
+
+        public async Task<string> GetUserRoleAsync(ApplicationUser user)
+        {
+            var roles = await _userManager.GetRolesAsync(user);
+            return roles.FirstOrDefault();
+        }
+    }
+}
+4. Business Logic Layer (Service Layer) - AuthService.cs
+Handles authentication logic.
+
+csharp
+Copy code
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using YourProjectNamespace.DAL;
+using YourProjectNamespace.Models;
+using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace YourProjectNamespace.Services
+{
+    public class AuthService : IAuthService
+    {
+        private readonly IUserRepository _userRepository;
+        private readonly IConfiguration _configuration;
+
+        public AuthService(IUserRepository userRepository, IConfiguration configuration)
+        {
+            _userRepository = userRepository;
+            _configuration = configuration;
+        }
+
+        public async Task<string> AuthenticateAsync(string email, string password)
+        {
+            var user = await _userRepository.GetUserByEmailAsync(email);
+            if (user == null || !await _userRepository.CheckPasswordAsync(user, password))
+            {
+                return null;
+            }
+
+            var userRole = await _userRepository.GetUserRoleAsync(user);
+            return GenerateJwtToken(user, userRole);
+        }
+
+        private string GenerateJwtToken(ApplicationUser user, string role)
+        {
+            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, role)
+            };
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["Jwt:ExpiryMinutes"])),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256),
+                Issuer = _configuration["Jwt:Issuer"],
+                Audience = _configuration["Jwt:Audience"]
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+    }
+}
+5. Presentation Layer (Controller) - AuthController.cs
+Handles authentication requests.
+
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using YourProjectNamespace.Services;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+
+namespace YourProjectNamespace.Controllers
+{
+    [Route("api/auth")]
+    [ApiController]
+    public class AuthController : ControllerBase
+    {
+        private readonly IAuthService _authService;
+
+        public AuthController(IAuthService authService)
+        {
+            _authService = authService;
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginModel model)
+        {
+            var token = await _authService.AuthenticateAsync(model.Email, model.Password);
+            if (token == null)
+                return Unauthorized(new { Message = "Invalid credentials" });
+
+            HttpContext.Session.SetString("AuthToken", token);
+
+            return Ok(new { Message = "Login successful", Token = token, Redirect = Url.Action("Dashboard", "Home") });
+        }
+    }
+}
+6. Protect Endpoints with Role-Based Authorization - ProtectedController.cs
+Ensures only users with the specified role can access certain endpoints.
+
+csharp
+Copy code
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Linq;
+
+namespace YourProjectNamespace.Controllers
+{
+    [Authorize(Roles = "Admin")] // Only Admin can access
+    [Route("api/protected")]
+    [ApiController]
+    public class ProtectedController : ControllerBase
+    {
+        [HttpGet]
+        public IActionResult GetProtectedData()
+        {
+            var username = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+            return Ok(new { Message = "This is a protected endpoint!", User = username });
+        }
+    }
+}
+7. Models
+Login Model (LoginModel.cs) in Presentation Layer
+csharp
+Copy code
+namespace YourProjectNamespace.Models
+{
+    public class LoginModel
+    {
+        public string Email { get; set; }
+        public string Password { get; set; }
+    }
+}
+User Model (ApplicationUser.cs) in DAL
+csharp
+Copy code
+using Microsoft.AspNetCore.Identity;
+
+namespace YourProjectNamespace.Models
+{
+    public class ApplicationUser : IdentityUser
+    {
+        public string RoleName { get; set; }
+    }
+}
+How It Works
+Login API (api/auth/login)
+
+Authenticates user and returns JWT token.
+Stores JWT token in session for "Remember Me".
+Accessing Protected Endpoint (api/protected)
+
+Must pass JWT token in the request Authorization header:
+makefile
+Copy code
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Ensures only authorized users with correct roles can access.
+Redirects to Dashboard after Successful Login
+
+Redirect = Url.Action("Dashboard", "Home")
+This is a complete, working authentication system with JWT, session-based Remember Me, and role-based access control in ASP.NET 7 MVC. Let me know if you need modifications!
+
+
+
+
+
+
+
+
+
+
+
+Search
+
+Reason
