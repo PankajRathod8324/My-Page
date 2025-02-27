@@ -1,274 +1,223 @@
-it! Below is a Role-Based Permission Management System in ASP.NET MVC with:
+hold data for each permission, including role ID and checkbox states.
 
-Models: Role, Permission, RolePermission, User, UserRole
-ViewModel: For handling permissions in UI
-Repository: For database operations
-Service Layer: Business logic
-Controller: Handling API requests
-Views: Managing roles & permissions
-1. Database Schema (Entity Framework - Code First)
-Models
-Role Model
-csharp
-Copy code
-public class Role
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public virtual ICollection<RolePermission> RolePermissions { get; set; }
-    public virtual ICollection<UserRole> UserRoles { get; set; }
-}
-Permission Model
-csharp
-Copy code
-public class Permission
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-}
-RolePermission Model
-csharp
-Copy code
-public class RolePermission
-{
-    public int Id { get; set; }
-    public int RoleId { get; set; }
-    public virtual Role Role { get; set; }
-    public int PermissionId { get; set; }
-    public virtual Permission Permission { get; set; }
-    public bool CanView { get; set; }
-    public bool CanEdit { get; set; }
-    public bool CanDelete { get; set; }
-}
-User Model
-csharp
-Copy code
-public class User
-{
-    public int Id { get; set; }
-    public string Username { get; set; }
-    public virtual ICollection<UserRole> UserRoles { get; set; }
-}
-UserRole Model
-csharp
-Copy code
-public class UserRole
-{
-    public int Id { get; set; }
-    public int UserId { get; set; }
-    public virtual User User { get; set; }
-    public int RoleId { get; set; }
-    public virtual Role Role { get; set; }
-}
-2. ViewModel for Managing Permissions
 csharp
 Copy code
 public class RolePermissionViewModel
 {
     public int RoleId { get; set; }
-    public string RoleName { get; set; }
-    public List<PermissionViewModel> Permissions { get; set; }
-}
-
-public class PermissionViewModel
-{
     public int PermissionId { get; set; }
     public string PermissionName { get; set; }
     public bool CanView { get; set; }
     public bool CanEdit { get; set; }
     public bool CanDelete { get; set; }
 }
-3. Repository Pattern
-RolePermission Repository
+2️⃣ Controller (RolePermissionController.cs)
+Handles retrieving and updating permissions.
+
 csharp
 Copy code
+using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+public class RolePermissionController : Controller
+{
+    private readonly IRolePermissionService _rolePermissionService;
+
+    public RolePermissionController(IRolePermissionService rolePermissionService)
+    {
+        _rolePermissionService = rolePermissionService;
+    }
+
+    // GET: Load Permissions for a Role
+    public async Task<IActionResult> ManagePermissions(int roleId)
+    {
+        var permissions = await _rolePermissionService.GetPermissionsByRoleId(roleId);
+        return View(permissions);
+    }
+
+    // POST: Update permissions (called via AJAX)
+    [HttpPost]
+    public async Task<IActionResult> UpdatePermissions([FromBody] List<RolePermissionViewModel> permissions)
+    {
+        if (permissions == null || permissions.Count == 0)
+        {
+            return BadRequest("No permissions received");
+        }
+
+        bool success = await _rolePermissionService.UpdateRolePermissions(permissions);
+        return success ? Ok("Permissions updated successfully") : StatusCode(500, "Failed to update permissions");
+    }
+}
+3️⃣ Service Layer (RolePermissionService.cs)
+Handles business logic before updating the repository.
+
+Service Interface (IRolePermissionService.cs)
+csharp
+Copy code
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+public interface IRolePermissionService
+{
+    Task<List<RolePermissionViewModel>> GetPermissionsByRoleId(int roleId);
+    Task<bool> UpdateRolePermissions(List<RolePermissionViewModel> permissions);
+}
+Service Implementation (RolePermissionService.cs)
+csharp
+Copy code
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+public class RolePermissionService : IRolePermissionService
+{
+    private readonly IRolePermissionRepository _rolePermissionRepository;
+
+    public RolePermissionService(IRolePermissionRepository rolePermissionRepository)
+    {
+        _rolePermissionRepository = rolePermissionRepository;
+    }
+
+    public async Task<List<RolePermissionViewModel>> GetPermissionsByRoleId(int roleId)
+    {
+        return await _rolePermissionRepository.GetPermissionsByRoleId(roleId);
+    }
+
+    public async Task<bool> UpdateRolePermissions(List<RolePermissionViewModel> permissions)
+    {
+        return await _rolePermissionRepository.UpdateRolePermissions(permissions);
+    }
+}
+4️⃣ Repository Layer (RolePermissionRepository.cs)
+Handles database operations using Entity Framework.
+
+Repository Interface (IRolePermissionRepository.cs)
+csharp
+Copy code
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
 public interface IRolePermissionRepository
 {
-    Task<List<RolePermission>> GetPermissionsByRoleAsync(int roleId);
-    Task UpdatePermissionsAsync(int roleId, List<RolePermission> rolePermissions);
+    Task<List<RolePermissionViewModel>> GetPermissionsByRoleId(int roleId);
+    Task<bool> UpdateRolePermissions(List<RolePermissionViewModel> permissions);
 }
+Repository Implementation (RolePermissionRepository.cs)
+csharp
+Copy code
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 public class RolePermissionRepository : IRolePermissionRepository
 {
-    private readonly AppDbContext _context;
+    private readonly ApplicationDbContext _context;
 
-    public RolePermissionRepository(AppDbContext context)
+    public RolePermissionRepository(ApplicationDbContext context)
     {
         _context = context;
     }
 
-    public async Task<List<RolePermission>> GetPermissionsByRoleAsync(int roleId)
+    public async Task<List<RolePermissionViewModel>> GetPermissionsByRoleId(int roleId)
     {
         return await _context.RolePermissions
             .Where(rp => rp.RoleId == roleId)
-            .Include(rp => rp.Permission)
-            .ToListAsync();
-    }
-
-    public async Task UpdatePermissionsAsync(int roleId, List<RolePermission> rolePermissions)
-    {
-        var existingPermissions = _context.RolePermissions.Where(rp => rp.RoleId == roleId);
-        _context.RolePermissions.RemoveRange(existingPermissions);
-        await _context.RolePermissions.AddRangeAsync(rolePermissions);
-        await _context.SaveChangesAsync();
-    }
-}
-4. Service Layer
-csharp
-Copy code
-public interface IRolePermissionService
-{
-    Task<RolePermissionViewModel> GetPermissionsForRoleAsync(int roleId);
-    Task UpdateRolePermissionsAsync(int roleId, RolePermissionViewModel model);
-}
-
-public class RolePermissionService : IRolePermissionService
-{
-    private readonly IRolePermissionRepository _repository;
-
-    public RolePermissionService(IRolePermissionRepository repository)
-    {
-        _repository = repository;
-    }
-
-    public async Task<RolePermissionViewModel> GetPermissionsForRoleAsync(int roleId)
-    {
-        var rolePermissions = await _repository.GetPermissionsByRoleAsync(roleId);
-        var viewModel = new RolePermissionViewModel
-        {
-            RoleId = roleId,
-            RoleName = rolePermissions.FirstOrDefault()?.Role?.Name,
-            Permissions = rolePermissions.Select(rp => new PermissionViewModel
+            .Select(rp => new RolePermissionViewModel
             {
+                RoleId = rp.RoleId,
                 PermissionId = rp.PermissionId,
                 PermissionName = rp.Permission.Name,
                 CanView = rp.CanView,
                 CanEdit = rp.CanEdit,
                 CanDelete = rp.CanDelete
-            }).ToList()
-        };
-
-        return viewModel;
+            })
+            .ToListAsync();
     }
 
-    public async Task UpdateRolePermissionsAsync(int roleId, RolePermissionViewModel model)
+    public async Task<bool> UpdateRolePermissions(List<RolePermissionViewModel> permissions)
     {
-        var rolePermissions = model.Permissions.Select(p => new RolePermission
+        foreach (var perm in permissions)
         {
-            RoleId = roleId,
-            PermissionId = p.PermissionId,
-            CanView = p.CanView,
-            CanEdit = p.CanEdit,
-            CanDelete = p.CanDelete
-        }).ToList();
+            var entity = await _context.RolePermissions
+                .FirstOrDefaultAsync(rp => rp.RoleId == perm.RoleId && rp.PermissionId == perm.PermissionId);
 
-        await _repository.UpdatePermissionsAsync(roleId, rolePermissions);
+            if (entity != null)
+            {
+                entity.CanView = perm.CanView;
+                entity.CanEdit = perm.CanEdit;
+                entity.CanDelete = perm.CanDelete;
+            }
+        }
+
+        return await _context.SaveChangesAsync() > 0;
     }
 }
-5. Controller (RolePermissionsController)
-csharp
-Copy code
-public class RolePermissionsController : Controller
-{
-    private readonly IRolePermissionService _service;
+5️⃣ View (ManagePermissions.cshtml)
+This renders checkboxes and sends updates via AJAX.
 
-    public RolePermissionsController(IRolePermissionService service)
-    {
-        _service = service;
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> Edit(int roleId)
-    {
-        var model = await _service.GetPermissionsForRoleAsync(roleId);
-        return View(model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Edit(RolePermissionViewModel model)
-    {
-        await _service.UpdateRolePermissionsAsync(model.RoleId, model);
-        return RedirectToAction("Index", "Roles");
-    }
-}
-6. Database Configuration (EF Core)
-csharp
-Copy code
-public class AppDbContext : DbContext
-{
-    public DbSet<Role> Roles { get; set; }
-    public DbSet<Permission> Permissions { get; set; }
-    public DbSet<RolePermission> RolePermissions { get; set; }
-    public DbSet<User> Users { get; set; }
-    public DbSet<UserRole> UserRoles { get; set; }
-
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<RolePermission>()
-            .HasOne(rp => rp.Role)
-            .WithMany(r => r.RolePermissions)
-            .HasForeignKey(rp => rp.RoleId);
-
-        modelBuilder.Entity<RolePermission>()
-            .HasOne(rp => rp.Permission)
-            .WithMany()
-            .HasForeignKey(rp => rp.PermissionId);
-
-        modelBuilder.Entity<UserRole>()
-            .HasOne(ur => ur.User)
-            .WithMany(u => u.UserRoles)
-            .HasForeignKey(ur => ur.UserId);
-
-        modelBuilder.Entity<UserRole>()
-            .HasOne(ur => ur.Role)
-            .WithMany()
-            .HasForeignKey(ur => ur.RoleId);
-    }
-}
-7. View (Edit.cshtml - Razor)
 html
 Copy code
-@model RolePermissionViewModel
+@model List<RolePermissionViewModel>
 
-<h2>Manage Permissions for @Model.RoleName</h2>
-
-<form asp-action="Edit">
-    <input type="hidden" asp-for="RoleId" />
-
-    <table>
-        <thead>
+<table>
+    <thead>
+        <tr>
+            <th>Permission</th>
+            <th><input type="checkbox" id="selectAllView"> Can View</th>
+            <th><input type="checkbox" id="selectAllEdit"> Can Edit</th>
+            <th><input type="checkbox" id="selectAllDelete"> Can Delete</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var permission in Model)
+        {
             <tr>
-                <th>Permission</th>
-                <th>View</th>
-                <th>Edit</th>
-                <th>Delete</th>
+                <td>@permission.PermissionName</td>
+                <td><input type="checkbox" class="canView" data-id="@permission.PermissionId" @(permission.CanView ? "checked" : "")></td>
+                <td><input type="checkbox" class="canEdit" data-id="@permission.PermissionId" @(permission.CanEdit ? "checked" : "")></td>
+                <td><input type="checkbox" class="canDelete" data-id="@permission.PermissionId" @(permission.CanDelete ? "checked" : "")></td>
             </tr>
-        </thead>
-        <tbody>
-            @for (int i = 0; i < Model.Permissions.Count; i++)
-            {
-                <tr>
-                    <td>@Model.Permissions[i].PermissionName</td>
-                    <td><input type="checkbox" asp-for="Permissions[i].CanView" /></td>
-                    <td><input type="checkbox" asp-for="Permissions[i].CanEdit" /></td>
-                    <td><input type="checkbox" asp-for="Permissions[i].CanDelete" /></td>
-                </tr>
+        }
+    </tbody>
+</table>
+
+<script>
+    function updatePermissions() {
+        let permissions = [];
+
+        $("tbody tr").each(function () {
+            let permissionId = $(this).find(".canView").data("id");
+            let canView = $(this).find(".canView").is(":checked");
+            let canEdit = $(this).find(".canEdit").is(":checked");
+            let canDelete = $(this).find(".canDelete").is(":checked");
+
+            permissions.push({ PermissionId: permissionId, CanView: canView, CanEdit: canEdit, CanDelete: canDelete });
+        });
+
+        $.ajax({
+            url: "/RolePermission/UpdatePermissions",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(permissions),
+            success: function (response) {
+                alert(response);
+            },
+            error: function () {
+                alert("Error updating permissions");
             }
-        </tbody>
-    </table>
+        });
+    }
 
-    <button type="submit">Save</button>
-</form>
-Conclusion
-MVC pattern followed
-Role-based permission management
-EF Core for database interaction
-Repository & Service layers for clean code
-Dynamic permission UI with checkboxes
+    $(".canView, .canEdit, .canDelete").change(updatePermissions);
+</script>
+Summary:
+ViewModel: Holds role and permission data.
+Controller: Handles permission retrieval and update.
+Service Layer: Implements business logic.
+Repository Layer: Uses EF Core to update database.
+View: Renders checkboxes and updates permissions via AJAX.
+This ensures that role-based permissions are correctly stored and updated dynamically.
 
-
-
-
-
+Let me know if you need any modifications!
