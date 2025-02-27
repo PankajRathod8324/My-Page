@@ -1,303 +1,272 @@
-Since you're working with ASP.NET Core MVC 7 and following a layered architecture, I'll guide you through adding a user with a profile photo using Microsoft SQL Server. The architecture consists of:
+it! Below is a Role-Based Permission Management System in ASP.NET MVC with:
 
-Presentation Layer (PL): Controllers and Views
-Business Logic Layer (BLL): Services for handling logic
-Data Access Layer (DAL): Repository and Entity Framework
-Database Layer (DB): SQL Server
-Step 1: Install Required Packages
-Ensure you have the following packages installed via NuGet:
-
-bash
-Copy code
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-dotnet add package Microsoft.EntityFrameworkCore.Tools
-1. Data Layer (DAL)
-UserModel.cs (Entity)
+Models: Role, Permission, RolePermission, User, UserRole
+ViewModel: For handling permissions in UI
+Repository: For database operations
+Service Layer: Business logic
+Controller: Handling API requests
+Views: Managing roles & permissions
+1. Database Schema (Entity Framework - Code First)
+Models
+Role Model
 csharp
 Copy code
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace YourNamespace.DAL.Models
+public class Role
 {
-    public class UserModel
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public virtual ICollection<RolePermission> RolePermissions { get; set; }
+    public virtual ICollection<UserRole> UserRoles { get; set; }
+}
+Permission Model
+csharp
+Copy code
+public class Permission
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+}
+RolePermission Model
+csharp
+Copy code
+public class RolePermission
+{
+    public int Id { get; set; }
+    public int RoleId { get; set; }
+    public virtual Role Role { get; set; }
+    public int PermissionId { get; set; }
+    public virtual Permission Permission { get; set; }
+    public bool CanView { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanDelete { get; set; }
+}
+User Model
+csharp
+Copy code
+public class User
+{
+    public int Id { get; set; }
+    public string Username { get; set; }
+    public virtual ICollection<UserRole> UserRoles { get; set; }
+}
+UserRole Model
+csharp
+Copy code
+public class UserRole
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public virtual User User { get; set; }
+    public int RoleId { get; set; }
+    public virtual Role Role { get; set; }
+}
+2. ViewModel for Managing Permissions
+csharp
+Copy code
+public class RolePermissionViewModel
+{
+    public int RoleId { get; set; }
+    public string RoleName { get; set; }
+    public List<PermissionViewModel> Permissions { get; set; }
+}
+
+public class PermissionViewModel
+{
+    public int PermissionId { get; set; }
+    public string PermissionName { get; set; }
+    public bool CanView { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanDelete { get; set; }
+}
+3. Repository Pattern
+RolePermission Repository
+csharp
+Copy code
+public interface IRolePermissionRepository
+{
+    Task<List<RolePermission>> GetPermissionsByRoleAsync(int roleId);
+    Task UpdatePermissionsAsync(int roleId, List<RolePermission> rolePermissions);
+}
+
+public class RolePermissionRepository : IRolePermissionRepository
+{
+    private readonly AppDbContext _context;
+
+    public RolePermissionRepository(AppDbContext context)
     {
-        [Key]
-        public int Id { get; set; }
+        _context = context;
+    }
 
-        [Required]
-        [StringLength(100)]
-        public string Name { get; set; }
+    public async Task<List<RolePermission>> GetPermissionsByRoleAsync(int roleId)
+    {
+        return await _context.RolePermissions
+            .Where(rp => rp.RoleId == roleId)
+            .Include(rp => rp.Permission)
+            .ToListAsync();
+    }
 
-        [Required]
-        [StringLength(100)]
-        [EmailAddress]
-        public string Email { get; set; }
-
-        public string ProfileImagePath { get; set; }
+    public async Task UpdatePermissionsAsync(int roleId, List<RolePermission> rolePermissions)
+    {
+        var existingPermissions = _context.RolePermissions.Where(rp => rp.RoleId == roleId);
+        _context.RolePermissions.RemoveRange(existingPermissions);
+        await _context.RolePermissions.AddRangeAsync(rolePermissions);
+        await _context.SaveChangesAsync();
     }
 }
-AppDbContext.cs (Database Context)
+4. Service Layer
 csharp
 Copy code
-using Microsoft.EntityFrameworkCore;
-using YourNamespace.DAL.Models;
-
-namespace YourNamespace.DAL
+public interface IRolePermissionService
 {
-    public class AppDbContext : DbContext
-    {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-
-        public DbSet<UserModel> Users { get; set; }
-    }
+    Task<RolePermissionViewModel> GetPermissionsForRoleAsync(int roleId);
+    Task UpdateRolePermissionsAsync(int roleId, RolePermissionViewModel model);
 }
-IUserRepository.cs (Repository Interface)
-csharp
-Copy code
-using YourNamespace.DAL.Models;
 
-namespace YourNamespace.DAL.Repositories
+public class RolePermissionService : IRolePermissionService
 {
-    public interface IUserRepository
+    private readonly IRolePermissionRepository _repository;
+
+    public RolePermissionService(IRolePermissionRepository repository)
     {
-        Task<UserModel> AddUserAsync(UserModel user);
-        Task<IEnumerable<UserModel>> GetAllUsersAsync();
+        _repository = repository;
     }
-}
-UserRepository.cs (Repository Implementation)
-csharp
-Copy code
-using Microsoft.EntityFrameworkCore;
-using YourNamespace.DAL.Models;
 
-namespace YourNamespace.DAL.Repositories
-{
-    public class UserRepository : IUserRepository
+    public async Task<RolePermissionViewModel> GetPermissionsForRoleAsync(int roleId)
     {
-        private readonly AppDbContext _context;
-
-        public UserRepository(AppDbContext context)
+        var rolePermissions = await _repository.GetPermissionsByRoleAsync(roleId);
+        var viewModel = new RolePermissionViewModel
         {
-            _context = context;
-        }
-
-        public async Task<UserModel> AddUserAsync(UserModel user)
-        {
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-            return user;
-        }
-
-        public async Task<IEnumerable<UserModel>> GetAllUsersAsync()
-        {
-            return await _context.Users.ToListAsync();
-        }
-    }
-}
-2. Business Logic Layer (BLL)
-IUserService.cs (Service Interface)
-csharp
-Copy code
-using YourNamespace.DAL.Models;
-
-namespace YourNamespace.BLL.Services
-{
-    public interface IUserService
-    {
-        Task<UserModel> AddUserAsync(UserModel user, IFormFile profileImage);
-        Task<IEnumerable<UserModel>> GetAllUsersAsync();
-    }
-}
-UserService.cs (Service Implementation)
-csharp
-Copy code
-using YourNamespace.DAL.Models;
-using YourNamespace.DAL.Repositories;
-using Microsoft.AspNetCore.Http;
-using System;
-using System.IO;
-using System.Threading.Tasks;
-
-namespace YourNamespace.BLL.Services
-{
-    public class UserService : IUserService
-    {
-        private readonly IUserRepository _userRepository;
-        private readonly string _imageFolderPath = "wwwroot/uploads/";
-
-        public UserService(IUserRepository userRepository)
-        {
-            _userRepository = userRepository;
-        }
-
-        public async Task<UserModel> AddUserAsync(UserModel user, IFormFile profileImage)
-        {
-            if (profileImage != null)
+            RoleId = roleId,
+            RoleName = rolePermissions.FirstOrDefault()?.Role?.Name,
+            Permissions = rolePermissions.Select(rp => new PermissionViewModel
             {
-                var uniqueFileName = Guid.NewGuid().ToString() + "_" + profileImage.FileName;
-                var filePath = Path.Combine(_imageFolderPath, uniqueFileName);
+                PermissionId = rp.PermissionId,
+                PermissionName = rp.Permission.Name,
+                CanView = rp.CanView,
+                CanEdit = rp.CanEdit,
+                CanDelete = rp.CanDelete
+            }).ToList()
+        };
 
-                Directory.CreateDirectory(_imageFolderPath); // Ensure directory exists
+        return viewModel;
+    }
 
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await profileImage.CopyToAsync(stream);
-                }
-
-                user.ProfileImagePath = "/uploads/" + uniqueFileName;
-            }
-
-            return await _userRepository.AddUserAsync(user);
-        }
-
-        public async Task<IEnumerable<UserModel>> GetAllUsersAsync()
+    public async Task UpdateRolePermissionsAsync(int roleId, RolePermissionViewModel model)
+    {
+        var rolePermissions = model.Permissions.Select(p => new RolePermission
         {
-            return await _userRepository.GetAllUsersAsync();
-        }
+            RoleId = roleId,
+            PermissionId = p.PermissionId,
+            CanView = p.CanView,
+            CanEdit = p.CanEdit,
+            CanDelete = p.CanDelete
+        }).ToList();
+
+        await _repository.UpdatePermissionsAsync(roleId, rolePermissions);
     }
 }
-3. Presentation Layer (PL)
-UserController.cs (Controller)
+5. Controller (RolePermissionsController)
 csharp
 Copy code
-using Microsoft.AspNetCore.Mvc;
-using YourNamespace.BLL.Services;
-using YourNamespace.DAL.Models;
-using System.Threading.Tasks;
-
-namespace YourNamespace.PL.Controllers
+public class RolePermissionsController : Controller
 {
-    public class UserController : Controller
+    private readonly IRolePermissionService _service;
+
+    public RolePermissionsController(IRolePermissionService service)
     {
-        private readonly IUserService _userService;
+        _service = service;
+    }
 
-        public UserController(IUserService userService)
-        {
-            _userService = userService;
-        }
+    [HttpGet]
+    public async Task<IActionResult> Edit(int roleId)
+    {
+        var model = await _service.GetPermissionsForRoleAsync(roleId);
+        return View(model);
+    }
 
-        [HttpGet]
-        public IActionResult Create()
-        {
-            return View();
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> Create(UserModel user, IFormFile profileImage)
-        {
-            if (ModelState.IsValid)
-            {
-                await _userService.AddUserAsync(user, profileImage);
-                return RedirectToAction("Index");
-            }
-            return View(user);
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> Index()
-        {
-            var users = await _userService.GetAllUsersAsync();
-            return View(users);
-        }
+    [HttpPost]
+    public async Task<IActionResult> Edit(RolePermissionViewModel model)
+    {
+        await _service.UpdateRolePermissionsAsync(model.RoleId, model);
+        return RedirectToAction("Index", "Roles");
     }
 }
-Views
-Create.cshtml (User Form)
+6. Database Configuration (EF Core)
+csharp
+Copy code
+public class AppDbContext : DbContext
+{
+    public DbSet<Role> Roles { get; set; }
+    public DbSet<Permission> Permissions { get; set; }
+    public DbSet<RolePermission> RolePermissions { get; set; }
+    public DbSet<User> Users { get; set; }
+    public DbSet<UserRole> UserRoles { get; set; }
+
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(rp => rp.Role)
+            .WithMany(r => r.RolePermissions)
+            .HasForeignKey(rp => rp.RoleId);
+
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(rp => rp.Permission)
+            .WithMany()
+            .HasForeignKey(rp => rp.PermissionId);
+
+        modelBuilder.Entity<UserRole>()
+            .HasOne(ur => ur.User)
+            .WithMany(u => u.UserRoles)
+            .HasForeignKey(ur => ur.UserId);
+
+        modelBuilder.Entity<UserRole>()
+            .HasOne(ur => ur.Role)
+            .WithMany()
+            .HasForeignKey(ur => ur.RoleId);
+    }
+}
+7. View (Edit.cshtml - Razor)
 html
 Copy code
-@model YourNamespace.DAL.Models.UserModel
+@model RolePermissionViewModel
 
-<form asp-action="Create" method="post" enctype="multipart/form-data">
-    <div>
-        <label>Name:</label>
-        <input asp-for="Name" required />
-    </div>
+<h2>Manage Permissions for @Model.RoleName</h2>
 
-    <div>
-        <label>Email:</label>
-        <input asp-for="Email" type="email" required />
-    </div>
+<form asp-action="Edit">
+    <input type="hidden" asp-for="RoleId" />
 
-    <div>
-        <label>Profile Image:</label>
-        <input type="file" name="profileImage" accept="image/*" />
-    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Permission</th>
+                <th>View</th>
+                <th>Edit</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < Model.Permissions.Count; i++)
+            {
+                <tr>
+                    <td>@Model.Permissions[i].PermissionName</td>
+                    <td><input type="checkbox" asp-for="Permissions[i].CanView" /></td>
+                    <td><input type="checkbox" asp-for="Permissions[i].CanEdit" /></td>
+                    <td><input type="checkbox" asp-for="Permissions[i].CanDelete" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
 
     <button type="submit">Save</button>
 </form>
-Index.cshtml (User List)
-html
-Copy code
-@model IEnumerable<YourNamespace.DAL.Models.UserModel>
-
-<table>
-    <tr>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Profile Photo</th>
-    </tr>
-    @foreach (var user in Model)
-    {
-        <tr>
-            <td>@user.Name</td>
-            <td>@user.Email</td>
-            <td>
-                @if (!string.IsNullOrEmpty(user.ProfileImagePath))
-                {
-                    <img src="@user.ProfileImagePath" width="100" height="100" />
-                }
-            </td>
-        </tr>
-    }
-</table>
-4. Register Dependencies in Program.cs
-csharp
-Copy code
-using YourNamespace.DAL;
-using YourNamespace.DAL.Repositories;
-using YourNamespace.BLL.Services;
-using Microsoft.EntityFrameworkCore;
-
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllersWithViews();
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IUserService, UserService>();
-
-var app = builder.Build();
-
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-}
-
-app.UseStaticFiles();
-app.UseRouting();
-app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=User}/{action=Index}/{id?}");
-
-app.Run();
-5. Configure Database in appsettings.json
-json
-Copy code
-"ConnectionStrings": {
-    "DefaultConnection": "Server=YOUR_SERVER;Database=YourDatabase;Trusted_Connection=True;MultipleActiveResultSets=true"
-}
-6. Apply Migrations and Run
-bash
-Copy code
-dotnet ef migrations add InitialCreate
-dotnet ef database update
-✅ Now you can create users with a profile photo!
-This follows layered architecture with a proper structure. Let me know if you need modifications!
-
+Conclusion
+MVC pattern followed
+Role-based permission management
+EF Core for database interaction
+Repository & Service layers for clean code
+Dynamic permission UI with checkboxes
 
 
 
