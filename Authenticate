@@ -1,235 +1,134 @@
-Here’s a complete implementation of Session Cookies + JWT Authentication & Authorization in ASP.NET 7 MVC. This solution ensures:
+Here's where you need to write the necessary code in your ASP.NET MVC project:
 
-JWT-based authentication – User logs in and gets a JWT token.
-Session-based 'Remember Me' – If enabled, session persists and keeps the user logged in.
-Authorization – Only authenticated users can access protected resources like the navbar.
-Middleware for JWT handling – Verifies token validity.
-Repository & Service Pattern – For clean code separation.
+1️⃣ Restrict Unauthenticated Users
+File: Controllers/YourController.cs
 
-🔹 Step 1: Install Required NuGet Packages
-Run the following commands in the Package Manager Console:
+csharp
+Copy
+Edit
+[Authorize] // Apply to all actions inside this controller
+public class YourController : Controller
+✅ Alternative: Apply [Authorize] to specific actions only.
 
-Install-Package Microsoft.AspNetCore.Authentication.JwtBearer
-Install-Package Microsoft.AspNetCore.Mvc.NewtonsoftJson
-Install-Package Microsoft.AspNetCore.Session
+2️⃣ Restrict Access Based on Roles
+File: Controllers/AdminController.cs
 
-
-🔹 Step 2: Configure appsettings.json
-Add JWT settings for token generation:
-
-
+csharp
+Copy
+Edit
+[Authorize(Roles = "Admin")] 
+public IActionResult AdminDashboard()
 {
-  "JwtSettings": {
-    "SecretKey": "ThisIsASecretKeyForJWTAuthentication123456",
-    "Issuer": "MyApp",
-    "Audience": "MyUsers",
-    "ExpiryMinutes": 60
-  },
-  "AllowedHosts": "*"
+    return View();
 }
+File: Controllers/ManagerController.cs
 
-
-🔹 Step 3: Configure Middleware in Program.cs
-Modify Program.cs to configure Session, JWT, and Authentication:
-
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-
-var builder = WebApplication.CreateBuilder(args);
-
-// Enable Session
-builder.Services.AddSession(options =>
+csharp
+Copy
+Edit
+[Authorize(Roles = "Manager")] 
+public IActionResult ManagerDashboard()
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30); // 30 min session timeout
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
-
-// JWT Configuration
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var key = Encoding.ASCII.GetBytes(jwtSettings["SecretKey"]);
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
-        ClockSkew = TimeSpan.Zero
-    };
-});
-
-builder.Services.AddControllersWithViews();
-builder.Services.AddHttpContextAccessor(); // Needed to access HttpContext
-
-var app = builder.Build();
-
-// Middleware setup
-app.UseSession();
-app.UseAuthentication();
-app.UseAuthorization();
-app.UseStaticFiles();
-app.UseRouting();
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapControllerRoute(
-        name: "default",
-        pattern: "{controller=Home}/{action=Index}/{id?}");
-});
-
-app.Run();
-
-🔹 Step 4: Create AuthService.cs (Service for JWT & Authentication)
-Create a service layer in Services/AuthService.cs to handle JWT generation & authentication.
-
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using System.Linq;
-
-public class AuthService
-{
-    private readonly IConfiguration _config;
-
-    public AuthService(IConfiguration config)
-    {
-        _config = config;
-    }
-
-    public string GenerateJwtToken(string username)
-    {
-        var jwtSettings = _config.GetSection("JwtSettings");
-        var key = Encoding.ASCII.GetBytes(jwtSettings["SecretKey"]);
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new Claim[]
-            {
-                new Claim(ClaimTypes.Name, username)
-            }),
-            Expires = DateTime.UtcNow.AddMinutes(int.Parse(jwtSettings["ExpiryMinutes"])),
-            Issuer = jwtSettings["Issuer"],
-            Audience = jwtSettings["Audience"],
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-        };
-
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
-    }
+    return View();
 }
+3️⃣ Show Sidebar Based on Roles
+File: Views/Shared/_Layout.cshtml
+Modify the sidebar section:
 
-
-🔹 Step 5: Create AuthController.cs (Login & Logout API)
-Handles Login & JWT Token Generation
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-
-[Route("api/auth")]
-[ApiController]
-public class AuthController : ControllerBase
+html
+Copy
+Edit
+@if (User.Identity.IsAuthenticated)
 {
-    private readonly AuthService _authService;
-
-    public AuthController(AuthService authService)
-    {
-        _authService = authService;
-    }
-
-    [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginModel model)
-    {
-        if (model.Username == "admin" && model.Password == "password") // Mock Authentication
+    <ul class="sidebar">
+        <li><a href="@Url.Action("Index", "Home")">Home</a></li>
+        
+        @if (User.IsInRole("Admin"))
         {
-            var token = _authService.GenerateJwtToken(model.Username);
-
-            HttpContext.Session.SetString("JwtToken", token); // Store JWT in Session
-            return Ok(new { Token = token, Message = "Login Successful" });
+            <li><a href="@Url.Action("AdminDashboard", "Admin")">Admin Dashboard</a></li>
         }
-        return Unauthorized(new { Message = "Invalid Credentials" });
-    }
+        
+        @if (User.IsInRole("Manager"))
+        {
+            <li><a href="@Url.Action("ManagerDashboard", "Manager")">Manager Dashboard</a></li>
+        }
 
-    [HttpPost("logout")]
-    public IActionResult Logout()
-    {
-        HttpContext.Session.Remove("JwtToken"); // Remove JWT from session
-        return Ok(new { Message = "Logged Out Successfully" });
-    }
+        <li><a href="@Url.Action("Logout", "Account")">Logout</a></li>
+    </ul>
 }
-
-public class LoginModel
+else
 {
-    public string Username { get; set; }
-    public string Password { get; set; }
+    <a href="@Url.Action("Login", "Account")">Login</a>
 }
+4️⃣ Implement Role-Based Permissions
+File: Filters/PermissionAuthorizeAttribute.cs
 
-🔹 Step 6: Protect Routes using JWT Authorization
-Modify HomeController.cs to require authentication before accessing content.
-
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-
-public class HomeController : Controller
+csharp
+Copy
+Edit
+public class PermissionAuthorizeAttribute : AuthorizeAttribute
 {
-    [Authorize] // Ensures only logged-in users can access this
-    public IActionResult Index()
+    private readonly string _permission;
+    
+    public PermissionAuthorizeAttribute(string permission)
     {
-        return View();
+        _permission = permission;
+    }
+
+    protected override bool AuthorizeCore(HttpContextBase httpContext)
+    {
+        if (!httpContext.User.Identity.IsAuthenticated)
+            return false;
+
+        var userService = DependencyResolver.Current.GetService<IUserService>();
+        var userPermissions = userService.GetUserPermissions(httpContext.User.Identity.Name);
+
+        return userPermissions.Contains(_permission);
     }
 }
+Apply it in Controllers:
+File: Controllers/UserController.cs
 
-🔹 Step 7: Add JWT to Header in Requests
-Whenever making API calls, include the JWT Token in the Authorization Header.
-
-
-GET /protected-endpoint
-Authorization: Bearer YOUR_JWT_TOKEN_HERE
-
-🔹 Step 8: Use JWT in Views for UI Authorization
-In Views/Shared/_Layout.cshtml, modify the Navbar to show authenticated content.
-
-@{
-    var isAuthenticated = Context.Session.GetString("JwtToken") != null;
+csharp
+Copy
+Edit
+[PermissionAuthorize("CanViewUsers")]
+public IActionResult UserList()
+{
+    return View();
 }
+5️⃣ Redirect Unauthorized Users
+File: Startup.cs (inside ConfigureServices method)
 
-<ul class="navbar-nav">
-    @if (isAuthenticated)
-    {
-        <li class="nav-item">
-            <a class="nav-link" asp-action="Logout" asp-controller="Auth">Logout</a>
-        </li>
-    }
-    else
-    {
-        <li class="nav-item">
-            <a class="nav-link" asp-action="Login" asp-controller="Auth">Login</a>
-        </li>
-    }
-</ul>
+csharp
+Copy
+Edit
+services.ConfigureApplicationCookie(options =>
+{
+    options.AccessDeniedPath = "/Account/AccessDenied";
+});
+File: Controllers/AccountController.cs
 
-🎯 Final Outcome
-✅ Users can log in and receive a JWT Token.
-✅ The token is stored in a session when "Remember Me" is enabled.
-✅ If the session expires, users need to log in again.
-✅ Protected routes (like the navbar) are only visible after authentication.
-✅ The Logout button clears the session & token.
+csharp
+Copy
+Edit
+public IActionResult AccessDenied()
+{
+    return View();
+}
+✅ Create Views/Account/AccessDenied.cshtml
 
-This setup is clean, follows best practices, and works smoothly without errors. 🚀
+html
+Copy
+Edit
+<h2>Access Denied</h2>
+<p>You do not have permission to view this page.</p>
+Summary (Where to Write What)
+Feature	File
+Restrict unauthenticated users	Controllers/YourController.cs
+Restrict access by roles	Controllers/AdminController.cs, Controllers/ManagerController.cs
+Show/hide sidebar based on roles	Views/Shared/_Layout.cshtml
+Implement fine-grained permissions	Filters/PermissionAuthorizeAttribute.cs
+Apply permissions to actions	Controllers/UserController.cs
+Redirect unauthorized users	Startup.cs, Controllers/AccountController.cs, Views/Account/AccessDenied.cshtml
+🔹 Now, your ASP.NET MVC project will handle role-based permissions properly! 🚀 Let me know if you need further clarifications!
