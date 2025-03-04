@@ -1,4 +1,47 @@
-You can create this "Add New Menu Item" modal using Bootstrap in your .cshtml file. Here’s a Bootstrap 5 modal implementation for the UI you want:
+Here's what you need to do:
+
+Create the ItemType table in PostgreSQL with a primary key.
+Insert some sample data into the ItemType table.
+Alter the Item table to update the foreign key (itemtype_id) to reference ItemType(id). Since you initially took it as CHAR, you'll need to alter the column type.
+Step 1: Create ItemType Table
+sql
+Copy code
+CREATE TABLE ItemType (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT
+);
+Step 2: Insert Sample Data
+sql
+Copy code
+INSERT INTO ItemType (name, description) VALUES
+('Electronics', 'Items related to electronic gadgets and devices'),
+('Furniture', 'Household and office furniture items'),
+('Clothing', 'Apparel and fashion items'),
+('Books', 'Educational and non-educational books'),
+('Sports', 'Sports and fitness-related items');
+Step 3: Alter Item Table
+If your Item table currently has a foreign key (itemtype_id) as CHAR, you'll need to:
+
+Drop the existing foreign key constraint.
+Alter the column type to match ItemType.id (INTEGER).
+Add the foreign key constraint back.
+sql
+Copy code
+-- Step 3.1: Drop the existing foreign key constraint (if any)
+ALTER TABLE Item DROP CONSTRAINT IF EXISTS item_itemtype_id_fkey;
+
+-- Step 3.2: Alter column type from CHAR to INTEGER
+ALTER TABLE Item ALTER COLUMN itemtype_id TYPE INTEGER USING itemtype_id::INTEGER;
+
+-- Step 3.3: Add foreign key constraint
+ALTER TABLE Item ADD CONSTRAINT item_itemtype_id_fkey FOREIGN KEY (itemtype_id) REFERENCES ItemType(id) ON DELETE CASCADE;
+Explanation
+SERIAL PRIMARY KEY in ItemType ensures an auto-incremented ID.
+VARCHAR(100) NOT NULL UNIQUE for name ensures each type is unique.
+TEXT for description allows detailed descriptions.
+ON DELETE CASCADE ensures if an ItemType is deleted, related items are also removed.
+Would you like any modifications to this schema?You can create this "Add New Menu Item" modal using Bootstrap in your .cshtml file. Here’s a Bootstrap 5 modal implementation for the UI you want:
 
 Add this Bootstrap Modal in Your .cshtml File:
 html
