@@ -1,575 +1,492 @@
- for Editing a Category
-html
-Copy code
-<div class="modal fade" id="editCategoryModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="exampleModalLabel">Edit Category</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="editCategoryForm">
-                <div class="modal-body">
-                    <input type="hidden" id="editCategoryId" name="CategoryId" />
+@using X.PagedList.Mvc.Core
+@model X.PagedList.IPagedList<DAL.ViewModel.UserViewModel>
 
-                    <div class="form-floating mb-3">
-                        <input type="text" class="form-control" id="editCategoryName" name="CategoryName" required>
-                        <label for="editCategoryName">Category Name*</label>
-                    </div>
-
-                    <div class="form-outline mb-4">
-                        <textarea class="form-control" id="editCategoryDescription" name="CategoryDescription" rows="4"></textarea>
-                        <label for="editCategoryDescription">Category Description</label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Save</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-3. Modify Your Category List to Include Edit Button
-Make sure each category has an edit button that will trigger the modal and populate the form fields.
-
-html
-Copy code
-@foreach (var category in Model.menuCategories)
-{
-    <div class="row hoverDiv">
-        <div class="col">
-            <p class="fs-5"><i class="fa-solid fa-grip-vertical me-2"></i>@category.CategoryName</p>
-        </div>
-        <div class="hoverIcon col text-end mt-2">
-            <a href="#" class="text-black editCategoryBtn"
-                data-id="@category.CategoryId"
-                data-name="@category.CategoryName"
-                data-description="@category.CategoryDescription"
-                data-bs-toggle="modal"
-                data-bs-target="#editCategoryModal">
-                <i class="fa-solid fa-marker"></i>
-            </a>
-        </div>
-    </div>
+@{
+    ViewData["Title"] = "User Page";
+    if (TempData["Message"] != null)
+    {
+        <div class="alert alert-@TempData["MessageType"]">@TempData["Message"]</div>
+    }
 }
-4. JavaScript to Populate Edit Modal and Submit Data
-Place this script at the bottom of your view.
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Page</title>
+    <link rel="stylesheet" href="~/css/style.css">
+    <link rel="stylesheet" href="~/css/media.css">
+    <link rel='stylesheet' href='https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css'>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+   
+</head>
+
+<body class="bg-body-tertiary">
+
+    <!-- Overlay for small screens -->
+    <div class="overlay" id="overlay"></div>
+
+    <div class="content mt-2" id="content">
+        <!-- Main content goes here -->
+        <form method="get">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <input class="form-control d-inline w-auto" type="search" name="search"
+                        placeholder="Search by First Name" value="@Context.Request.Query["search"]">
+                    <select name="filterBy" class="form-select d-inline w-auto">
+                        <option value="">All Users</option>
+                        <option value="Active"
+                            selected="@(Context.Request.Query["filterBy"] == "Active" ? "selected" : null)">Active
+                        </option>
+                        <option value="Inactive"
+                            selected="@(Context.Request.Query["filterBy"] == "Inactive" ? "selected" : null)">Inactive
+                        </option>
+                    </select>
+                    <select name="pageSize" class="form-select d-inline w-auto" onchange="this.form.submit()">
+                        <option value="5" selected="@(Context.Request.Query["pageSize"] == "5" ? "selected" : null)">5
+                        </option>
+                        <option value="10" selected="@(Context.Request.Query["pageSize"] == "10" ? "selected" : null)">
+                            10</option>
+                        <option value="15" selected="@(Context.Request.Query["pageSize"] == "15" ? "selected" : null)">
+                            15</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary">Search</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="datatable table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th><a asp-action="Userpage" asp-route-sortBy="@ViewBag.NameSort">Name</a></th>
+                        <th><a asp-action="Userpage" asp-route-sortBy="@ViewBag.EmailSort">Email</a></th>
+                        <th>Phone</th>
+                        <th>Role</th>
+                        <th><a asp-action="Userpage" asp-route-sortBy="@ViewBag.StatusSort">Status</a></th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        var modalId = "deleteModal" + user.UserId;
+                        <tr>
+                            <td>@user.FirstName</td>
+                            <td>@user.Email</td>
+                            <td>@user.Phone</td>
+                            <td>@user.RoleName</td>
+                            <td>
+                                @if (user.IsActive ?? false)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Edituser" asp-route-id="@user.UserId">Edit</a>
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#@modalId">Delete</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div>
+            @Html.PagedListPager(Model, page => Url.Action("Userpage", new
+            {
+                search = Context.Request.Query["search"],
+                        filterBy = Context.Request.Query["filterBy"],
+                        sortBy = Context.Request.Query["sortBy"],
+                        pageSize = Context.Request.Query["pageSize"],
+                        page
+                        }), new PagedListRenderOptions
+            {
+                Display = PagedListDisplayMode.IfNeeded,
+                UlElementClasses = new[] { "pagination" },
+                LiElementClasses = new[] { "page-item" },
+                PageClasses = new[] { "page-link" }
+            })
+        </div>
+
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+    <script src='https://code.jquery.com/jquery-3.7.0.js'></script>
+    @* <script src='https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js'></script>
+    <script src='https://cdn.datatables.net/responsive/2.1.0/js/dataTables.responsive.min.js'></script> *@
+    <script src='https://cdn.datatables.net/1.13.5/js/dataTables.bootstrap5.min.js'></script>
+    <script src="~/js/userPage.js"></script>
+</body>
+
+</html>
+
+
+
+    public async Task<IActionResult> Userpage(string search, string filterBy, string sortBy, int? page, int pageSize = 5)
+    {
+        int pageNumber = page ?? 1;
+
+        var filteredUsers = _userService.GetAllUsers().AsQueryable();
+
+        // Filtering
+        if (!string.IsNullOrEmpty(filterBy))
+        {
+            filteredUsers = filterBy switch
+            {
+                "Active" => filteredUsers.Where(u => u.IsActive == true),
+                "Inactive" => filteredUsers.Where(u => u.IsActive == false),
+                _ => filteredUsers
+            };
+        }
+
+        if (!string.IsNullOrEmpty(search))
+        {
+            filteredUsers = filteredUsers.Where(u => u.FirstName.ToLower().Contains(search.ToLower()));
+        }
+
+        // Sorting Logic
+        ViewBag.NameSort = string.IsNullOrEmpty(sortBy) ? "name_desc" : "";
+        ViewBag.EmailSort = sortBy == "email" ? "email_desc" : "email";
+        ViewBag.StatusSort = sortBy == "status" ? "status_desc" : "status";
+
+        filteredUsers = sortBy switch
+        {
+            "name_desc" => filteredUsers.OrderByDescending(u => u.FirstName),
+            "email" => filteredUsers.OrderBy(u => u.Email),
+            "email_desc" => filteredUsers.OrderByDescending(u => u.Email),
+            "status" => filteredUsers.OrderBy(u => u.IsActive),
+            "status_desc" => filteredUsers.OrderByDescending(u => u.IsActive),
+            _ => filteredUsers.OrderBy(u => u.UserId) // Default sorting
+        };
+
+        // Project to ViewModel before pagination
+        var userViewModels = filteredUsers
+            .Select(u => new UserViewModel
+            {
+                UserId = u.UserId,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Email = u.Email,
+                Phone = u.Phone,
+                Address = u.Address,
+                Password = u.Password,
+                IsActive = u.IsActive,
+                ProfilePhoto = u.ProfilePhoto,
+                RoleName = u.RoleId.HasValue ? _userService.GetRoleNameById(u.RoleId.Value) : "No Role"
+            }).ToPagedList(pageNumber, pageSize);
+
+        return View(userViewModels);
+    }
+
+
+Updated Controller Code
+csharp
+Copy
+Edit
+public IActionResult MenuModifier(int modifierId)
+{
+    var units = _menuService.GetAllUnits(); // Fetch Units from the database
+    var unitSelectList = units.Select(r => new SelectListItem
+    {
+        Value = r.UnitId.ToString(),
+        Text = r.UnitName
+    }).ToList();
+    ViewBag.Units = unitSelectList;
+
+    var modifiergroups = _menuService.GetAllModifierGroups(); // Fetch Modifier Groups from the database
+    var modifiergroupSelectList = modifiergroups.Select(r => new SelectListItem
+    {
+        Value = r.ModifierGroupId.ToString(),
+        Text = r.ModifierGroupName
+    }).ToList();
+    ViewBag.ModifierGroups = modifiergroupSelectList;
+
+    Console.WriteLine("Click this : " + modifierId);
+    
+    var modifiers = _menuService.GetModifiersByModifierGroupId(modifierId);
+
+    var modifierViewModels = modifiers.Select(m => new ModifierViewModel
+    {
+        ModifierId = m.ModifierId,
+        ModifierName = m.ModifierName,
+        UnitId = m.UnitId,
+        UnitName = m.UnitId.HasValue ? _menuService.GetUnitById(m.UnitId.Value)?.UnitName : "No Unit"
+    }).ToList();
+
+    foreach (var modifier in modifierViewModels)
+    {
+        Console.WriteLine($"Modifier: {modifier.ModifierName}, Unit: {modifier.UnitName}");
+    }
+
+    MenuModifierGroupVM modifiervm = new MenuModifierGroupVM
+    {
+        menuModifiers = modifierViewModels
+    };
+
+    return PartialView("_MenuModifierPV", modifiervm);
+}
+ViewModel Changes
+Since MenuModifierGroupVM doesn't include UnitName, create a new ModifierViewModel:
+
+csharp
+Copy
+Edit
+public class ModifierViewModel
+{
+    public int ModifierId { get; set; }
+    public string ModifierName { get; set; }
+    public int? UnitId { get; set; }
+    public string UnitName { get; set; }
+}
+Why This Works?
+✅ Maps UnitName to UnitId dynamically.
+✅ Ensures UnitId exists before fetching UnitName.
+✅ Avoids null exceptions with ?. operator.
+✅ Improves readability by using ModifierViewModel.
+
+Let me know if you need more tweaks! 🚀
+
+here what is happening  when  i do any item edit or anything the page refress because they r all in partial view so it will in one page but i want not that
+ChatGPT said:
+If your partial views are causing a full-page refresh when editing or making changes, you should use AJAX to update only the relevant section dynamically without refreshing the whole page.
+
+Solution: AJAX with jQuery
+Load Partial View Dynamically
+Prevent Full Page Refresh
+Submit Forms Using AJAX
+Steps to Fix
+✅ Step 1: Modify Your MenuModifier Action
+Return the partial view only if it's an AJAX request.
+
+csharp
+Copy
+Edit
+public IActionResult MenuModifier(int modifierId)
+{
+    var units = _menuService.GetAllUnits();
+    var unitSelectList = units.Select(r => new SelectListItem
+    {
+        Value = r.UnitId.ToString(),
+        Text = r.UnitName
+    }).ToList();
+    ViewBag.Units = unitSelectList;
+
+    var modifiergroups = _menuService.GetAllModifierGroups();
+    var modifiergroupSelectList = modifiergroups.Select(r => new SelectListItem
+    {
+        Value = r.ModifierGroupId.ToString(),
+        Text = r.ModifierGroupName
+    }).ToList();
+    ViewBag.ModifierGroups = modifiergroupSelectList;
+
+    var modifiers = _menuService.GetModifiersByModifierGroupId(modifierId);
+
+    var modifierViewModels = modifiers.Select(m => new ModifierViewModel
+    {
+        ModifierId = m.ModifierId,
+        ModifierName = m.ModifierName,
+        UnitId = m.UnitId,
+        UnitName = m.UnitId.HasValue ? _menuService.GetUnitById(m.UnitId.Value)?.UnitName : "No Unit"
+    }).ToList();
+
+    var modifiervm = new MenuModifierGroupVM
+    {
+        menuModifiers = modifierViewModels
+    };
+
+    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest") // Check if it's an AJAX request
+    {
+        return PartialView("_MenuModifierPV", modifiervm);
+    }
+
+    return View(modifiervm); // If not AJAX, return the full page
+}
+✅ Step 2: Update Your View
+Use a div placeholder to load the partial view dynamically.
 
 html
-Copy code
+Copy
+Edit
+<div id="menuModifierContainer">
+    @Html.Partial("_MenuModifierPV", Model)
+</div>
+✅ Step 3: Use AJAX to Load Partial View
+Write this jQuery AJAX code to fetch and update the partial view without a full page refresh.
+
+html
+Copy
+Edit
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-    $(document).ready(function () {
-        // Open edit modal and populate fields
-        $(".editCategoryBtn").click(function () {
-            var id = $(this).data("id");
-            var name = $(this).data("name");
-            var description = $(this).data("description");
-
-            $("#editCategoryId").val(id);
-            $("#editCategoryName").val(name);
-            $("#editCategoryDescription").val(description);
+    function loadMenuModifier(modifierId) {
+        $.ajax({
+            url: '@Url.Action("MenuModifier", "YourController")', 
+            type: 'GET',
+            data: { modifierId: modifierId },
+            success: function (data) {
+                $('#menuModifierContainer').html(data); // Replace partial view content
+            },
+            error: function () {
+                alert("Failed to load data.");
+            }
         });
+    }
 
-        // Handle form submission via AJAX
-        $("#editCategoryForm").submit(function (e) {
-            e.preventDefault(); // Prevent default form submission
+    // Example: Call this function on button click
+    $(document).on("click", ".edit-modifier", function () {
+        var modifierId = $(this).data("modifier-id");
+        loadMenuModifier(modifierId);
+    });
+</script>
+✅ Step 4: Use AJAX for Submitting Forms
+Modify your form to prevent page refresh on submit.
 
-            var formData = {
-                CategoryId: $("#editCategoryId").val(),
-                CategoryName: $("#editCategoryName").val(),
-                CategoryDescription: $("#editCategoryDescription").val()
-            };
+html
+Copy
+Edit
+<form id="modifierForm">
+    <!-- Form Fields Here -->
+    <button type="submit">Save</button>
+</form>
 
-            $.ajax({
-                url: '@Url.Action("EditCategory", "Menu")',
-                type: 'POST',
-                data: formData,
-                success: function (response) {
-                    alert("Category updated successfully!");
-                    location.reload(); // Reload page to reflect changes
-                },
-                error: function (xhr, status, error) {
-                    alert("Error updating category: " + error);
-                }
-            });
+<script>
+    $(document).on("submit", "#modifierForm", function (e) {
+        e.preventDefault(); // Prevent default page refresh
+
+        $.ajax({
+            url: '@Url.Action("SaveModifier", "YourController")',
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function (response) {
+                alert("Changes saved successfully!");
+                loadMenuModifier(response.modifierId); // Reload only the updated section
+            },
+            error: function () {
+                alert("Error saving data.");
+            }
         });
     });
 </script>
-5. Controller Action to Handle Editing (MenuController.cs)
-Ensure you have an EditCategory method in your controller.
+🔥 Benefits of This Approach
+✅ No full-page refresh
+✅ Only the required section updates dynamically
+✅ Better user experience
+✅ Faster interactions
+
+Let me know if you need modifications! 🚀
+
+You said:
+here i do something edit in userpage in 3pages like 15-20 record so i eedited successfully but come to the page 1-5 record like refress that userpage but i didn't want that 
+ChatGPT said:
+It sounds like after editing records in Userpage, the page is refreshing and resetting to page 1-5 records, but you want to stay on the same page where you edited the records.
+
+✅ Solution: Use AJAX to Submit Form and Maintain Current Page
+Instead of refreshing the entire page, update only the required records using AJAX. Here’s how:
+
+1️⃣ Modify Your Controller to Return JSON
+In your UserController, modify the edit action to return JSON instead of a full page reload.
 
 csharp
-Copy code
+Copy
+Edit
 [HttpPost]
-public IActionResult EditCategory(MenuCategory model)
+public IActionResult EditUser(UserViewModel model, int currentPage)
 {
     if (ModelState.IsValid)
     {
-        var category = _context.MenuCategories.FirstOrDefault(c => c.CategoryId == model.CategoryId);
-        if (category != null)
+        var user = _userService.GetUserById(model.UserId);
+        if (user != null)
         {
-            category.CategoryName = model.CategoryName;
-            category.CategoryDescription = model.CategoryDescription;
-            _context.SaveChanges();
-            return Json(new { success = true });
+            user.FirstName = model.FirstName;
+            user.LastName = model.LastName;
+            user.Email = model.Email;
+            user.Phone = model.Phone;
+            user.Address = model.Address;
+            user.IsActive = model.IsActive;
+            _userService.UpdateUser(user);
         }
+
+        return Json(new { success = true, currentPage = currentPage });
     }
 
-    return Json(new { success = false, message = "Invalid data" });
+    return Json(new { success = false });
 }
-6. Verify and Debug If Needed
-Check Developer Console (F12 → Console Tab) for JavaScript errors.
-Inspect Network Requests (F12 → Network Tab) to ensure the request is sending correct data.
-Use Breakpoints in EditCategory Method to verify that the data is reaching the controller.
-Final Summary of What You Need
-✅ ViewModel: editCategory property
-✅ View (HTML): Edit modal and edit button with data-* attributes
-✅ JavaScript: Fill modal with category data and submit via AJAX
-✅ Controller Action: Handle the request and update the database
-
-This setup will allow you to edit a category dynamically using AJAX without refreshing the page. Let me know if you need any modifications! 🚀
-
-
-
-
-
-
-
-
-
-
-
-Search
-
-Reason
-
-ChatG
-Here's how you can structure your Category and Item functionality with proper layering in ASP.NET MVC using Repository, Service, and Controller.
-
-1. Models (DAL Layer)
-MenuCategory.cs
-csharp
-Copy
-Edit
-public class MenuCategory
-{
-    public int Id { get; set; }
-    public string CategoryName { get; set; }
-    public string CategoryDescription { get; set; }
-    public ICollection<MenuItem> MenuItems { get; set; } // Relationship with MenuItem
-}
-MenuItem.cs
-csharp
-Copy
-Edit
-public class MenuItem
-{
-    public int Id { get; set; }
-    public string ItemName { get; set; }
-    public decimal Price { get; set; }
-    public int CategoryId { get; set; }
-    public MenuCategory Category { get; set; }
-}
-2. Repository Layer (DAL Layer)
-IMenuRepository.cs
-csharp
-Copy
-Edit
-public interface IMenuRepository
-{
-    Task<IEnumerable<MenuCategory>> GetAllCategoriesAsync();
-    Task<MenuCategory> GetCategoryByIdAsync(int id);
-    Task AddCategoryAsync(MenuCategory category);
-    Task UpdateCategoryAsync(MenuCategory category);
-    Task DeleteCategoryAsync(int id);
-
-    Task<IEnumerable<MenuItem>> GetItemsByCategoryIdAsync(int categoryId);
-    Task AddMenuItemAsync(MenuItem menuItem);
-}
-MenuRepository.cs
-csharp
-Copy
-Edit
-public class MenuRepository : IMenuRepository
-{
-    private readonly ApplicationDbContext _context;
-
-    public MenuRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<IEnumerable<MenuCategory>> GetAllCategoriesAsync()
-    {
-        return await _context.MenuCategories.Include(c => c.MenuItems).ToListAsync();
-    }
-
-    public async Task<MenuCategory> GetCategoryByIdAsync(int id)
-    {
-        return await _context.MenuCategories.Include(c => c.MenuItems)
-                                            .FirstOrDefaultAsync(c => c.Id == id);
-    }
-
-    public async Task AddCategoryAsync(MenuCategory category)
-    {
-        _context.MenuCategories.Add(category);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task UpdateCategoryAsync(MenuCategory category)
-    {
-        _context.MenuCategories.Update(category);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task DeleteCategoryAsync(int id)
-    {
-        var category = await _context.MenuCategories.FindAsync(id);
-        if (category != null)
-        {
-            _context.MenuCategories.Remove(category);
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    public async Task<IEnumerable<MenuItem>> GetItemsByCategoryIdAsync(int categoryId)
-    {
-        return await _context.MenuItems.Where(i => i.CategoryId == categoryId).ToListAsync();
-    }
-
-    public async Task AddMenuItemAsync(MenuItem menuItem)
-    {
-        _context.MenuItems.Add(menuItem);
-        await _context.SaveChangesAsync();
-    }
-}
-3. Service Layer
-IMenuService.cs
-csharp
-Copy
-Edit
-public interface IMenuService
-{
-    Task<IEnumerable<MenuCategory>> GetAllCategoriesAsync();
-    Task<MenuCategory> GetCategoryByIdAsync(int id);
-    Task AddCategoryAsync(MenuCategory category);
-    Task UpdateCategoryAsync(MenuCategory category);
-    Task DeleteCategoryAsync(int id);
-
-    Task<IEnumerable<MenuItem>> GetItemsByCategoryIdAsync(int categoryId);
-    Task AddMenuItemAsync(MenuItem menuItem);
-}
-MenuService.cs
-csharp
-Copy
-Edit
-public class MenuService : IMenuService
-{
-    private readonly IMenuRepository _menuRepository;
-
-    public MenuService(IMenuRepository menuRepository)
-    {
-        _menuRepository = menuRepository;
-    }
-
-    public async Task<IEnumerable<MenuCategory>> GetAllCategoriesAsync()
-    {
-        return await _menuRepository.GetAllCategoriesAsync();
-    }
-
-    public async Task<MenuCategory> GetCategoryByIdAsync(int id)
-    {
-        return await _menuRepository.GetCategoryByIdAsync(id);
-    }
-
-    public async Task AddCategoryAsync(MenuCategory category)
-    {
-        await _menuRepository.AddCategoryAsync(category);
-    }
-
-    public async Task UpdateCategoryAsync(MenuCategory category)
-    {
-        await _menuRepository.UpdateCategoryAsync(category);
-    }
-
-    public async Task DeleteCategoryAsync(int id)
-    {
-        await _menuRepository.DeleteCategoryAsync(id);
-    }
-
-    public async Task<IEnumerable<MenuItem>> GetItemsByCategoryIdAsync(int categoryId)
-    {
-        return await _menuRepository.GetItemsByCategoryIdAsync(categoryId);
-    }
-
-    public async Task AddMenuItemAsync(MenuItem menuItem)
-    {
-        await _menuRepository.AddMenuItemAsync(menuItem);
-    }
-}
-4. Controller (Presentation Layer)
-MenuController.cs
-csharp
-Copy
-Edit
-public class MenuController : Controller
-{
-    private readonly IMenuService _menuService;
-
-    public MenuController(IMenuService menuService)
-    {
-        _menuService = menuService;
-    }
-
-    public async Task<IActionResult> Index()
-    {
-        var categories = await _menuService.GetAllCategoriesAsync();
-        return View(categories);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> AddMenuCategory(MenuCategory category)
-    {
-        if (ModelState.IsValid)
-        {
-            await _menuService.AddCategoryAsync(category);
-            return RedirectToAction("Index");
-        }
-        return View(category);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> EditCategory(MenuCategory category)
-    {
-        if (ModelState.IsValid)
-        {
-            await _menuService.UpdateCategoryAsync(category);
-            return RedirectToAction("Index");
-        }
-        return View(category);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> DeleteCategory(int id)
-    {
-        await _menuService.DeleteCategoryAsync(id);
-        return RedirectToAction("Index");
-    }
-
-    public async Task<IActionResult> MenuItem(int categoryId)
-    {
-        var items = await _menuService.GetItemsByCategoryIdAsync(categoryId);
-        return PartialView("_MenuItemPartial", items);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> AddMenuItem(MenuItem menuItem)
-    {
-        if (ModelState.IsValid)
-        {
-            await _menuService.AddMenuItemAsync(menuItem);
-            return RedirectToAction("Index");
-        }
-        return View(menuItem);
-    }
-}
-5. ViewModel
-MenuCategoryVM.cs
-csharp
-Copy
-Edit
-public class MenuCategoryVM
-{
-    public List<MenuCategory> menuCategories { get; set; }
-    public MenuCategory editCategories { get; set; }
-}
-6. Register Dependencies in Program.cs
-csharp
-Copy
-Edit
-builder.Services.AddScoped<IMenuRepository, MenuRepository>();
-builder.Services.AddScoped<IMenuService, MenuService>();
-7. Update the View (Index.cshtml)
-Update your existing Razor View (Index.cshtml) to pass MenuCategoryVM instead of Model.menuCategories.
-
-Update This:
-csharp
-Copy
-Edit
-@foreach (var category in Model.menuCategories)
-To:
-csharp
-Copy
-Edit
-@foreach (var category in Model.menuCategories)
-Modify asp-for in Add Category Modal:
-csharp
-Copy
-Edit
-<input type="text" class="form-control" id="floatingInput" placeholder="Category Name"
-    asp-for="editCategories.CategoryName">
-8. Create Partial View _MenuItemPartial.cshtml
-Create _MenuItemPartial.cshtml inside Views/Menu/:
+Saves the edited user without refreshing the page
+Returns currentPage to keep track of the user's position
+2️⃣ Add AJAX to Submit the Form Without Refreshing
+Modify your UserPage.cshtml to handle form submission via AJAX.
 
 html
 Copy
 Edit
-@model IEnumerable<MenuItem>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).on("submit", ".edit-user-form", function (e) {
+        e.preventDefault(); // Prevent page refresh
 
-@foreach (var item in Model)
-{
-    <div class="row">
-        <div class="col">
-            <p>@item.ItemName - $@item.Price</p>
-        </div>
-    </div>
-}
-Conclusion
-Repository Layer: Handles database queries.
-Service Layer: Implements business logic.
-Controller Layer: Calls services and returns views.
-ViewModel: Manages data binding between views and models.
-Now, your Category & Items system is structured in a clean Layered Architecture. 🚀 Let me know if you need modifications! 😊
+        var form = $(this);
+        var formData = form.serialize();
+        var currentPage = $("#currentPage").val(); // Store current page number
 
+        $.ajax({
+            url: form.attr("action"),
+            type: "POST",
+            data: formData + "&currentPage=" + currentPage, // Send currentPage value
+            success: function (response) {
+                if (response.success) {
+                    alert("User updated successfully!");
 
-
-
-
-
-You said:
-give me the category and menuitem view
-ChatGPT said:
-Here are the Category and MenuItem views based on your requirement:
-
-Category View (Category.cshtml)
-This view will list all the categories and allow adding, editing, and deleting categories.
-
-razor
-Copy
-Edit
-@model DAL.ViewModel.MenuCategoryVM
-
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewData["Title"] - PizzaShop</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
-    <link rel="stylesheet" href="~/PizzaShop.styles.css" asp-append-version="true">
-</head>
-
-<body>
-
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-lg-6 col-md-8 col-sm-12 bg-light p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h3>Categories</h3>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
-                        Add Category
-                    </button>
-                </div>
-                <hr>
-
-                <div class="list-group">
-                    @foreach (var category in Model.menuCategories)
-                    {
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>@category.CategoryName</span>
-                            <div>
-                                <a href="#" class="text-warning" data-bs-toggle="modal" data-bs-target="#editCategoryModal" onclick="editCategory(@category.CategoryId, '@category.CategoryName')">
-                                    <i class="fa-solid fa-edit"></i>
-                                </a>
-                                <a href="#" class="text-danger ms-3" data-bs-toggle="modal" data-bs-target="#deleteCategoryModal" onclick="deleteCategory(@category.CategoryId)">
-                                    <i class="fa-solid fa-trash"></i>
-                                </a>
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Category Modal -->
-    <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add Category</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form asp-action="AddMenuCategory" asp-controller="Menu" method="post">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Category Name</label>
-                            <input type="text" class="form-control" name="CategoryName" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary">Save</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-</body>
-
-</html>
-MenuItem View (MenuItem.cshtml)
-This view will display menu items categorized under different categories.
-
-razor
-Copy
-Edit
-@model DAL.ViewModel.MenuItemVM
-
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewData["Title"] - PizzaShop</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
-    <link rel="stylesheet" href="~/PizzaShop.styles.css" asp-append-version="true">
-</head>
-
-<body>
-
-    <div class="container mt-4">
-        <h3>Menu Items</h3>
-        <hr>
-
-        @foreach (var category in Model.menuCategories)
-        {
-            <h4>@category.CategoryName</h4>
-            <div class="row">
-                @foreach (var item in Model.menuItems.Where(i => i.CategoryId == category.CategoryId))
-                {
-                    <div class="col-md-4">
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">@item.ItemName</h5>
-                                <p class="card-text">@item.Description</p>
-                                <p class="card-text"><strong>Price: </strong> $@item.Price</p>
-                            </div>
-                        </div>
-                    </div>
+                    // Reload only the current page dynamically
+                    loadUserPage(response.currentPage);
+                } else {
+                    alert("Error updating user.");
                 }
-            </div>
-        }
-    </div>
+            },
+            error: function () {
+                alert("Something went wrong.");
+            }
+        });
+    });
 
-</body>
+    function loadUserPage(pageNumber) {
+        $.ajax({
+            url: '@Url.Action("Userpage", "User")',
+            type: "GET",
+            data: { page: pageNumber },
+            success: function (data) {
+                $("#userListContainer").html($(data).find("#userListContainer").html());
+                $("#currentPage").val(pageNumber); // Update hidden input with current page
+            },
+            error: function () {
+                alert("Failed to load user data.");
+            }
+        });
+    }
+</script>
+3️⃣ Add a Hidden Input to Track Page Number
+Inside your Userpage.cshtml, add:
 
-</html>
-Next Steps
-Now, you need the Controller, Service, and Repository for Category and MenuItem. Do you want me to generate those as well?
+html
+Copy
+Edit
+<input type="hidden" id="currentPage" value="@ViewBag.CurrentPage" />
+🔥 Now, What Happens?
+✅ Edits are saved without a full-page refresh
+✅ User stays on the same page after editing
+✅ Only the relevant part of the page updates dynamically
