@@ -1,4 +1,61 @@
- public string GetModifierNameById(int modifierId, List<MenuModifierGroupVM> modifierGroups)
+Fix 1: Ensure modifierGroups is Not Null
+csharp
+Copy code
+public string GetModifierNameById(int modifierId, List<MenuModifierGroupVM> modifierGroups)
+{
+    if (modifierGroups == null || !modifierGroups.Any()) return "No groups available"; // Null or empty check
+
+    return modifierGroups
+        .Where(group => group.menuModifiers != null) // Ensure menuModifiers is not null
+        .SelectMany(group => group.menuModifiers) // Flatten all modifiers
+        .Where(modifier => modifier.ModifierGroupId == modifierId) // Find the modifier
+        .Select(modifier => modifier.ModifierGroupName) // Get the name
+        .FirstOrDefault() ?? "Modifier not found"; // Return first match or default text
+}
+✔ Additional Debugging
+Try logging the data to check if modifierGroups and menuModifiers are populated.
+
+Add Debugging Logs
+csharp
+Copy code
+public string GetModifierNameById(int modifierId, List<MenuModifierGroupVM> modifierGroups)
+{
+    if (modifierGroups == null)
+    {
+        Console.WriteLine("modifierGroups is NULL");
+        return "No groups available";
+    }
+
+    foreach (var group in modifierGroups)
+    {
+        if (group.menuModifiers == null)
+        {
+            Console.WriteLine($"Group {group.ModifierGroupName} has NULL modifiers.");
+            continue;
+        }
+
+        foreach (var modifier in group.menuModifiers)
+        {
+            Console.WriteLine($"Modifier ID: {modifier.ModifierGroupId}, Name: {modifier.ModifierGroupName}");
+        }
+    }
+
+    return modifierGroups
+        .Where(group => group.menuModifiers != null)
+        .SelectMany(group => group.menuModifiers)
+        .Where(modifier => modifier.ModifierGroupId == modifierId)
+        .Select(modifier => modifier.ModifierGroupName)
+        .FirstOrDefault() ?? "Modifier not found";
+}
+✔ Checks if modifierGroups is null.
+✔ Logs each group's modifiers to verify data.
+✔ Prevents crashes by skipping null values.
+
+🚀 Next Steps
+Run the debug logs and check if modifiers exist.
+If modifierGroups is null, ensure the list is correctly loaded before calling the function.
+If menuModifiers is null, make sure your database query or API populates it properly.
+Would this help? Let me know what the logs show! 🚀 public string GetModifierNameById(int modifierId, List<MenuModifierGroupVM> modifierGroups)
     {
         return modifierGroups
             .SelectMany(group => group.menuModifiers) // Flatten all modifiers from all groups
