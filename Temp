@@ -1,3 +1,22 @@
+  // Project to ViewModel before pagination
+        var userViewModels = filtereditems
+            .Select(u => new MenuCategoryVM
+            {
+                menuItems = items
+               
+            }).ToPagedList(pageNumber, pageSize);
+
+
+        foreach (var item in filtereditems)
+        {
+            Console.WriteLine(item.ItemName);
+        }
+
+        MenuCategoryVM itemvm = new MenuCategoryVM
+        {
+            menuItems = (List<MenuItem>)filtereditems
+        };
+
 @using X.PagedList.Mvc.Core
 @model X.PagedList.IPagedList<DAL.ViewModel.UserViewModel>
 
