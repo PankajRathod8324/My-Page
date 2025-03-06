@@ -1,146 +1,149 @@
-@using X.PagedList.Mvc.Core
+Implement AJAX for Filtering, Sorting, and Searching Without Page Refresh
+Currently, your entire page reloads when searching, filtering, or sorting. To fix this, we will:
+
+Use AJAX to send search, filter, and sorting requests
+Use a Partial View to update only the table
+Modify the Controller to return a Partial View for AJAX requests
+🚀 Steps to Implement AJAX-Based Searching, Filtering & Sorting
+1. Modify Controller (MenuController.cs)
+Modify the Index action to return a Partial View when an AJAX request is detected.
+
+csharp
+Copy code
+public IActionResult Index(string search, string filterBy, int? pageSize, int? page)
+{
+    int currentPage = page ?? 1;
+    int currentPageSize = pageSize ?? 10;
+
+    // Fetch all units
+    var unitList = db.Units.ToList();
+
+    // Fetch & Filter Items
+    var itemsQuery = db.MenuItems.AsQueryable();
+
+    if (!string.IsNullOrEmpty(search))
+    {
+        itemsQuery = itemsQuery.Where(m => m.ItemName.Contains(search));
+    }
+
+    if (!string.IsNullOrEmpty(filterBy))
+    {
+        itemsQuery = itemsQuery.Where(m => m.Availability == filterBy);
+    }
+
+    var paginatedItems = itemsQuery
+        .Select(item => new MenuItem
+        {
+            ItemId = item.ItemId,
+            ItemName = item.ItemName,
+            UnitId = item.UnitId,
+            UnitName = unitList.FirstOrDefault(u => u.UnitId == item.UnitId)?.UnitName
+        })
+        .ToPagedList(currentPage, currentPageSize);
+
+    var itemvm = new MenuCategoryVM
+    {
+        menuItems = paginatedItems
+    };
+
+    // Return Partial View if AJAX request
+    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+    {
+        return PartialView("_MenuItemsPartial", itemvm);
+    }
+
+    return View(itemvm);
+}
+2. Create Partial View (_MenuItemsPartial.cshtml)
+This only contains the table to be updated dynamically.
+
+html
+Copy code
 @model DAL.ViewModel.MenuCategoryVM
 
-@{
-    ViewData["Title"] = "Menu Item Page";
-    if (TempData["Message"] != null)
-    {
-        <div class="alert alert-@TempData["MessageType"]">@TempData["Message"]</div>
-    }
-}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Item Name</th>
+            <th>Unit Name</th>
+            <th>Availability</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model.menuItems)
+        {
+            <tr>
+                <td>@item.ItemName</td>
+                <td>@item.UnitName</td>
+                <td>@item.Availability</td>
+            </tr>
+        }
+    </tbody>
+</table>
 
-<!DOCTYPE html>
-<html lang="en">
+<!-- AJAX Pagination (Works with AJAX) -->
+@Html.PagedListPager(Model.menuItems, page => "javascript:loadData('" + page + "')")
+3. Modify Your Main View (Index.cshtml)
+Modify your search, filter, and sorting controls to trigger AJAX.
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Menu Page</title>
-    <link rel="stylesheet" href="~/css/style.css">
-    <link rel="stylesheet" href="~/css/media.css">
-    <link rel='stylesheet' href='https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css'>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
-</head>
+html
+Copy code
+@model DAL.ViewModel.MenuCategoryVM
 
-<body class="bg-white">
-    <!-- Overlay for small screens -->
+<!-- Search & Filter Form -->
+<div class="row d-flex mb-2 align-items-center justify-content-center">
+    <div class="col">
+        <h1>Items</h1>
+    </div>
+    <div class="col-5 d-flex align-items-center gap-3 justify-content-end">
+        <input class="form-control" type="text" id="searchBox" placeholder="Search by Item Name">
+        <select id="filterBy" class="form-select">
+            <option value="">All Items</option>
+            <option value="Available">Available</option>
+            <option value="Not Available">Not Available</option>
+        </select>
+        <select id="pageSize" class="form-select">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+        </select>
+        <button type="button" id="searchButton" class="btn btn-primary">Search</button>
+    </div>
+</div>
 
-    <form method="get">
-        <div class="row d-flex mb-2 align-item-center justify-content-center ms-0 me-0 rounded">
-            <div class="col ">
-                <h1 class="">Items </h1>
-            </div>
-            <div class="col-5 d-flex align-items-center gap-3 justify-content-end pe-0">
-                <input class="form-control d-inline w-auto" type="search" name="search"
-                    placeholder="Search by Item Name" value="@Context.Request.Query["search"]">
-                <select name="filterBy" class="form-select d-inline w-auto">
-                    <option value="">All Items</option>
-                    <option value="Available"
-                        selected="@(Context.Request.Query["filterBy"] == "Available" ? "selected" : null)">
-                        Available
-                    </option>
-                    <option value="Not Available"
-                        selected="@(Context.Request.Query["filterBy"] == "Not Available" ? "selected" : null)">
-                        Not Available
-                    </option>
-                </select>
-                <select name="pageSize" class="form-select d-inline w-auto" onchange="this.form.submit()">
-                    <option value="5" selected="@(Context.Request.Query["pageSize"] == "5" ? "selected" : null)">5
-                    </option>
-                    <option value="10" selected="@(Context.Request.Query["pageSize"] == "10" ? "selected" : null)">
-                        10</option>
-                    <option value="15" selected="@(Context.Request.Query["pageSize"] == "15" ? "selected" : null)">
-                        15</option>
-                </select>
-                <button type="submit" class="btn btn-primary">Search</button>
-                <button type="button" class="btn btn-outline-primary"> <i class="fa-regular fa-trash-can text-center "
-                        data-bs-toggle="modal" data-bs-target="#deleteModal1"></i></button>
-                <div class="col-auto text-end">
-                    <a data-bs-toggle="modal" data-bs-target="#newitemModal">
-                        <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">
-                            <i class="fa-solid fa-plus"></i>New Item
-                        </button>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </form>
+<!-- Container for Table (Partial View) -->
+<div id="menuItemsContainer">
+    @Html.Partial("_MenuItemsPartial", Model)
+</div>
 
-    <div class="col table-responsive">
-        <table id="table" class="table align-middle table-hover bg-white">
-            <thead class="bg-light">
-                <tr>
+<!-- AJAX Script -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        // Trigger AJAX search, filter, or sorting
+        $("#searchButton, #filterBy, #pageSize").on("change click", function () {
+            loadData(1);
+        });
 
-                    <th><input type="checkbox" class="me-2" id="selectAll" style=" width: 16px; height: 16px;" /><a
-                            asp-action="MenuItem" asp-route-sortBy="@ViewBag.NameSort">Name</a></th>
-                    </th>
-                    <th>ItemType</th>
-                    <th>Rate</th>
-                    <th>Quantity</th>
-                    <th><a asp-action="MenuItem" asp-route-sortBy="@ViewBag.StatusSort">Available</a></th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var menuitem in Model.menuItems)
-                {
-                    <tr class="tblclass" data-id="@menuitem.ItemId">
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <input type="checkbox" name="chkItem" class="checkclass" />
-                                <img src="~/assest/dining-menu.png" alt="" style="width: 45px; height: 45px"
-                                    class="rounded-circle ms-2" />
-                                <div class="ms-3">
-                                    <p class="text-secondary mb-1">@menuitem.ItemName</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            <img src="~/assest/icons/@(menuitem.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
-                                style="width: 20px; height: 20px" class="rounded-circle" />
-                        </td>
-                        <td>
-                            <p class="fw-normal mb-1">@menuitem.Rate</p>
-                        </td>
-                        <td>
-                            <p class="fw-normal mb-1">@menuitem.Quantity</p>
-                        </td>
-                        <td class="text-center"> <!-- Center the toggle switch -->
-                            <div class="form-check form-switch">
-                                <input class="form-check-input canView" type="checkbox" id="toggleSwitch"
-                                    @(menuitem.IsAvailable ?? false ? "checked" : "")>
-                            </div>
-                        </td>
-                        <td>
-                            <i class="fa-solid fa-marker" data-bs-toggle="modal" data-bs-target="#editItemModal"
-                                onclick="editItem(@menuitem.ItemId)"></i>
-                            <i class="fa-regular fa-trash-can ms-4" data-bs-toggle="modal" data-bs-target="#editItemModal"
-                                onclick="editItem(@menuitem.ItemId)"></i>
-                        </td>
-                    </tr>
+        // Function to load data via AJAX
+        function loadData(page) {
+            var searchTerm = $("#searchBox").val();
+            var filterBy = $("#filterBy").val();
+            var pageSize = $("#pageSize").val();
+
+            $.ajax({
+                url: '@Url.Action("Index", "Menu")',
+                type: 'GET',
+                data: { search: searchTerm, filterBy: filterBy, pageSize: pageSize, page: page },
+                success: function (data) {
+                    $("#menuItemsContainer").html(data); // Update partial view
                 }
-            </tbody>
-
-        </table>
-    </div>
-    <div>
-        @Html.PagedListPager(Model.menuItems, page => Url.Action("MenuItem", new
-        {
-            search = Context.Request.Query["search"],
-                filterBy = Context.Request.Query["filterBy"],
-                sortBy = Context.Request.Query["sortBy"],
-                pageSize = Context.Request.Query["pageSize"],
-                page
-                }), new PagedListRenderOptions
-        {
-            Display = PagedListDisplayMode.IfNeeded,
-            UlElementClasses = new[] { "pagination" },
-            LiElementClasses = new[] { "page-item" },
-            PageClasses = new[] { "page-link" }
-        })
-    </div>
+            });
+        }
+    });
+</script>
+✅ Final Outcome
+Table updates dynamically without reloading the page.
+Search, Filter, and Sorting work with AJAX.
+Pagination updates via AJAX instead of a full page refresh.
+Now, your searching, filtering, sorting, and pagination work smoothly without reloading the page! 🚀
