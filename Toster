@@ -1,3 +1,117 @@
+Since you're using X.PagedList without DataTables, you need to handle pagination manually in your ASP.NET MVC project. Here's how you can implement it:
+
+1. Update Your Controller
+Modify your controller to fetch paginated data.
+
+csharp
+Copy
+Edit
+using System.Linq;
+using System.Web.Mvc;
+using X.PagedList;
+using X.PagedList.Mvc;
+using YourNamespace.Models; // Update this with your actual namespace
+
+public class MenuController : Controller
+{
+    private readonly YourDbContext _context = new YourDbContext(); // Your DB context
+
+    public ActionResult Index(int? page, string search = "")
+    {
+        int pageSize = 5;
+        int pageNumber = (page ?? 1);
+
+        var query = _context.MenuItems.AsQueryable();
+
+        // Searching
+        if (!string.IsNullOrEmpty(search))
+        {
+            query = query.Where(m => m.Name.Contains(search) || m.ItemType.Contains(search));
+        }
+
+        // Sorting (Example: Sort by Name, modify as needed)
+        query = query.OrderBy(m => m.Name);
+
+        // Pagination
+        var pagedList = query.ToPagedList(pageNumber, pageSize);
+
+        return View(pagedList);
+    }
+}
+2. Update Your View (Index.cshtml)
+Modify your Index.cshtml to display paginated data.
+
+html
+Copy
+Edit
+@using X.PagedList
+@using X.PagedList.Mvc
+@model IPagedList<YourNamespace.Models.MenuItem>
+
+@{
+    ViewBag.Title = "Menu Items";
+}
+
+<h2>Menu Items</h2>
+
+<!-- Search Form -->
+<form method="get">
+    <input type="text" name="search" value="@Request.QueryString["search"]" placeholder="Search by name or type" />
+    <button type="submit">Search</button>
+</form>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Item Type</th>
+            <th>Rate</th>
+            <th>Quantity</th>
+            <th>Available</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Name</td>
+                <td>@item.ItemType</td>
+                <td>@item.Rate</td>
+                <td>@item.Quantity</td>
+                <td>
+                    <input type="checkbox" @(item.Available ? "checked" : "") disabled />
+                </td>
+                <td>
+                    <a href="@Url.Action("Edit", "Menu", new { id = item.Id })">
+                        <i class="fa-solid fa-marker"></i>
+                    </a>
+                    <i class="fa-regular fa-trash-can ms-4" data-bs-toggle="modal" data-bs-target="#deleteModal1" onclick="deleteItem(@item.Id)"></i>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Pagination -->
+<div>
+    @Html.PagedListPager(Model, page => Url.Action("Index", new { page, search = Request.QueryString["search"] }))
+</div>
+3. Install X.PagedList (if not installed)
+Run this in Package Manager Console:
+
+powershell
+Copy
+Edit
+Install-Package X.PagedList.Mvc
+How It Works
+Pagination: Fetches data in chunks using ToPagedList(pageNumber, pageSize).
+Searching: Allows searching by Name or ItemType.
+Sorting: Sorts by Name (modify as needed).
+Navigation: Uses PagedListPager to generate page links.
+Let me know if you need modifications! 🚀
+
+
 processing the data with the given conditions, and saving/updating it in a PostgreSQL database using ASP.NET MVC:
 
 Step 1: Controller Method to Handle CSV Upload
