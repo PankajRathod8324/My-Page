@@ -1,555 +1,146 @@
-MVC or Razor Pages project, you can use Toastr.js, a popular JavaScript library for notifications. Below is the complete setup for adding Toastr notifications for all actions like success, error, warning, and info.
-
-Step 1: Install Toastr
-1. Include Toastr.js in Layout File
-Add the following CDN links in your Views/Shared/_Layout.cshtml file inside the <head> tag:
-
-html
-Copy code
-<!-- Toastr CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
-
-<!-- jQuery (required for Toastr) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-
-<!-- Toastr JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-Step 2: Setup Toastr in Layout
-In _Layout.cshtml, before </body>, add this script to display notifications dynamically:
-
-html
-Copy code
-<script>
-    $(document).ready(function () {
-        var message = "@TempData["Message"]";
-        var messageType = "@TempData["MessageType"]";
-
-        if (message) {
-            switch (messageType) {
-                case "success":
-                    toastr.success(message);
-                    break;
-                case "error":
-                    toastr.error(message);
-                    break;
-                case "warning":
-                    toastr.warning(message);
-                    break;
-                case "info":
-                    toastr.info(message);
-                    break;
-            }
-        }
-    });
-</script>
-Step 3: Use Toastr in Controllers
-Modify your controllers to use TempData for sending notifications.
-
-Example Controller (HomeController.cs)
-csharp
-Copy code
-using Microsoft.AspNetCore.Mvc;
-
-public class HomeController : Controller
-{
-    public IActionResult Index()
-    {
-        TempData["Message"] = "Welcome to the dashboard!";
-        TempData["MessageType"] = "success"; // Types: success, error, warning, info
-        return View();
-    }
-
-    public IActionResult Create()
-    {
-        // Simulate saving data
-        TempData["Message"] = "Record created successfully!";
-        TempData["MessageType"] = "success";
-        return RedirectToAction("Index");
-    }
-
-    public IActionResult Update()
-    {
-        // Simulate updating data
-        TempData["Message"] = "Record updated successfully!";
-        TempData["MessageType"] = "info";
-        return RedirectToAction("Index");
-    }
-
-    public IActionResult Delete()
-    {
-        // Simulate deleting data
-        TempData["Message"] = "Record deleted successfully!";
-        TempData["MessageType"] = "error";
-        return RedirectToAction("Index");
-    }
-}
-Step 4: Test Toastr Notifications
-Run your ASP.NET Core project.
-Visit /Home/Index, /Home/Create, /Home/Update, or /Home/Delete.
-Toastr should display notifications dynamically based on the action.
-Customization (Optional)
-You can customize Toastr settings like position, animation, and duration by modifying the script:
-
-html
-Copy code
-<script>
-    toastr.options = {
-        "closeButton": true,
-        "debug": false,
-        "newestOnTop": true,
-        "progressBar": true,
-        "positionClass": "toast-bottom-right",
-        "preventDuplicates": true,
-        "showDuration": "300",
-        "hideDuration": "1000",
-        "timeOut": "5000",
-        "extendedTimeOut": "1000",
-        "showEasing": "swing",
-        "hideEasing": "linear",
-        "showMethod": "fadeIn",
-        "hideMethod": "fadeOut"
-    };
-</script>
-Final Thoughts
-Now your ASP.NET Core MVC application has Toastr notifications integrated for all actions. Whenever a record is created, updated, or deleted, a notification will appear dynamically.
-
-
-
-
-
-
-You said:
-And give me that in user module I also want to add image profile so give me configuration also for that 
-ChatGPT said:
-Since you want Toastr notifications for user actions and also need to upload a profile image in your User module, I'll provide a complete ASP.NET Core MVC solution with:
-
-Toastr notifications (success, error, etc.).
-Profile image upload (saving images to wwwroot/uploads and storing the path in the database).
-Displaying the uploaded profile image in the UI.
-1. Database Model for User
-Modify your User model to include an ImagePath property.
-
-csharp
-Copy code
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-public class User
-{
-    [Key]
-    public int Id { get; set; }
-
-    [Required, MaxLength(100)]
-    public string Name { get; set; }
-
-    [Required, EmailAddress]
-    public string Email { get; set; }
-
-    public string? ImagePath { get; set; } // Stores profile image path
-}
-2. Configure Database Context
-Ensure that your DbContext is correctly configured.
-
-csharp
-Copy code
-using Microsoft.EntityFrameworkCore;
-
-public class ApplicationDbContext : DbContext
-{
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
-
-    public DbSet<User> Users { get; set; }
-}
-3. User Controller with Image Upload & Toastr
-Modify your UserController.cs:
-
-csharp
-Copy code
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.IO;
-using System.Threading.Tasks;
-
-public class UserController : Controller
-{
-    private readonly ApplicationDbContext _context;
-
-    public UserController(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    // List Users
-    public async Task<IActionResult> Index()
-    {
-        var users = await _context.Users.ToListAsync();
-        return View(users);
-    }
-
-    // Create User (GET)
-    public IActionResult Create()
-    {
-        return View();
-    }
-
-    // Create User (POST)
-    [HttpPost]
-    public async Task<IActionResult> Create(User user, IFormFile profileImage)
-    {
-        if (ModelState.IsValid)
-        {
-            if (profileImage != null)
-            {
-                string fileName = Guid.NewGuid().ToString() + Path.GetExtension(profileImage.FileName);
-                string filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads", fileName);
-
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await profileImage.CopyToAsync(stream);
-                }
-
-                user.ImagePath = "/uploads/" + fileName; // Store relative path
-            }
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            TempData["Message"] = "User created successfully!";
-            TempData["MessageType"] = "success";
-            return RedirectToAction("Index");
-        }
-
-        TempData["Message"] = "Error creating user!";
-        TempData["MessageType"] = "error";
-        return View(user);
-    }
-
-    // Edit User (GET)
-    public async Task<IActionResult> Edit(int id)
-    {
-        var user = await _context.Users.FindAsync(id);
-        if (user == null) return NotFound();
-        return View(user);
-    }
-
-    // Edit User (POST)
-    [HttpPost]
-    public async Task<IActionResult> Edit(int id, User user, IFormFile profileImage)
-    {
-        if (id != user.Id) return NotFound();
-
-        if (ModelState.IsValid)
-        {
-            var existingUser = await _context.Users.FindAsync(id);
-            if (existingUser == null) return NotFound();
-
-            existingUser.Name = user.Name;
-            existingUser.Email = user.Email;
-
-            if (profileImage != null)
-            {
-                string fileName = Guid.NewGuid().ToString() + Path.GetExtension(profileImage.FileName);
-                string filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads", fileName);
-
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await profileImage.CopyToAsync(stream);
-                }
-
-                existingUser.ImagePath = "/uploads/" + fileName;
-            }
-
-            await _context.SaveChangesAsync();
-            TempData["Message"] = "User updated successfully!";
-            TempData["MessageType"] = "info";
-            return RedirectToAction("Index");
-        }
-
-        TempData["Message"] = "Error updating user!";
-        TempData["MessageType"] = "error";
-        return View(user);
-    }
-
-    // Delete User
-    public async Task<IActionResult> Delete(int id)
-    {
-        var user = await _context.Users.FindAsync(id);
-        if (user == null) return NotFound();
-
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-
-        TempData["Message"] = "User deleted successfully!";
-        TempData["MessageType"] = "error";
-        return RedirectToAction("Index");
-    }
-}
-4. User Views
-Index View (Views/User/Index.cshtml)
-html
-Copy code
-@model IEnumerable<User>
-
-<h2>Users</h2>
-<a class="btn btn-primary" asp-action="Create">Add New User</a>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Profile Image</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var user in Model)
-        {
-            <tr>
-                <td>@user.Name</td>
-                <td>@user.Email</td>
-                <td>
-                    @if (!string.IsNullOrEmpty(user.ImagePath))
-                    {
-                        <img src="@user.ImagePath" width="50" height="50" />
-                    }
-                </td>
-                <td>
-                    <a class="btn btn-warning" asp-action="Edit" asp-route-id="@user.Id">Edit</a>
-                    <a class="btn btn-danger" asp-action="Delete" asp-route-id="@user.Id">Delete</a>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
-Create & Edit View (Views/User/Create.cshtml & Views/User/Edit.cshtml)
-html
-Copy code
-@model User
-
-<h2>Add/Edit User</h2>
-
-<form asp-action="@(Model?.Id == 0 ? "Create" : "Edit")" method="post" enctype="multipart/form-data">
-    <input type="hidden" asp-for="Id" />
-    <div class="form-group">
-        <label>Name</label>
-        <input asp-for="Name" class="form-control" />
-    </div>
-    <div class="form-group">
-        <label>Email</label>
-        <input asp-for="Email" class="form-control" />
-    </div>
-    <div class="form-group">
-        <label>Profile Image</label>
-        <input type="file" name="profileImage" class="form-control" />
-    </div>
-    <button type="submit" class="btn btn-success">Save</button>
-</form>
-5. Configure Toastr in Layout
-Add this to _Layout.cshtml before </body>:
-html
-Copy code
-<!-- Toastr CSS & JS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-
-<script>
-    $(document).ready(function () {
-        var message = "@TempData["Message"]";
-        var messageType = "@TempData["MessageType"]";
-
-        if (message) {
-            toastr.options = {
-                "positionClass": "toast-bottom-right",
-                "closeButton": true,
-                "progressBar": true
-            };
-
-            switch (messageType) {
-                case "success":
-                    toastr.success(message);
-                    break;
-                case "error":
-                    toastr.error(message);
-                    break;
-                case "warning":
-                    toastr.warning(message);
-                    break;
-                case "info":
-                    toastr.info(message);
-                    break;
-            }
-        }
-    });
-</script>
-6. Run Migrations & Test
-Run the following in the Package Manager Console:
-
-pgsql
-Copy code
-dotnet ef migrations add InitialCreate
-dotnet ef database update
-Now test creating, updating, deleting users with images.
-
-✅ Final Features
-✔ Toastr notifications for all user actions
-✔ Profile image upload & display
-✔ ASP.NET Core MVC integration
-
-Let me know if you need modifications! 🚀
-
-
-
-
-
-
-You said:
-I want in userpage searching pagination and filtering want in that page
-ChatGPT said:
-To add searching, pagination, and filtering in your User page, follow this approach:
-
-Searching by Name or Email
-Filtering based on user-defined criteria
-Pagination to limit the number of records per page
-1. Install Pagination Package
-Run this command in Package Manager Console to install X.PagedList for pagination:
-
-csharp
-Copy code
-dotnet add package X.PagedList.Mvc.Core
-2. Modify User Controller
-Update UserController.cs to include search, filtering, and pagination.
-
-csharp
-Copy code
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using X.PagedList;
-using System.Linq;
-using System.Threading.Tasks;
-
-public class UserController : Controller
-{
-    private readonly ApplicationDbContext _context;
-
-    public UserController(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    // User List with Searching, Filtering & Pagination
-    public async Task<IActionResult> Index(string search, string filterBy, int? page)
-    {
-        int pageSize = 5; // Records per page
-        int pageNumber = page ?? 1; // Default to first page
-
-        var users = _context.Users.AsQueryable();
-
-        // Filtering
-        if (!string.IsNullOrEmpty(filterBy))
-        {
-            switch (filterBy)
-            {
-                case "HasImage":
-                    users = users.Where(u => !string.IsNullOrEmpty(u.ImagePath));
-                    break;
-                case "NoImage":
-                    users = users.Where(u => string.IsNullOrEmpty(u.ImagePath));
-                    break;
-            }
-        }
-
-        // Searching
-        if (!string.IsNullOrEmpty(search))
-        {
-            users = users.Where(u => u.Name.Contains(search) || u.Email.Contains(search));
-        }
-
-        var paginatedUsers = await users.OrderBy(u => u.Name).ToPagedListAsync(pageNumber, pageSize);
-        return View(paginatedUsers);
-    }
-}
-3. Update User View (Index.cshtml)
-Modify the Index.cshtml file to include: ✅ Search Bar
-✅ Filter Dropdown
-✅ Paginated User List
-
-html
-Copy code
-@model X.PagedList.IPagedList<User>
 @using X.PagedList.Mvc.Core
+@model DAL.ViewModel.MenuCategoryVM
 
-<h2>User List</h2>
+@{
+    ViewData["Title"] = "Menu Item Page";
+    if (TempData["Message"] != null)
+    {
+        <div class="alert alert-@TempData["MessageType"]">@TempData["Message"]</div>
+    }
+}
 
-<!-- Search and Filter -->
-<form method="get">
-    <input type="text" name="search" value="@Context.Request.Query["search"]" placeholder="Search by Name or Email" />
-    
-    <select name="filterBy">
-        <option value="">All Users</option>
-        <option value="HasImage" @(Context.Request.Query["filterBy"] == "HasImage" ? "selected" : "")>With Profile Image</option>
-        <option value="NoImage" @(Context.Request.Query["filterBy"] == "NoImage" ? "selected" : "")>Without Profile Image</option>
-    </select>
+<!DOCTYPE html>
+<html lang="en">
 
-    <button type="submit">Search</button>
-</form>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Page</title>
+    <link rel="stylesheet" href="~/css/style.css">
+    <link rel="stylesheet" href="~/css/media.css">
+    <link rel='stylesheet' href='https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css'>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
 
-<!-- User Table -->
-<table class="table">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Profile Image</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var user in Model)
+<body class="bg-white">
+    <!-- Overlay for small screens -->
+
+    <form method="get">
+        <div class="row d-flex mb-2 align-item-center justify-content-center ms-0 me-0 rounded">
+            <div class="col ">
+                <h1 class="">Items </h1>
+            </div>
+            <div class="col-5 d-flex align-items-center gap-3 justify-content-end pe-0">
+                <input class="form-control d-inline w-auto" type="search" name="search"
+                    placeholder="Search by Item Name" value="@Context.Request.Query["search"]">
+                <select name="filterBy" class="form-select d-inline w-auto">
+                    <option value="">All Items</option>
+                    <option value="Available"
+                        selected="@(Context.Request.Query["filterBy"] == "Available" ? "selected" : null)">
+                        Available
+                    </option>
+                    <option value="Not Available"
+                        selected="@(Context.Request.Query["filterBy"] == "Not Available" ? "selected" : null)">
+                        Not Available
+                    </option>
+                </select>
+                <select name="pageSize" class="form-select d-inline w-auto" onchange="this.form.submit()">
+                    <option value="5" selected="@(Context.Request.Query["pageSize"] == "5" ? "selected" : null)">5
+                    </option>
+                    <option value="10" selected="@(Context.Request.Query["pageSize"] == "10" ? "selected" : null)">
+                        10</option>
+                    <option value="15" selected="@(Context.Request.Query["pageSize"] == "15" ? "selected" : null)">
+                        15</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Search</button>
+                <button type="button" class="btn btn-outline-primary"> <i class="fa-regular fa-trash-can text-center "
+                        data-bs-toggle="modal" data-bs-target="#deleteModal1"></i></button>
+                <div class="col-auto text-end">
+                    <a data-bs-toggle="modal" data-bs-target="#newitemModal">
+                        <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">
+                            <i class="fa-solid fa-plus"></i>New Item
+                        </button>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="col table-responsive">
+        <table id="table" class="table align-middle table-hover bg-white">
+            <thead class="bg-light">
+                <tr>
+
+                    <th><input type="checkbox" class="me-2" id="selectAll" style=" width: 16px; height: 16px;" /><a
+                            asp-action="MenuItem" asp-route-sortBy="@ViewBag.NameSort">Name</a></th>
+                    </th>
+                    <th>ItemType</th>
+                    <th>Rate</th>
+                    <th>Quantity</th>
+                    <th><a asp-action="MenuItem" asp-route-sortBy="@ViewBag.StatusSort">Available</a></th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var menuitem in Model.menuItems)
+                {
+                    <tr class="tblclass" data-id="@menuitem.ItemId">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <input type="checkbox" name="chkItem" class="checkclass" />
+                                <img src="~/assest/dining-menu.png" alt="" style="width: 45px; height: 45px"
+                                    class="rounded-circle ms-2" />
+                                <div class="ms-3">
+                                    <p class="text-secondary mb-1">@menuitem.ItemName</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <img src="~/assest/icons/@(menuitem.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
+                                style="width: 20px; height: 20px" class="rounded-circle" />
+                        </td>
+                        <td>
+                            <p class="fw-normal mb-1">@menuitem.Rate</p>
+                        </td>
+                        <td>
+                            <p class="fw-normal mb-1">@menuitem.Quantity</p>
+                        </td>
+                        <td class="text-center"> <!-- Center the toggle switch -->
+                            <div class="form-check form-switch">
+                                <input class="form-check-input canView" type="checkbox" id="toggleSwitch"
+                                    @(menuitem.IsAvailable ?? false ? "checked" : "")>
+                            </div>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-marker" data-bs-toggle="modal" data-bs-target="#editItemModal"
+                                onclick="editItem(@menuitem.ItemId)"></i>
+                            <i class="fa-regular fa-trash-can ms-4" data-bs-toggle="modal" data-bs-target="#editItemModal"
+                                onclick="editItem(@menuitem.ItemId)"></i>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+
+        </table>
+    </div>
+    <div>
+        @Html.PagedListPager(Model.menuItems, page => Url.Action("MenuItem", new
         {
-            <tr>
-                <td>@user.Name</td>
-                <td>@user.Email</td>
-                <td>
-                    @if (!string.IsNullOrEmpty(user.ImagePath))
-                    {
-                        <img src="@user.ImagePath" width="50" height="50" />
-                    }
-                </td>
-                <td>
-                    <a class="btn btn-warning" asp-action="Edit" asp-route-id="@user.Id">Edit</a>
-                    <a class="btn btn-danger" asp-action="Delete" asp-route-id="@user.Id">Delete</a>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
-
-<!-- Pagination Controls -->
-<div>
-    @Html.PagedListPager(Model, page => Url.Action("Index", new { search = Context.Request.Query["search"], filterBy = Context.Request.Query["filterBy"], page }))
-</div>
-4. Add Styling (Optional)
-To improve the search bar, dropdown, and pagination styling, add the following in wwwroot/css/site.css:
-
-css
-Copy code
-input[type="text"] {
-    padding: 5px;
-    margin-right: 10px;
-}
-
-select {
-    padding: 5px;
-    margin-right: 10px;
-}
-
-button {
-   
-
-
-
-
-
+            search = Context.Request.Query["search"],
+                filterBy = Context.Request.Query["filterBy"],
+                sortBy = Context.Request.Query["sortBy"],
+                pageSize = Context.Request.Query["pageSize"],
+                page
+                }), new PagedListRenderOptions
+        {
+            Display = PagedListDisplayMode.IfNeeded,
+            UlElementClasses = new[] { "pagination" },
+            LiElementClasses = new[] { "page-item" },
+            PageClasses = new[] { "page-link" }
+        })
+    </div>
