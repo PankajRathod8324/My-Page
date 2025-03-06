@@ -1,4 +1,5 @@
-  // Project to ViewModel before pagination
+IPagedList<MenuCategoryVM>' does not contain a definition for 'menuitem' and no accessible extension method 'menuitem' accepting a first argument of type 'IPagedList<MenuCategoryVM>' could be found (are you missing a using directive or an assembly reference?)C
+// Project to ViewModel before pagination
         var userViewModels = filtereditems
             .Select(u => new MenuCategoryVM
             {
