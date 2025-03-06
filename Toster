@@ -1,4 +1,67 @@
-! You want the following behavior:
+renders the modifier group dynamically in a list format.
+
+html
+Copy code
+@if (Model != null)
+{
+    <div class="modifier-group mt-3 p-2 border rounded">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5>@Model.GroupName</h5>
+            <button class="btn btn-danger btn-sm delete-group" data-groupid="@Model.GroupId">
+                <i class="fa fa-trash"></i>
+            </button>
+        </div>
+
+        <ul class="list-unstyled mt-2">
+            @foreach (var modifier in Model.Modifiers)
+            {
+                <li class="d-flex justify-content-between">
+                    <span>• @modifier.ModifierName</span>
+                    <span>₹ @modifier.Price</span>
+                </li>
+            }
+        </ul>
+    </div>
+}
+✔ Modifier Group Name with Delete Icon
+✔ Modifiers in Bullet Points
+✔ Price on the Right Side
+
+4️⃣ AJAX: Fetch Modifiers on Selection
+Now, when a user selects a Modifier Group, the related modifiers should appear dynamically.
+
+html
+Copy code
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+    $(document).ready(function () {
+        $("#modifierGroupDropdown").change(function () {
+            var groupId = $(this).val();
+            
+            if (groupId) {
+                $.ajax({
+                    url: '/ControllerName/GetModifiersByGroup', // Change ControllerName
+                    type: 'GET',
+                    data: { groupId: groupId },
+                    success: function (response) {
+                        $("#modifierGroupContainer").append(response); // Append new group
+                    }
+                });
+            }
+        });
+
+        // Handle Delete Modifier Group
+        $(document).on("click", ".delete-group", function () {
+            $(this).closest(".modifier-group").remove();
+        });
+    });
+</script>
+🎯 Final Output
+User selects a Modifier Group → It appears dynamically (no refresh).
+Modifiers are listed in bullet points with the price aligned to the right.
+Clicking the delete icon removes the group instantly.
+Everything is dynamic using AJ! You want the following behavior:
 
 User selects a "Modifier Group" from a dropdown.
 Modifiers related to that group should be displayed dynamically (with price).
