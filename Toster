@@ -1,3 +1,12 @@
+ public string GetModifierNameById(int modifierId, List<MenuModifierGroupVM> modifierGroups)
+    {
+        return modifierGroups
+            .SelectMany(group => group.menuModifiers) // Flatten all modifiers from all groups
+            .Where(modifier => modifier.ModifierGroupId == modifierId)
+            .Select(modifier => modifier.ModifierGroupName)
+            .FirstOrDefault(); // Return the first match or null
+    }
+
 ChatGPT
 
 You said:
