@@ -1,3 +1,158 @@
+but here what happens when i do search or anything it will refrees or the route will chg but i don't want that
+ChatGPT said:
+If you want to implement pagination, searching, and sorting without refreshing the page or changing the route, you need to use AJAX with jQuery. Here's how you can achieve that in ASP.NET MVC with X.PagedList:
+
+1. Modify Your Controller to Return Partial View
+Instead of returning a full view, return a partial view (_MenuItemsPartial.cshtml) when AJAX is used.
+
+csharp
+Copy
+Edit
+using System.Linq;
+using System.Web.Mvc;
+using X.PagedList;
+using YourNamespace.Models; // Update with your namespace
+
+public class MenuController : Controller
+{
+    private readonly YourDbContext _context = new YourDbContext(); // Your DB context
+
+    public ActionResult Index()
+    {
+        return View();
+    }
+
+    public ActionResult GetMenuItems(int? page, string search = "")
+    {
+        int pageSize = 5;
+        int pageNumber = (page ?? 1);
+
+        var query = _context.MenuItems.AsQueryable();
+
+        // Searching
+        if (!string.IsNullOrEmpty(search))
+        {
+            query = query.Where(m => m.Name.Contains(search) || m.ItemType.Contains(search));
+        }
+
+        // Sorting (Modify as needed)
+        query = query.OrderBy(m => m.Name);
+
+        // Pagination
+        var pagedList = query.ToPagedList(pageNumber, pageSize);
+
+        return PartialView("_MenuItemsPartial", pagedList);
+    }
+}
+2. Create a Partial View (_MenuItemsPartial.cshtml)
+This will be loaded via AJAX dynamically.
+
+html
+Copy
+Edit
+@using X.PagedList
+@using X.PagedList.Mvc
+@model IPagedList<YourNamespace.Models.MenuItem>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Item Type</th>
+            <th>Rate</th>
+            <th>Quantity</th>
+            <th>Available</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Name</td>
+                <td>@item.ItemType</td>
+                <td>@item.Rate</td>
+                <td>@item.Quantity</td>
+                <td>
+                    <input type="checkbox" @(item.Available ? "checked" : "") disabled />
+                </td>
+                <td>
+                    <a href="@Url.Action("Edit", "Menu", new { id = item.Id })">
+                        <i class="fa-solid fa-marker"></i>
+                    </a>
+                    <i class="fa-regular fa-trash-can ms-4" onclick="deleteItem(@item.Id)"></i>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Pagination Links -->
+<div id="pagination">
+    @Html.PagedListPager(Model, page => "#", new PagedListRenderOptions()
+    {
+        LinkToIndividualPageFormat = "javascript:loadPage({0})",
+        MaximumPageNumbersToDisplay = 5
+    })
+</div>
+3. Modify Your Main View (Index.cshtml)
+This will contain a search bar and a div where the table will be loaded dynamically.
+
+html
+Copy
+Edit
+@{
+    ViewBag.Title = "Menu Items";
+}
+
+<h2>Menu Items</h2>
+
+<!-- Search Form -->
+<input type="text" id="searchInput" placeholder="Search by name or type">
+<button onclick="loadPage(1)">Search</button>
+
+<!-- Table will be loaded here -->
+<div id="menuItemsContainer">
+    @Html.Partial("_MenuItemsPartial", Model)
+</div>
+
+<!-- jQuery AJAX Script -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        loadPage(1); // Load first page on page load
+    });
+
+    function loadPage(page) {
+        var searchText = $("#searchInput").val();
+        
+        $.ajax({
+            url: '@Url.Action("GetMenuItems", "Menu")',
+            type: 'GET',
+            data: { page: page, search: searchText },
+            success: function (data) {
+                $("#menuItemsContainer").html(data);
+            },
+            error: function () {
+                alert("Error loading data!");
+            }
+        });
+    }
+
+    $("#searchInput").on("keyup", function (e) {
+        if (e.keyCode === 13) { // Press Enter to search
+            loadPage(1);
+        }
+    });
+</script>
+4. How It Works
+✅ No Page Refresh – Data loads inside the #menuItemsContainer via AJAX.
+✅ Search Without Route Change – Typing in the search box or pressing Enter triggers the AJAX request.
+✅ Pagination Without Reloading – Clicking a pagination link dynamically updates the table without changing the URL.
+✅ Fast User Experience – Only necessary content gets loaded.
+
+This approach gives you smooth, interactive pagination and searching without the need for a full page reload. 🚀 Let me know if you need any modifications! 😊
+
 Since you're using X.PagedList without DataTables, you need to handle pagination manually in your ASP.NET MVC project. Here's how you can implement it:
 
 1. Update Your Controller
