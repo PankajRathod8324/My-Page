@@ -1,1440 +1,308 @@
-but here what happens when i do search or anything it will refrees or the route will chg but i don't want that
-ChatGPT said:
-If you want to implement pagination, searching, and sorting without refreshing the page or changing the route, you need to use AJAX with jQuery. Here's how you can achieve that in ASP.NET MVC with X.PagedList:
-
-1. Modify Your Controller to Return Partial View
-Instead of returning a full view, return a partial view (_MenuItemsPartial.cshtml) when AJAX is used.
-
-csharp
-Copy
-Edit
-using System.Linq;
-using System.Web.Mvc;
-using X.PagedList;
-using YourNamespace.Models; // Update with your namespace
-
-public class MenuController : Controller
-{
-    private readonly YourDbContext _context = new YourDbContext(); // Your DB context
-
-    public ActionResult Index()
-    {
-        return View();
-    }
-
-    public ActionResult GetMenuItems(int? page, string search = "")
-    {
-        int pageSize = 5;
-        int pageNumber = (page ?? 1);
-
-        var query = _context.MenuItems.AsQueryable();
-
-        // Searching
-        if (!string.IsNullOrEmpty(search))
-        {
-            query = query.Where(m => m.Name.Contains(search) || m.ItemType.Contains(search));
-        }
-
-        // Sorting (Modify as needed)
-        query = query.OrderBy(m => m.Name);
-
-        // Pagination
-        var pagedList = query.ToPagedList(pageNumber, pageSize);
-
-        return PartialView("_MenuItemsPartial", pagedList);
-    }
-}
-2. Create a Partial View (_MenuItemsPartial.cshtml)
-This will be loaded via AJAX dynamically.
-
-html
-Copy
-Edit
 @using X.PagedList
 @using X.PagedList.Mvc
-@model IPagedList<YourNamespace.Models.MenuItem>
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Item Type</th>
-            <th>Rate</th>
-            <th>Quantity</th>
-            <th>Available</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model)
-        {
-            <tr>
-                <td>@item.Name</td>
-                <td>@item.ItemType</td>
-                <td>@item.Rate</td>
-                <td>@item.Quantity</td>
-                <td>
-                    <input type="checkbox" @(item.Available ? "checked" : "") disabled />
-                </td>
-                <td>
-                    <a href="@Url.Action("Edit", "Menu", new { id = item.Id })">
-                        <i class="fa-solid fa-marker"></i>
-                    </a>
-                    <i class="fa-regular fa-trash-can ms-4" onclick="deleteItem(@item.Id)"></i>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+@model DAL.ViewModel.MenuCategoryVM
 
-<!-- Pagination Links -->
-<div id="pagination">
-    @Html.PagedListPager(Model, page => "#", new PagedListRenderOptions()
-    {
-        LinkToIndividualPageFormat = "javascript:loadPage({0})",
-        MaximumPageNumbersToDisplay = 5
-    })
-</div>
-3. Modify Your Main View (Index.cshtml)
-This will contain a search bar and a div where the table will be loaded dynamically.
+<!DOCTYPE html>
+<html lang="en">
 
-html
-Copy
-Edit
-@{
-    ViewBag.Title = "Menu Items";
-}
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - PizzaShop</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/PizzaShop.styles.css" asp-append-version="true" />
+</head>
 
-<h2>Menu Items</h2>
-
-<!-- Search Form -->
-<input type="text" id="searchInput" placeholder="Search by name or type">
-<button onclick="loadPage(1)">Search</button>
-
-<!-- Table will be loaded here -->
-<div id="menuItemsContainer">
-    @Html.Partial("_MenuItemsPartial", Model)
-</div>
-
-<!-- jQuery AJAX Script -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function () {
-        loadPage(1); // Load first page on page load
-    });
-
-    function loadPage(page) {
-        var searchText = $("#searchInput").val();
-        
-        $.ajax({
-            url: '@Url.Action("GetMenuItems", "Menu")',
-            type: 'GET',
-            data: { page: page, search: searchText },
-            success: function (data) {
-                $("#menuItemsContainer").html(data);
-            },
-            error: function () {
-                alert("Error loading data!");
-            }
-        });
-    }
-
-    $("#searchInput").on("keyup", function (e) {
-        if (e.keyCode === 13) { // Press Enter to search
-            loadPage(1);
-        }
-    });
-</script>
-4. How It Works
-✅ No Page Refresh – Data loads inside the #menuItemsContainer via AJAX.
-✅ Search Without Route Change – Typing in the search box or pressing Enter triggers the AJAX request.
-✅ Pagination Without Reloading – Clicking a pagination link dynamically updates the table without changing the URL.
-✅ Fast User Experience – Only necessary content gets loaded.
-
-This approach gives you smooth, interactive pagination and searching without the need for a full page reload. 🚀 Let me know if you need any modifications! 😊
-
-Since you're using X.PagedList without DataTables, you need to handle pagination manually in your ASP.NET MVC project. Here's how you can implement it:
-
-1. Update Your Controller
-Modify your controller to fetch paginated data.
-
-csharp
-Copy
-Edit
-using System.Linq;
-using System.Web.Mvc;
-using X.PagedList;
-using X.PagedList.Mvc;
-using YourNamespace.Models; // Update this with your actual namespace
-
-public class MenuController : Controller
-{
-    private readonly YourDbContext _context = new YourDbContext(); // Your DB context
-
-    public ActionResult Index(int? page, string search = "")
-    {
-        int pageSize = 5;
-        int pageNumber = (page ?? 1);
-
-        var query = _context.MenuItems.AsQueryable();
-
-        // Searching
-        if (!string.IsNullOrEmpty(search))
-        {
-            query = query.Where(m => m.Name.Contains(search) || m.ItemType.Contains(search));
-        }
-
-        // Sorting (Example: Sort by Name, modify as needed)
-        query = query.OrderBy(m => m.Name);
-
-        // Pagination
-        var pagedList = query.ToPagedList(pageNumber, pageSize);
-
-        return View(pagedList);
-    }
-}
-2. Update Your View (Index.cshtml)
-Modify your Index.cshtml to display paginated data.
-
-html
-Copy
-Edit
-@using X.PagedList
-@using X.PagedList.Mvc
-@model IPagedList<YourNamespace.Models.MenuItem>
-
-@{
-    ViewBag.Title = "Menu Items";
-}
-
-<h2>Menu Items</h2>
-
-<!-- Search Form -->
-<form method="get">
-    <input type="text" name="search" value="@Request.QueryString["search"]" placeholder="Search by name or type" />
-    <button type="submit">Search</button>
-</form>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Item Type</th>
-            <th>Rate</th>
-            <th>Quantity</th>
-            <th>Available</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model)
-        {
-            <tr>
-                <td>@item.Name</td>
-                <td>@item.ItemType</td>
-                <td>@item.Rate</td>
-                <td>@item.Quantity</td>
-                <td>
-                    <input type="checkbox" @(item.Available ? "checked" : "") disabled />
-                </td>
-                <td>
-                    <a href="@Url.Action("Edit", "Menu", new { id = item.Id })">
-                        <i class="fa-solid fa-marker"></i>
-                    </a>
-                    <i class="fa-regular fa-trash-can ms-4" data-bs-toggle="modal" data-bs-target="#deleteModal1" onclick="deleteItem(@item.Id)"></i>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
-
-<!-- Pagination -->
-<div>
-    @Html.PagedListPager(Model, page => Url.Action("Index", new { page, search = Request.QueryString["search"] }))
-</div>
-3. Install X.PagedList (if not installed)
-Run this in Package Manager Console:
-
-powershell
-Copy
-Edit
-Install-Package X.PagedList.Mvc
-How It Works
-Pagination: Fetches data in chunks using ToPagedList(pageNumber, pageSize).
-Searching: Allows searching by Name or ItemType.
-Sorting: Sorts by Name (modify as needed).
-Navigation: Uses PagedListPager to generate page links.
-Let me know if you need modifications! 🚀
-
-
-processing the data with the given conditions, and saving/updating it in a PostgreSQL database using ASP.NET MVC:
-
-Step 1: Controller Method to Handle CSV Upload
-csharp
-Copy code
-[HttpPost]
-public async Task<IActionResult> UploadCSV(IFormFile file)
-{
-    if (file == null || file.Length == 0)
-    {
-        return View("Index", "Please select a valid CSV file.");
-    }
-
-    var students = new List<Student>();
-
-    using (var reader = new StreamReader(file.OpenReadStream()))
-    using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
-    {
-        csv.Configuration.HasHeaderRecord = true;
-        var records = csv.GetRecords<StudentCSVModel>().ToList();
-
-        foreach (var record in records)
-        {
-            // Condition 4: Skip records without an email
-            if (string.IsNullOrWhiteSpace(record.Email))
-                continue;
-
-            // Condition 5: Ensure Mobile Number has "+91" prefix
-            if (!record.MobileNumber.StartsWith("+91"))
-            {
-                record.MobileNumber = "+91" + record.MobileNumber;
-            }
-
-            // Condition 6: Skip records where Pincode > 6 characters
-            if (record.Pincode.Length > 6)
-                continue;
-
-            students.Add(new Student
-            {
-                RollNumber = record.RollNumber,
-                Name = record.Name,
-                MobileNumber = record.MobileNumber,
-                City = record.City,
-                Address = record.Address,
-                Email = record.Email,
-                Pincode = record.Pincode
-            });
-        }
-    }
-
-    if (students.Any())
-    {
-        await SaveStudentsToDatabase(students);
-    }
-
-    return RedirectToAction("Index");
-}
-Step 2: Model for CSV Data
-csharp
-Copy code
-public class StudentCSVModel
-{
-    public int RollNumber { get; set; }
-    public string Name { get; set; }
-    public string MobileNumber { get; set; }
-    public string City { get; set; }
-    public string Address { get; set; }
-    public string Email { get; set; }
-    public string Pincode { get; set; }
-}
-Step 3: Save Data to PostgreSQL
-csharp
-Copy code
-private async Task SaveStudentsToDatabase(List<Student> students)
-{
-    using (var context = new ApplicationDbContext())
-    {
-        foreach (var student in students)
-        {
-            var existingStudent = await context.Students.FirstOrDefaultAsync(s => s.RollNumber == student.RollNumber);
-
-            if (existingStudent != null)
-            {
-                // Condition 7: Update existing student data
-                existingStudent.Name = student.Name;
-                existingStudent.MobileNumber = student.MobileNumber;
-                existingStudent.City = student.City;
-                existingStudent.Address = student.Address;
-                existingStudent.Email = student.Email;
-                existingStudent.Pincode = student.Pincode;
-
-                context.Students.Update(existingStudent);
-            }
-            else
-            {
-                // Insert new student
-                context.Students.Add(student);
-            }
-        }
-        await context.SaveChangesAsync();
-    }
-}
-This ensures:
-
-The CSV file is processed correctly.
-Invalid records (missing email, long pincode) are skipped.
-Mobile numbers are prefixed with +91 if needed.
-Existing student records are updated instead of inserting duplicates.
-Let me know if you need further refinements!
+<body>
 
 
 
 
+    <div class="col-lg-6 col-md-6 col-sm-9 categoryTobevisible  bg-light p-3">
+
+        <div class="accordion" id="accordionPanelsStayOpenExample">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="panelsStayOpen-headingOne">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#panelsStayOpen-collapseOne" aria-expanded="true"
+                        aria-controls="panelsStayOpen-collapseOne">
+                        <div class="row">
+                            <div class="col ">
+                                <h3 class=" fs-3">Category </h3>
+                            </div>
+                            <div class="col text-end">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="currentColor"
+                                    class="bi bi-plus-square mt-2" data-bs-toggle="modal"
+                                    data-bs-target="#addCategoryModal" viewBox="0 0 16 16">
+                                    <path
+                                        d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z" />
+                                    <path
+                                        d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4" />
+                                </svg>
+                            </div>
+                        </div>
+                    </button>
+                </h2>
+                <div id="panelsStayOpen-collapseOne" class="accordion-collapse collapse show"
+                    aria-labelledby="panelsStayOpen-headingOne">
+                    <div class="accordion-body">
 
 
-You said:
-Give me view also
-ChatGPT said:
-Here's the view for uploading a CSV file in your ASP.NET MVC application.
+                        <div class="overflow-y-scroll  mt-3" style="max-width: 1000px; max-height: 600px;">
+                            @foreach (var category in Model.menuCategories)
+                            {
+                                <div class="row hoverDiv">
+                                    <div class="col">
+                                        <p class="fs-5"><i class="fa-solid fa-grip-vertical me-2"></i>@category.CategoryName
+                                        </p>
+                                    </div>
+                                    <div class="hoverIcon col text-end mt-2">
+                                        <a class="text-black"> <i class="fa-solid fa-marker" data-bs-toggle="modal"
+                                                data-bs-target="#editCategoryModal" data-id="@category.CategoryId"
+                                                data-name="@category.CategoryName"
+                                                data-description="@category.CategoryDescription"></i></a>
+                                        <a href=""><i class="fa-regular fa-trash-can ms-4 text-black" data-bs-toggle="modal"
+                                                data-bs-target="#myModal" data-id="@category.CategoryId"></i></a>
 
-View: Upload.cshtml
-html
-Copy code
-@{
-    ViewBag.Title = "Upload CSV File";
-}
 
-<h2>Upload Student CSV File</h2>
+                                    </div>
+                                </div>
+                            }
 
-@if (!string.IsNullOrEmpty(ViewBag.Message))
-{
-    <div class="alert alert-info">@ViewBag.Message</div>
-}
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<form asp-action="UploadCSV" asp-controller="Student" method="post" enctype="multipart/form-data">
-    <div class="form-group">
-        <label for="file">Choose CSV File:</label>
-        <input type="file" name="file" id="file" class="form-control" required />
+
+        </div>
     </div>
-    <br />
-    <button type="submit" class="btn btn-primary">Upload</button>
-</form>
-How It Works
-It provides a file input field for selecting a CSV file.
-It submits the file to the UploadCSV action in the StudentController.
-It displays a success or error message from ViewBag.Message.
-This should integrate well with the controller logic I provided earlier. Let me Fix 1: Ensure modifierGroups is Not Null
-csharp
-Copy code
-public string GetModifierNameById(int modifierId, List<MenuModifierGroupVM> modifierGroups)
-{
-    if (modifierGroups == null || !modifierGroups.Any()) return "No groups available"; // Null or empty check
+    <div class="col-12 d-flex justify-content-start">
 
-    return modifierGroups
-        .Where(group => group.menuModifiers != null) // Ensure menuModifiers is not null
-        .SelectMany(group => group.menuModifiers) // Flatten all modifiers
-        .Where(modifier => modifier.ModifierGroupId == modifierId) // Find the modifier
-        .Select(modifier => modifier.ModifierGroupName) // Get the name
-        .FirstOrDefault() ?? "Modifier not found"; // Return first match or default text
-}
-✔ Additional Debugging
-Try logging the data to check if modifierGroups and menuModifiers are populated.
+        <div class="col-3 categoryTobehidden bg-light p-3">
+            <div class="row">
+                <div class="col ">
+                    <h3 class=" fs-3">Category </h3>
+                </div>
+                <div class="col text-end">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="currentColor"
+                        class="bi bi-plus-square mt-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal"
+                        viewBox="0 0 16 16">
+                        <path
+                            d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z" />
+                        <path
+                            d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4" />
+                    </svg>
+                </div>
+            </div>
 
-Add Debugging Logs
-csharp
-Copy code
-public string GetModifierNameById(int modifierId, List<MenuModifierGroupVM> modifierGroups)
-{
-    if (modifierGroups == null)
-    {
-        Console.WriteLine("modifierGroups is NULL");
-        return "No groups available";
-    }
-
-    foreach (var group in modifierGroups)
-    {
-        if (group.menuModifiers == null)
-        {
-            Console.WriteLine($"Group {group.ModifierGroupName} has NULL modifiers.");
-            continue;
-        }
-
-        foreach (var modifier in group.menuModifiers)
-        {
-            Console.WriteLine($"Modifier ID: {modifier.ModifierGroupId}, Name: {modifier.ModifierGroupName}");
-        }
-    }
-
-    return modifierGroups
-        .Where(group => group.menuModifiers != null)
-        .SelectMany(group => group.menuModifiers)
-        .Where(modifier => modifier.ModifierGroupId == modifierId)
-        .Select(modifier => modifier.ModifierGroupName)
-        .FirstOrDefault() ?? "Modifier not found";
-}
-✔ Checks if modifierGroups is null.
-✔ Logs each group's modifiers to verify data.
-✔ Prevents crashes by skipping null values.
-
-🚀 Next Steps
-Run the debug logs and check if modifiers exist.
-If modifierGroups is null, ensure the list is correctly loaded before calling the function.
-If menuModifiers is null, make sure your database query or API populates it properly.
-Would this help? Let me know what the logs show! 🚀 public string GetModifierNameById(int modifierId, List<MenuModifierGroupVM> modifierGroups)
-    {
-        return modifierGroups
-            .SelectMany(group => group.menuModifiers) // Flatten all modifiers from all groups
-            .Where(modifier => modifier.ModifierGroupId == modifierId)
-            .Select(modifier => modifier.ModifierGroupName)
-            .FirstOrDefault(); // Return the first match or null
-    }
-
-ChatGPT
-
-You said:
-Mvc C# .csv file data get in sql table 
-1. Create a CSV file for students with the columns: RollNumber, Name, 
-
-MobileNumber, City, Address, Email, and Pincode
-
-2. Create a C# application to read data from the CSV file.
-
-3. After reading all the data, save this information into an SQL table.
-
-4. If any record does not have an email, do not save that record in the SQL 
-
-table.
-
-5. If the mobile number does not have the prefix +91, add it before the 
-
-number.
-
-6. If the pincode has more than 6 characters, do not add that record to the 
-
-table.
-
-7. If the RollNumber already exists in the SQL table, update the other 
-
-information for that stud
-
-2/2
-
-ChatGPT said:
-Here's how you can achieve this in an ASP.NET MVC C# application:
-
-1. Create a CSV File (students.csv)
-Create a CSV file with the following data:
-
-RollNumber,Name,MobileNumber,City,Address,Email,Pincode
-101,John Doe,9876543210,Mumbai,Some Address,john@example.com,400001
-102,Jane Smith,9876543211,Delhi,Another Address,,400002
-103,David Wilson,9876543212,Pune,Some Address,david@example.com,400003
-104,Alice Johnson,9876543213,Ahmedabad,Some Address,alice@example.com,4000034
-2. Create an SQL Table
-Execute this SQL script to create the Students table:
-
-CREATE TABLE Students (
-    RollNumber INT PRIMARY KEY,
-    Name NVARCHAR(100),
-    MobileNumber NVARCHAR(20),
-    City NVARCHAR(100),
-    Address NVARCHAR(255),
-    Email NVARCHAR(100),
-    Pincode NVARCHAR(10)
-);
-3. Read and Process CSV in C#
-Install Required Package
-Run this command in Package Manager Console to install CsvHelper:
-
-Install-Package CsvHelper
-Create Student Model
-public class Student
-{
-    public int RollNumber { get; set; }
-    public string Name { get; set; }
-    public string MobileNumber { get; set; }
-    public string City { get; set; }
-    public string Address { get; set; }
-    public string Email { get; set; }
-    public string Pincode { get; set; }
-}
-CSV Reader Logic
-using System;
-using System.Collections.Generic;
-using System.Data.SqlClient;
-using System.Globalization;
-using System.IO;
-using CsvHelper;
-
-class Program
-{
-    static void Main()
-    {
-        string csvFilePath = "D:\\students.csv"; // Change path accordingly
-        List<Student> students = ReadCsvFile(csvFilePath);
-        SaveToDatabase(students);
-    }
-
-    static List<Student> ReadCsvFile(string filePath)
-    {
-        List<Student> students = new List<Student>();
-        using (var reader = new StreamReader(filePath))
-        using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
-        {
-            csv.Read();
-            csv.ReadHeader();
-            while (csv.Read())
-            {
-                Student student = new Student
+            <div class="overflow-y-scroll  mt-3" style="max-width: 1000px; max-height: 400px;">
+                @foreach (var category in Model.menuCategories)
                 {
-                    RollNumber = csv.GetField<int>("RollNumber"),
-                    Name = csv.GetField<string>("Name"),
-                    MobileNumber = csv.GetField<string>("MobileNumber"),
-                    City = csv.GetField<string>("City"),
-                    Address = csv.GetField<string>("Address"),
-                    Email = csv.GetField<string>("Email"),
-                    Pincode = csv.GetField<string>("Pincode")
-                };
+                    var modalId = "deleteModal" + category.CategoryId;
+                    <div class="row hoverDiv">
+                        <div class="col-9">
+                            <p class="fs-5" data-id="@category.CategoryId">
+                                <i class="category-link fa-solid fa-grip-vertical me-2"
+                                    data-id="@category.CategoryId"></i>@category.CategoryName
+                            </p>
 
-                // Data Validation
-                if (string.IsNullOrEmpty(student.Email)) continue;  // Skip records without email
-                if (!student.MobileNumber.StartsWith("+91"))
-                    student.MobileNumber = "+91" + student.MobileNumber;  // Add +91 prefix
-                if (student.Pincode.Length > 6) continue;  // Skip records with invalid pincode
+                        </div>
+                        <div class="hoverIcon col text-end mt-2">
+                            <a class="text-black edit-btn" data-id="@category.CategoryId" data-name="@category.CategoryName"
+                                data-description="@category.CategoryDescription" data-bs-toggle="modal"
+                                data-bs-target="#editCategoryModal"> <i class="fa-solid fa-marker "></i></a>
+                            <a data-bs-toggle="modal" data-bs-target="#@modalId"><i
+                                    class="fa-regular fa-trash-can ms-4 text-black"></i></a>
+                            @* <i class="fa-regular fa-trash-can ms-4 text-black" data-bs-toggle="modal"
+                                data-bs-target="#@modalId"></i> *@
 
-                students.Add(student);
-            }
-        }
-        return students;
-    }
-
-    static void SaveToDatabase(List<Student> students)
-    {
-        string connectionString = "your_connection_string_here"; // Replace with your actual SQL Server connection string
-
-        using (SqlConnection conn = new SqlConnection(connectionString))
-        {
-            conn.Open();
-            foreach (var student in students)
-            {
-                string query = @"
-                    IF EXISTS (SELECT 1 FROM Students WHERE RollNumber = @RollNumber)
-                    BEGIN
-                        UPDATE Students 
-                        SET Name = @Name, MobileNumber = @MobileNumber, City = @City, 
-                            Address = @Address, Email = @Email, Pincode = @Pincode
-                        WHERE RollNumber = @RollNumber
-                    END
-                    ELSE
-                    BEGIN
-                        INSERT INTO Students (RollNumber, Name, MobileNumber, City, Address, Email, Pincode) 
-                        VALUES (@RollNumber, @Name, @MobileNumber, @City, @Address, @Email, @Pincode)
-                    END";
-
-                using (SqlCommand cmd = new SqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@RollNumber", student.RollNumber);
-                    cmd.Parameters.AddWithValue("@Name", student.Name);
-                    cmd.Parameters.AddWithValue("@MobileNumber", student.MobileNumber);
-                    cmd.Parameters.AddWithValue("@City", student.City);
-                    cmd.Parameters.AddWithValue("@Address", student.Address);
-                    cmd.Parameters.AddWithValue("@Email", student.Email);
-                    cmd.Parameters.AddWithValue("@Pincode", student.Pincode);
-
-                    cmd.ExecuteNonQuery();
+                            <div class="modal fade" id="@modalId" tabindex="-1" aria-labelledby="exampleModalLabel"
+                                aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="exampleModalLabel">Delete Confirmation</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                aria-label="Close"></button>
+                                        </div>
+                                        <div
+                                            class="modal-body d-flex flex-column align-items-center justify-content-center">
+                                            <img class="img-fluid" src="~/assest/toppng.com-warning-icon-2400x2400.png"
+                                                alt="" style="width: 50px;">
+                                            <div class="fs-4">Are you sure you want to delete category?</div>
+                                        </div>
+                                        <div class="modal-footer d-flex align-items-center justify-content-center">
+                                            <form asp-controller="Menu" asp-action="DeleteCategory" method="post"
+                                                asp-route-id="@category.CategoryId">
+                                                <button type="submit" class="btn btn-primary">Yes</button>
+                                            </form>
+                                            <button type="button" class="btn btn-secondary"
+                                                data-bs-dismiss="modal">No</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 }
-            }
-        }
-    }
-}
-4. Explanation of Logic
-Read CSV File using CsvHelper and map data to the Student model.
-Filter Invalid Data:
-Skip records where Email is missing.
-Add +91 prefix if MobileNumber does not start with it.
-Skip records where Pincode has more than 6 characters.
-Insert or Update in SQL:
-If RollNumber exists, update the record.
-Otherwise, insert a new record.
-5. Run the Application
-Make sure to update the database connection string in SaveToDatabase().
-Run the program, and it will read the CSV file and update the SQL table accordingly.
-6. Expected Behavior
-John Doe (Valid Record) → Inserted into the SQL table with +91 added to the mobile number.
-Jane Smith (Missing Email) → Skipped.
-David Wilson (Valid Record) → Inserted into the SQL table with +91 added to the mobile number.
-Alice Johnson (Invalid Pincode) → Skipped.
-Let me know if you need any modifications!
 
-You said:
-Without writing a query we can do
-ChatGPT said:
-Yes! You can achieve this in Entity Framework (EF) Core without writing raw SQL queries. Below is the complete ASP.NET MVC implementation using EF Core to insert or update data from a CSV file into an SQL table.
 
-1. Create Student Model
-public class Student
-{
-    public int RollNumber { get; set; }
-    public string Name { get; set; }
-    public string MobileNumber { get; set; }
-    public string City { get; set; }
-    public string Address { get; set; }
-    public string Email { get; set; }
-    public string Pincode { get; set; }
-}
-2. Set Up Entity Framework Core
-Install Required Packages
-Run the following NuGet commands in Package Manager Console:
-
-Install-Package Microsoft.EntityFrameworkCore
-Install-Package Microsoft.EntityFrameworkCore.SqlServer
-Install-Package Microsoft.EntityFrameworkCore.Tools
-Install-Package CsvHelper
-3. Create Database Context
-Create a new class ApplicationDbContext.cs:
-
-using Microsoft.EntityFrameworkCore;
-
-public class ApplicationDbContext : DbContext
-{
-    public DbSet<Student> Students { get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseSqlServer("your_connection_string_here"); // Replace with your connection string
-    }
-}
-4. Read CSV and Save Data to SQL using EF Core
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using CsvHelper;
-
-class Program
-{
-    static void Main()
-    {
-        string csvFilePath = "D:\\students.csv"; // Change to your actual CSV file path
-        List<Student> students = ReadCsvFile(csvFilePath);
-        SaveToDatabase(students);
-    }
-
-    static List<Student> ReadCsvFile(string filePath)
-    {
-        List<Student> students = new List<Student>();
-        using (var reader = new StreamReader(filePath))
-        using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
-        {
-            csv.Read();
-            csv.ReadHeader();
-            while (csv.Read())
-            {
-                Student student = new Student
-                {
-                    RollNumber = csv.GetField<int>("RollNumber"),
-                    Name = csv.GetField<string>("Name"),
-                    MobileNumber = csv.GetField<string>("MobileNumber"),
-                    City = csv.GetField<string>("City"),
-                    Address = csv.GetField<string>("Address"),
-                    Email = csv.GetField<string>("Email"),
-                    Pincode = csv.GetField<string>("Pincode")
-                };
-
-                // Data Validation
-                if (string.IsNullOrEmpty(student.Email)) continue;  // Skip if email is missing
-                if (!student.MobileNumber.StartsWith("+91"))
-                    student.MobileNumber = "+91" + student.MobileNumber;  // Add +91 prefix
-                if (student.Pincode.Length > 6) continue;  // Skip if Pincode > 6 characters
-
-                students.Add(student);
-            }
-        }
-        return students;
-    }
-
-    static void SaveToDatabase(List<Student> students)
-    {
-        using (var context = new ApplicationDbContext())
-        {
-            foreach (var student in students)
-            {
-                var existingStudent = context.Students.FirstOrDefault(s => s.RollNumber == student.RollNumber);
-
-                if (existingStudent != null)
-                {
-                    // Update existing record
-                    existingStudent.Name = student.Name;
-                    existingStudent.MobileNumber = student.MobileNumber;
-                    existingStudent.City = student.City;
-                    existingStudent.Address = student.Address;
-                    existingStudent.Email = student.Email;
-                    existingStudent.Pincode = student.Pincode;
-                }
-                else
-                {
-                    // Insert new record
-                    context.Students.Add(student);
-                }
-            }
-            context.SaveChanges(); // Save all changes in the database
-        }
-    }
-}
-5. Explanation
-Uses Entity Framework Core (EF Core) instead of raw SQL queries.
-Reads CSV file using CsvHelper.
-Filters Invalid Data:
-Skips records where Email is missing.
-Adds +91 prefix if MobileNumber does not start with it.
-Skips records where Pincode has more than 6 characters.
-Checks if RollNumber exists:
-If it exists, updates the record.
-Otherwise, inserts a new record.
-context.SaveChanges() commits changes in a single database transaction.
-6. Expected Behavior
-RollNumber	Name	MobileNumber	City	Email	Pincode
-101	John Doe	+919876543210	Mumbai	john@example.com	400001
-103	David Wilson	+919876543212	Pune	david@example.com	400003
-Jane Smith (Missing Email) → Skipped
-Alice Johnson (Invalid Pincode) → Skipped
-7. Run the Application
-Ensure your database is set up.
-Update your connection string in ApplicationDbContext.cs.
-Run the program, and it will insert/update records in the database.
-8. Why is This Better?
-✅ No SQL Queries Required – Uses Entity Framework Core
-✅ Automatic Insert/Update Handling – Based on RollNumber
-✅ Readable and Maintainable Code
-
-Let me know if you need further improvements!public string GetModifierNameById(int modifierId, List<ModifierGroup> modifierGroups)
-{
-    return modifierGroups
-        .SelectMany(group => group.Modifiers) // Flatten all modifiers from all groups
-        .Where(modifier => modifier.ModifierId == modifierId)
-        .Select(modifier => modifier.ModifierName)
-        .FirstOrDefault(); // Return the first match or null
-}
-renders the modifier group dynamically in a list format.
-
-html
-Copy code
-@if (Model != null)
-{
-    <div class="modifier-group mt-3 p-2 border rounded">
-        <div class="d-flex justify-content-between align-items-center">
-            <h5>@Model.GroupName</h5>
-            <button class="btn btn-danger btn-sm delete-group" data-groupid="@Model.GroupId">
-                <i class="fa fa-trash"></i>
-            </button>
+            </div>
         </div>
 
-        <ul class="list-unstyled mt-2">
-            @foreach (var modifier in Model.Modifiers)
-            {
-                <li class="d-flex justify-content-between">
-                    <span>• @modifier.ModifierName</span>
-                    <span>₹ @modifier.Price</span>
-                </li>
-            }
-        </ul>
+
+        <div class="col-xxl-9 col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 bg-white p-3">
+            <form method="get">
+                <div class="row d-flex mb-2 align-item-center justify-content-center ms-0 me-0 rounded">
+                    <div class="col ">
+                        <h1 class="">Items </h1>
+                    </div>
+                    <div class="col-5 d-flex align-items-center gap-3 justify-content-end pe-0">
+                        <input class="form-control d-inline w-auto" type="search" name="search"
+                            placeholder="Search by First Name" value="@Context.Request.Query["search"]">
+                     
+                        <button type="submit" class="btn btn-primary">Search</button>
+                        <button type="button" class="btn btn-outline-primary"> <i
+                                class="fa-regular fa-trash-can text-center " data-bs-toggle="modal"
+                                data-bs-target="#deleteModal1"></i></button>
+                        <div class="col-auto text-end">
+                            <a data-bs-toggle="modal" data-bs-target="#newitemModal">
+                                <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">
+                                    <i class="fa-solid fa-plus"></i>New Item
+                                </button>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            <div class="col table-responsive" id="Item">
+                @* Item Table  *@
+                <div id="menuItemsContainer">
+                    @Html.Partial("_MenuItemsPV", Model)
+                </div> 
+            </div>
+
+        </div>
+
     </div>
-}
-✔ Modifier Group Name with Delete Icon
-✔ Modifiers in Bullet Points
-✔ Price on the Right Side
 
-4️⃣ AJAX: Fetch Modifiers on Selection
-Now, when a user selects a Modifier Group, the related modifiers should appear dynamically.
 
-html
-Copy code
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+ 
 
-<script>
-    $(document).ready(function () {
-        $("#modifierGroupDropdown").change(function () {
-            var groupId = $(this).val();
-            
-            if (groupId) {
-                $.ajax({
-                    url: '/ControllerName/GetModifiersByGroup', // Change ControllerName
-                    type: 'GET',
-                    data: { groupId: groupId },
-                    success: function (response) {
-                        $("#modifierGroupContainer").append(response); // Append new group
-                    }
-                });
-            }
-        });
 
-        // Handle Delete Modifier Group
-        $(document).on("click", ".delete-group", function () {
-            $(this).closest(".modifier-group").remove();
-        });
-    });
-</script>
-🎯 Final Output
-User selects a Modifier Group → It appears dynamically (no refresh).
-Modifiers are listed in bullet points with the price aligned to the right.
-Clicking the delete icon removes the group instantly.
-Everything is dynamic using AJ! You want the following behavior:
 
-User selects a "Modifier Group" from a dropdown.
-Modifiers related to that group should be displayed dynamically (with price).
-Each modifier should have two dropdowns to select Min and Max values.
-The page should not reload—it should update dynamically using AJAX.
-✅ Steps to Achieve This
-Create the Dropdown for "Modifier Groups".
-Use jQuery AJAX to fetch modifiers when a group is selected.
-Render the modifiers dynamically in a Partial View.
-1️⃣ View: Modifier Group Dropdown & Modifier List
-html
-Copy code
-<select id="modifierGroupDropdown" class="form-select">
-    <option value="">Select Modifier Group</option>
-    @foreach (var group in Model.ModifierGroups)
+
+    <script>
+
+        $(document).ready(function () {
+            $.ajax({
+                url: '@Url.Action("MenuItem", "Menu")',
+                type: 'GET',
+                success: function (data) {
+                    $('#Item').append(data);
+                },
+                error: function (xhr, status, error) {
+                    console.error('error Feching items:', error);
+                }
+            });
+         
+
+</html> thi is my menuCategoryPV.cshtml 
+
+and @using X.PagedList.Mvc.Core
+@model DAL.ViewModel.MenuCategoryVM
+
+@{
+    ViewData["Title"] = "Menu Item Page";
+    if (TempData["Message"] != null)
     {
-        <option value="@group.Id">@group.Name</option>
+        <div class="alert alert-@TempData["MessageType"]">@TempData["Message"]</div>
     }
-</select>
-
-<!-- This is where modifiers will be loaded -->
-<div id="modifierList"></div>
-2️⃣ Controller: Load Modifiers Based on Group
-Create an action method in your Controller to return the modifiers as a Partial View.
-
-csharp
-Copy code
-public IActionResult GetModifiersByGroup(int groupId)
-{
-    var modifiers = _context.MenuModifiers
-        .Where(m => m.GroupId == groupId)
-        .Select(m => new ModifierViewModel
-        {
-            ModifierId = m.ModifierId,
-            ModifierName = m.ModifierName,
-            Price = m.Price
-        }).ToList();
-
-    return PartialView("_ModifierList", modifiers);
 }
-✔ _ModifierList is a Partial View that will render modifiers.
 
-3️⃣ Partial View: _ModifierList.cshtml
-This renders the fetched modifiers with their price and two dropdowns.
+<!DOCTYPE html>
+<html lang="en">
 
-html
-Copy code
-@if (Model != null && Model.Any())
-{
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Modifier</th>
-                <th>Price</th>
-                <th>Min</th>
-                <th>Max</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var modifier in Model)
-            {
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Page</title>
+    <link rel="stylesheet" href="~/css/style.css">
+    <link rel="stylesheet" href="~/css/media.css">
+    <link rel='stylesheet' href='https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css'>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body class="bg-white">
+   
+   
+        <table id="table" class="table align-middle table-hover bg-white">
+            <thead class="bg-light">
                 <tr>
-                    <td>@modifier.ModifierName</td>
-                    <td>@modifier.Price</td>
-                    <td>
-                        <select class="form-select">
-                            @for (int i = 0; i <= 5; i++)
-                            {
-                                <option value="@i">@i</option>
-                            }
-                        </select>
-                    </td>
-                    <td>
-                        <select class="form-select">
-                            @for (int i = 1; i <= 10; i++)
-                            {
-                                <option value="@i">@i</option>
-                            }
-                        </select>
-                    </td>
+
+                    <th><input type="checkbox" class="me-2" id="selectAll" style=" width: 16px; height: 16px;" />Name</th>
+                    </th>
+                    <th>ItemType</th>
+                    <th>Rate</th>
+                    <th>Quantity</th>
+                    <th>Available</th>
+                    <th>Action</th>
                 </tr>
-            }
-        </tbody>
-    </table>
-}
-else
-{
-    <p>No modifiers available.</p>
-}
-✔ Min Dropdown: Values 0 to 5
-✔ Max Dropdown: Values 1 to 10
-
-4️⃣ AJAX: Fetch Data Without Refreshing
-Now, we need jQuery to fetch modifiers dynamically when a group is selected.
-
-html
-Copy code
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<script>
-    $(document).ready(function () {
-        $("#modifierGroupDropdown").change(function () {
-            var groupId = $(this).val();
-            
-            if (groupId) {
-                $.ajax({
-                    url: '/ControllerName/GetModifiersByGroup', // Change ControllerName
-                    type: 'GET',
-                    data: { groupId: groupId },
-                    success: function (response) {
-                        $("#modifierList").html(response); // Update modifier list
-                    }
-                });
-            } else {
-                $("#modifierList").html(""); // Clear list if no group selected
-            }
-        });
-    });
-</script>
-🎯 Final Behavior
-✔ User selects a Modifier Group → AJAX fetches modifiers.
-✔ Modifiers are displayed with price and two dropdowns.
-✔ No page refresh! Data loads dynamically.
-
-Would this approach work foWhen you tap on a category, the category partial view gets appended dynamically.
-When you click a specific category, its items should be loaded dynamically into a different section.
-✅ Solution Approach:
-Use AJAX to load categories dynamically.
-When a category is clicked, fetch its items dynamically and update the item list without refreshing the page.
-Ensure categories and items are updated separately to avoid nesting issues.
-1️⃣ Update Menu.cshtml (Main View)
-Modify your Menu page so that:
-
-Categories get loaded inside #categoryContainer dynamically.
-Items get loaded inside #menuItemsContainer based on selected category.
-html
-Copy code
-@model DAL.ViewModel.MenuCategoryVM
-
-<!-- Page Title -->
-<h1>Menu Page</h1>
-
-<!-- Category Section -->
-<div id="categoryContainer">
-    @Html.Partial("_CategoryPartial", Model) <!-- Initially loads categories -->
-</div>
-
-<!-- Item Section (Initially Empty) -->
-<div id="menuItemsContainer"></div>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function () {
-        // Load categories on page load
-        loadCategories();
-
-        // When a category is clicked, load items
-        $(document).on("click", ".category-item", function () {
-            var categoryId = $(this).data("categoryid"); // Get Category ID
-            loadItems(categoryId);
-        });
-
-        // Function to load categories dynamically
-        function loadCategories() {
-            $.ajax({
-                url: '@Url.Action("GetCategories", "Menu")',
-                type: 'GET',
-                success: function (data) {
-                    $("#categoryContainer").html(data); // Update category section
+            </thead>
+            <tbody>
+                @foreach (var menuitem in Model.menuItems)
+                {
+                    <tr class="tblclass" data-id="@menuitem.ItemId">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <input type="checkbox" name="chkItem" class="checkclass" />
+                                <img src="~/assest/dining-menu.png" alt="" style="width: 45px; height: 45px"
+                                    class="rounded-circle ms-2" />
+                                <div class="ms-3">
+                                    <p class="text-secondary mb-1">@menuitem.ItemName</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <img src="~/assest/icons/@(menuitem.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
+                                style="width: 20px; height: 20px" class="rounded-circle" />
+                        </td>
+                        <td>
+                            <p class="fw-normal mb-1">@menuitem.Rate</p>
+                        </td>
+                        <td>
+                            <p class="fw-normal mb-1">@menuitem.Quantity</p>
+                        </td>
+                        <td class="text-center"> <!-- Center the toggle switch -->
+                            <div class="form-check form-switch">
+                                <input class="form-check-input canView" type="checkbox" id="toggleSwitch"
+                                    @(menuitem.IsAvailable ?? false ? "checked" : "")>
+                            </div>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-marker" data-bs-toggle="modal" data-bs-target="#editMenuItemModal"
+                                onclick="editItem(@menuitem.ItemId)"></i>
+                            <i class="fa-regular fa-trash-can ms-4" data-bs-toggle="modal" data-bs-target="#editMenuItemModal"
+                                onclick="editItem(@menuitem.ItemId)"></i>
+                        </td>
+                    </tr>
                 }
-            });
-        }
-
-        // Function to load items based on category
-        function loadItems(categoryId) {
-            $.ajax({
-                url: '@Url.Action("GetItemsByCategory", "Menu")',
-                type: 'GET',
-                data: { categoryId: categoryId },
-                success: function (data) {
-                    $("#menuItemsContainer").html(data); // Update item section
-                }
-            });
-        }
-    });
-</script>
-2️⃣ Create _CategoryPartial.cshtml
-Modify your Category Partial View to load categories dynamically.
-
-html
-Copy code
-@model List<CategoryViewModel>
-
-<!-- Category List -->
-<div class="category-list">
-    @foreach (var category in Model)
-    {
-        <button class="category-item btn btn-primary" data-categoryid="@category.Id">
-            @category.Name
-        </button>
-    }
-</div>
-3️⃣ Create _MenuItemsPartial.cshtml
-Modify your Item Partial View to load items dynamically.
-
-html
-Copy code
-@model List<MenuItemViewModel>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Item Name</th>
-            <th>Unit Name</th>
-            <th>Availability</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model)
-        {
-            <tr>
-                <td>@item.ItemName</td>
-                <td>@item.UnitName</td>
-                <td>@item.Availability</td>
-            </tr>
-        }
-    </tbody>
-</table>
-4️⃣ Modify MenuController.cs
-🔹 Load Categories (GetCategories Action)
-csharp
-Copy code
-public IActionResult GetCategories()
-{
-    var categories = db.Categories
-        .Select(c => new CategoryViewModel
-        {
-            Id = c.CategoryId,
-            Name = c.CategoryName
-        })
-        .ToList();
-
-    return PartialView("_CategoryPartial", categories); // Return only category partial view
-}
-🔹 Load Items for a Category (GetItemsByCategory Action)
-csharp
-Copy code
-public IActionResult GetItemsByCategory(int categoryId)
-{
-    var items = db.MenuItems
-        .Where(i => i.CategoryId == categoryId)
-        .Select(i => new MenuItemViewModel
-        {
-            ItemId = i.ItemId,
-            ItemName = i.ItemName,
-            UnitId = i.UnitId,
-            UnitName = db.Units.FirstOrDefault(u => u.UnitId == i.UnitId)?.UnitName,
-            Availability = i.Availability
-        })
-        .ToList();
-
-    return PartialView("_MenuItemsPartial", items); // Return only item partial view
-}
-✅ Final Outcome
-When the Menu page loads, categories are loaded dynamically.
-When you click a category, only the items update dynamically (without refreshing the page).
-No category gets nested inside the item list anymore.
-This setup ensures smooth AJAX-based loading of categories and items while keeping the structure clean! Let me know if you need further refinements. 🚀
+            </tbody>
+        </table>
+        
 
 
 
 
 
+</body>
 
-You said:
-Here I want pagination in the item table with search, sort and filter by only that refress table only
-ChatGPT said:
-Got it! You need pagination, search, sort, and filter for your item table, but only the table should refresh (not the whole page).
-
-✅ Solution Approach
-Use AJAX for pagination, search, sort, and filter.
-Update only the item table dynamically.
-Use X.PagedList for pagination.
-1️⃣ Modify Menu.cshtml (Main View)
-Ensure the search, filter, and sort form submits via AJAX.
-
-html
-Copy code
-<!-- Search & Filter Section -->
-<form id="searchForm">
-    <input type="text" name="search" id="search" placeholder="Search Item" class="form-control">
-    <select name="filterBy" id="filterBy" class="form-select">
-        <option value="">All Items</option>
-        <option value="Available">Available</option>
-        <option value="Not Available">Not Available</option>
-    </select>
-    <select name="sortBy" id="sortBy" class="form-select">
-        <option value="name_asc">Name (A-Z)</option>
-        <option value="name_desc">Name (Z-A)</option>
-    </select>
-    <button type="submit" class="btn btn-primary">Search</button>
-</form>
-
-<!-- Item Table (Initially Empty) -->
-<div id="menuItemsContainer"></div>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function () {
-        loadItems(); // Load items on page load
-
-        // Handle form submission for search, sort, and filter
-        $("#searchForm").submit(function (e) {
-            e.preventDefault(); // Prevent full page reload
-            loadItems();
-        });
-
-        // Handle pagination links
-        $(document).on("click", ".pagination a", function (e) {
-            e.preventDefault();
-            var url = $(this).attr("href");
-            loadItems(url);
-        });
-
-        // Function to load items dynamically
-        function loadItems(url = '@Url.Action("GetItemsByCategory", "Menu")') {
-            var formData = $("#searchForm").serialize(); // Get search & filter inputs
-
-            $.ajax({
-                url: url,
-                type: "GET",
-                data: formData, // Send search & filter data
-                success: function (data) {
-                    $("#menuItemsContainer").html(data); // Update only the table
-                }
-            });
-        }
-    });
-</script>
-2️⃣ Modify _MenuItemsPartial.cshtml (Item Table with Pagination)
-html
-Copy code
-@model X.PagedList.IPagedList<MenuItemViewModel>
-@using X.PagedList.Mvc.Core
-
-<table class="table">
-    <thead>
-        <tr>
-            <th><a href="#" class="sort" data-sort="name_asc">Item Name ↑</a> | <a href="#" class="sort" data-sort="name_desc">↓</a></th>
-            <th>Unit Name</th>
-            <th>Availability</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model)
-        {
-            <tr>
-                <td>@item.ItemName</td>
-                <td>@item.UnitName</td>
-                <td>@item.Availability</td>
-            </tr>
-        }
-    </tbody>
-</table>
-
-<!-- Pagination -->
-@Html.PagedListPager(Model, page => Url.Action("GetItemsByCategory", new { page, search = ViewBag.Search, filterBy = ViewBag.FilterBy, sortBy = ViewBag.SortBy }), new PagedListRenderOptions { LinkToPreviousPageFormat = "Prev", LinkToNextPageFormat = "Next" })
-3️⃣ Modify MenuController.cs
-🔹 Fetch Items with Pagination, Search & Sort
-csharp
-Copy code
-public IActionResult GetItemsByCategory(int categoryId, string search = "", string filterBy = "", string sortBy = "name_asc", int page = 1, int pageSize = 5)
-{
-    var query = db.MenuItems
-        .Where(i => i.CategoryId == categoryId);
-
-    // Search
-    if (!string.IsNullOrEmpty(search))
-    {
-        query = query.Where(i => i.ItemName.Contains(search));
-    }
-
-    // Filter
-    if (!string.IsNullOrEmpty(filterBy))
-    {
-        query = query.Where(i => i.Availability == filterBy);
-    }
-
-    // Sorting
-    query = sortBy switch
-    {
-        "name_asc" => query.OrderBy(i => i.ItemName),
-        "name_desc" => query.OrderByDescending(i => i.ItemName),
-        _ => query
-    };
-
-    // Pagination
-    var items = query
-        .Select(i => new MenuItemViewModel
-        {
-            ItemId = i.ItemId,
-            ItemName = i.ItemName,
-            UnitId = i.UnitId,
-            UnitName = db.Units.FirstOrDefault(u => u.UnitId == i.UnitId)?.UnitName,
-            Availability = i.Availability
-        })
-        .ToPagedList(page, pageSize);
-
-    ViewBag.Search = search;
-    ViewBag.FilterBy = filterBy;
-    ViewBag.SortBy = sortBy;
-
-    return PartialView("_MenuItemsPartial", items);
-}
-✅ Final Outcome
-Search, filter, and sort dynamically update the table (without full-page refresh).
-Pagination works via AJAX, updating only the table.
-Sorting updates dynamically when column headers are clicked.
-Only the item table refreshes, not the full page.
-This makes the UI smoother and more user-friendly. Let me know if you need any modifications! 🚀Implement AJAX for Filtering, Sorting, and Searching Without Page Refresh
-Currently, your entire page reloads when searching, filtering, or sorting. To fix this, we will:
-
-Use AJAX to send search, filter, and sorting requests
-Use a Partial View to update only the table
-Modify the Controller to return a Partial View for AJAX requests
-🚀 Steps to Implement AJAX-Based Searching, Filtering & Sorting
-1. Modify Controller (MenuController.cs)
-Modify the Index action to return a Partial View when an AJAX request is detected.
-
-csharp
-Copy code
-public IActionResult Index(string search, string filterBy, int? pageSize, int? page)
-{
-    int currentPage = page ?? 1;
-    int currentPageSize = pageSize ?? 10;
-
-    // Fetch all units
-    var unitList = db.Units.ToList();
-
-    // Fetch & Filter Items
-    var itemsQuery = db.MenuItems.AsQueryable();
-
-    if (!string.IsNullOrEmpty(search))
-    {
-        itemsQuery = itemsQuery.Where(m => m.ItemName.Contains(search));
-    }
-
-    if (!string.IsNullOrEmpty(filterBy))
-    {
-        itemsQuery = itemsQuery.Where(m => m.Availability == filterBy);
-    }
-
-    var paginatedItems = itemsQuery
-        .Select(item => new MenuItem
-        {
-            ItemId = item.ItemId,
-            ItemName = item.ItemName,
-            UnitId = item.UnitId,
-            UnitName = unitList.FirstOrDefault(u => u.UnitId == item.UnitId)?.UnitName
-        })
-        .ToPagedList(currentPage, currentPageSize);
-
-    var itemvm = new MenuCategoryVM
-    {
-        menuItems = paginatedItems
-    };
-
-    // Return Partial View if AJAX request
-    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-    {
-        return PartialView("_MenuItemsPartial", itemvm);
-    }
-
-    return View(itemvm);
-}
-2. Create Partial View (_MenuItemsPartial.cshtml)
-This only contains the table to be updated dynamically.
-
-html
-Copy code
-@model DAL.ViewModel.MenuCategoryVM
-
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Item Name</th>
-            <th>Unit Name</th>
-            <th>Availability</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model.menuItems)
-        {
-            <tr>
-                <td>@item.ItemName</td>
-                <td>@item.UnitName</td>
-                <td>@item.Availability</td>
-            </tr>
-        }
-    </tbody>
-</table>
-
-<!-- AJAX Pagination (Works with AJAX) -->
-@Html.PagedListPager(Model.menuItems, page => "javascript:loadData('" + page + "')")
-3. Modify Your Main View (Index.cshtml)
-Modify your search, filter, and sorting controls to trigger AJAX.
-
-html
-Copy code
-@model DAL.ViewModel.MenuCategoryVM
-
-<!-- Search & Filter Form -->
-<div class="row d-flex mb-2 align-items-center justify-content-center">
-    <div class="col">
-        <h1>Items</h1>
-    </div>
-    <div class="col-5 d-flex align-items-center gap-3 justify-content-end">
-        <input class="form-control" type="text" id="searchBox" placeholder="Search by Item Name">
-        <select id="filterBy" class="form-select">
-            <option value="">All Items</option>
-            <option value="Available">Available</option>
-            <option value="Not Available">Not Available</option>
-        </select>
-        <select id="pageSize" class="form-select">
-            <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="15">15</option>
-        </select>
-        <button type="button" id="searchButton" class="btn btn-primary">Search</button>
-    </div>
-</div>
-
-<!-- Container for Table (Partial View) -->
-<div id="menuItemsContainer">
-    @Html.Partial("_MenuItemsPartial", Model)
-</div>
-
-<!-- AJAX Script -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function () {
-        // Trigger AJAX search, filter, or sorting
-        $("#searchButton, #filterBy, #pageSize").on("change click", function () {
-            loadData(1);
-        });
-
-        // Function to load data via AJAX
-        function loadData(page) {
-            var searchTerm = $("#searchBox").val();
-            var filterBy = $("#filterBy").val();
-            var pageSize = $("#pageSize").val();
-
-            $.ajax({
-                url: '@Url.Action("Index", "Menu")',
-                type: 'GET',
-                data: { search: searchTerm, filterBy: filterBy, pageSize: pageSize, page: page },
-                success: function (data) {
-                    $("#menuItemsContainer").html(data); // Update partial view
-                }
-            });
-        }
-    });
-</script>
-✅ Final Outcome
-Table updates dynamically without reloading the page.
-Search, Filter, and Sorting work with AJAX.
-Pagination updates via AJAX instead of a full page refresh.
-Now, your searching, filtering, sorting, and pagination work smoothly without reloading the page! 🚀
+</html> this is m,y _MenuItemPV and i want to make pagination only on that item and search and sorting functionality here 
