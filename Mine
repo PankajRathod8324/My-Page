@@ -1,296 +1,194 @@
-Project Structure
-pgsql
-Copy code
-/YourProject
-│── /Controllers
-│   ├── AuthController.cs
-│   ├── ProtectedController.cs
-│── /Models
-│   ├── LoginModel.cs
-│   ├── UserModel.cs
-│── /Services
-│   ├── IAuthService.cs
-│   ├── AuthService.cs
-│── Program.cs
-│── appsettings.json
-1️⃣ Models (Login & User)
-LoginModel.cs
+To implement pagination, search, and sorting only on the menu items section in your _MenuItemsPV.cshtml partial view, follow these steps:
+
+1. Modify Your Controller
+Update your MenuController to support pagination, search, and sorting.
+
+Controller Code (MenuController.cs)
 csharp
 Copy code
-namespace YourProject.Models
+using X.PagedList;
+using X.PagedList.Mvc.Core;
+
+public IActionResult MenuItem(int? page, string search, string sortOrder)
 {
-    public class LoginModel
+    int pageSize = 5; // Number of items per page
+    int pageNumber = (page ?? 1); // Default to page 1 if not provided
+
+    var menuItems = _context.MenuItems.AsQueryable(); // Fetch data from DB
+
+    // Search functionality
+    if (!string.IsNullOrEmpty(search))
     {
-        public string Username { get; set; }
-        public string Password { get; set; }
-        public bool RememberMe { get; set; }
+        menuItems = menuItems.Where(m => m.ItemName.Contains(search));
     }
-}
-UserModel.cs
-csharp
-Copy code
-namespace YourProject.Models
-{
-    public class UserModel
+
+    // Sorting functionality
+    switch (sortOrder)
     {
-        public string Username { get; set; }
-        public string Password { get; set; }
-        public string Role { get; set; }
+        case "name_desc":
+            menuItems = menuItems.OrderByDescending(m => m.ItemName);
+            break;
+        case "price_asc":
+            menuItems = menuItems.OrderBy(m => m.Rate);
+            break;
+        case "price_desc":
+            menuItems = menuItems.OrderByDescending(m => m.Rate);
+            break;
+        default:
+            menuItems = menuItems.OrderBy(m => m.ItemName); // Default sorting by name
+            break;
     }
+
+    var pagedItems = menuItems.ToPagedList(pageNumber, pageSize);
+
+    return PartialView("_MenuItemsPV", pagedItems); // Return only the partial view
 }
-2️⃣ Authentication Service
-Handles user authentication and JWT generation.
+2. Modify _MenuItemsPV.cshtml
+Now update your partial view to use pagination and sorting.
 
-IAuthService.cs
-csharp
+Updated _MenuItemsPV.cshtml
+html
 Copy code
-using YourProject.Models;
+@using X.PagedList.Mvc.Core
+@model IPagedList<DAL.ViewModel.MenuItemVM>
 
-namespace YourProject.Services
-{
-    public interface IAuthService
-    {
-        string Authenticate(LoginModel model, out string role);
-    }
-}
-AuthService.cs
-csharp
-Copy code
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using YourProject.Models;
-
-namespace YourProject.Services
-{
-    public class AuthService : IAuthService
-    {
-        private readonly IConfiguration _config;
-
-        // Dummy users for demonstration (Replace with Database)
-        private readonly List<UserModel> users = new()
+<table id="table" class="table align-middle table-hover bg-white">
+    <thead class="bg-light">
+        <tr>
+            <th><input type="checkbox" class="me-2" id="selectAll" style="width: 16px; height: 16px;" />Name</th>
+            <th>
+                <a href="?sortOrder=@(ViewBag.SortOrder == "name_asc" ? "name_desc" : "name_asc")">
+                    Item Name
+                </a>
+            </th>
+            <th>
+                <a href="?sortOrder=@(ViewBag.SortOrder == "price_asc" ? "price_desc" : "price_asc")">
+                    Rate
+                </a>
+            </th>
+            <th>Quantity</th>
+            <th>Available</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var menuitem in Model)
         {
-            new UserModel { Username = "admin", Password = "admin123", Role = "Admin" },
-            new UserModel { Username = "user", Password = "user123", Role = "User" }
-        };
-
-        public AuthService(IConfiguration config)
-        {
-            _config = config;
+            <tr class="tblclass" data-id="@menuitem.ItemId">
+                <td>
+                    <div class="d-flex align-items-center">
+                        <input type="checkbox" name="chkItem" class="checkclass" />
+                        <img src="~/assest/dining-menu.png" alt="" style="width: 45px; height: 45px"
+                            class="rounded-circle ms-2" />
+                        <div class="ms-3">
+                            <p class="text-secondary mb-1">@menuitem.ItemName</p>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <img src="~/assest/icons/@(menuitem.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
+                        style="width: 20px; height: 20px" class="rounded-circle" />
+                </td>
+                <td>
+                    <p class="fw-normal mb-1">@menuitem.Rate</p>
+                </td>
+                <td>
+                    <p class="fw-normal mb-1">@menuitem.Quantity</p>
+                </td>
+                <td class="text-center">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input canView" type="checkbox" id="toggleSwitch"
+                            @(menuitem.IsAvailable ?? false ? "checked" : "")>
+                    </div>
+                </td>
+                <td>
+                    <i class="fa-solid fa-marker" data-bs-toggle="modal" data-bs-target="#editMenuItemModal"
+                        onclick="editItem(@menuitem.ItemId)"></i>
+                    <i class="fa-regular fa-trash-can ms-4" data-bs-toggle="modal" data-bs-target="#editMenuItemModal"
+                        onclick="editItem(@menuitem.ItemId)"></i>
+                </td>
+            </tr>
         }
+    </tbody>
+</table>
 
-        public string Authenticate(LoginModel model, out string role)
-        {
-            var user = users.FirstOrDefault(u => u.Username == model.Username && u.Password == model.Password);
-            role = user?.Role;
+<!-- Pagination -->
+<div class="pagination-container">
+    @Html.PagedListPager(Model, page => Url.Action("MenuItem", new { page, search = ViewBag.Search, sortOrder = ViewBag.SortOrder }))
+</div>
+3. Update menuCategoryPV.cshtml to Support AJAX Pagination
+Modify the search and pagination so that they work asynchronously.
 
-            if (user == null) return null;
-
-            return GenerateJwtToken(user.Username, user.Role);
-        }
-
-        private string GenerateJwtToken(string username, string role)
-        {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.UniqueName, username),
-                new Claim(ClaimTypes.Role, role),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
-
-            var token = new JwtSecurityToken(
-                _config["Jwt:Issuer"],
-                _config["Jwt:Issuer"],
-                claims,
-                expires: DateTime.UtcNow.AddHours(1),
-                signingCredentials: creds
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-    }
-}
-3️⃣ Authentication Controller
-Handles user login and JWT issuance.
-
-AuthController.cs
-csharp
+Modify the Search and Sorting Form
+html
 Copy code
-using Microsoft.AspNetCore.Mvc;
-using YourProject.Models;
-using YourProject.Services;
+<form id="searchForm">
+    <div class="row d-flex mb-2 align-item-center justify-content-center ms-0 me-0 rounded">
+        <div class="col">
+            <h1 class="">Items </h1>
+        </div>
+        <div class="col-5 d-flex align-items-center gap-3 justify-content-end pe-0">
+            <input class="form-control d-inline w-auto" type="search" id="searchBox" name="search"
+                placeholder="Search by Item Name">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+    </div>
+</form>
+4. Add AJAX for Pagination, Search, and Sorting
+Modify your JavaScript to fetch the data dynamically.
 
-[Route("api/auth")]
-[ApiController]
-public class AuthController : ControllerBase
-{
-    private readonly IAuthService _authService;
+JavaScript Code
+html
+Copy code
+<script>
+    $(document).ready(function () {
+        // Fetch initial data
+        fetchMenuItems();
 
-    public AuthController(IAuthService authService)
-    {
-        _authService = authService;
-    }
+        // Handle search form submission
+        $("#searchForm").submit(function (event) {
+            event.preventDefault();
+            fetchMenuItems();
+        });
 
-    [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginModel model)
-    {
-        var token = _authService.Authenticate(model, out string role);
+        // Handle pagination clicks
+        $(document).on("click", ".pagination-container a", function (event) {
+            event.preventDefault();
+            var page = $(this).attr("href").split("=")[1];
+            fetchMenuItems(page);
+        });
 
-        if (token == null)
-            return Unauthorized(new { Message = "Invalid credentials" });
+        // Fetch menu items with AJAX
+        function fetchMenuItems(page = 1) {
+            var search = $("#searchBox").val();
+            var sortOrder = getUrlParameter('sortOrder') || '';
 
-        // Store token in session cookie if "Remember Me" is checked
-        if (model.RememberMe)
-        {
-            Response.Cookies.Append("AuthToken", token, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddDays(7)
+            $.ajax({
+                url: '@Url.Action("MenuItem", "Menu")',
+                type: 'GET',
+                data: { page: page, search: search, sortOrder: sortOrder },
+                success: function (data) {
+                    $('#menuItemsContainer').html(data);
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error fetching items:', error);
+                }
             });
         }
 
-        return Ok(new
-        {
-            Message = "Login successful!",
-            Token = token,
-            Role = role,
-            RedirectUrl = "/dashboard"
-        });
-    }
-}
-4️⃣ Protected Controller
-Restricts access based on user roles.
-
-ProtectedController.cs
-csharp
-Copy code
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-
-[Authorize]
-[Route("api/protected")]
-[ApiController]
-public class ProtectedController : ControllerBase
-{
-    [HttpGet]
-    public IActionResult GetProtectedData()
-    {
-        var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
-
-        if (token == null)
-            return Unauthorized(new { Message = "Token is missing" });
-
-        // Decode JWT Token
-        var jwtToken = new JwtSecurityTokenHandler().ReadToken(token) as JwtSecurityToken;
-        var username = jwtToken?.Claims.FirstOrDefault(c => c.Type == "unique_name")?.Value;
-        var role = jwtToken?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-
-        return Ok(new
-        {
-            Message = "This is a protected endpoint!",
-            User = username,
-            Role = role,
-            RedirectUrl = "/dashboard"
-        });
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpGet("admin-only")]
-    public IActionResult AdminEndpoint()
-    {
-        return Ok(new { Message = "Only Admins can see this!" });
-    }
-}
-5️⃣ JWT & Authentication Configuration
-Update Program.cs to configure JWT and Role-based Authorization.
-
-Program.cs
-csharp
-Copy code
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using YourProject.Services;
-using System.Text;
-
-var builder = WebApplication.CreateBuilder(args);
-
-// Add services
-builder.Services.AddControllers();
-builder.Services.AddScoped<IAuthService, AuthService>();
-
-// JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.RequireHttpsMetadata = false;
-        options.SaveToken = true;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
-            ValidateIssuer = true,
-            ValidateAudience = false,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            RoleClaimType = ClaimTypes.Role
-        };
+        // Get URL parameters for sorting
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(window.location.href);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
     });
+</script>
+Final Outcome
+Pagination: Displays 5 items per page with Next and Previous buttons.
+Search: Filters items dynamically as you type.
+Sorting: Clicking on Item Name or Rate headers sorts the items.
+This ensures that only the menu items section updates without reloading the entire page.
 
-builder.Services.AddAuthorization();
-
-var app = builder.Build();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-app.Run();
-6️⃣ appsettings.json
-Add JWT settings.
-
-json
-Copy code
-{
-  "Jwt": {
-    "Key": "YourSecretKeyHere",
-    "Issuer": "YourApp"
-  }
-}
-7️⃣ Frontend: Send JWT Token in Requests
-After login, store the token.
-
-javascript
-Copy code
-localStorage.setItem("jwtToken", data.Token);
-For protected API calls:
-
-javascript
-Copy code
-fetch("https://yourapi.com/api/protected", {
-    method: "GET",
-    headers: { "Authorization": "Bearer " + localStorage.getItem("jwtToken") }
-})
-.then(response => response.json())
-.then(data => console.log(data));
-✅ Summary
-Component	Implementation
-User Login	AuthController
-JWT Generation & Validation	AuthService
-Role-Based Access	[Authorize(Roles = "Admin")]
-Protected Routes	ProtectedController
-JWT Middleware	Program.cs
-This implementation ensures secure authentication, role-based access, session management, and JWT validation. 🚀 Let me know if you need modifications!
-
-
-
-
-
-
+Let me know if you need modifications!
