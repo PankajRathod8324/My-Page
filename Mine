@@ -1,111 +1,118 @@
-To implement pagination, search, and sorting only on the menu items section in your _MenuItemsPV.cshtml partial view, follow these steps:
+achieve pagination, searching, and sorting for items under a selected category in your ASP.NET MVC project, follow these steps:
 
-1. Modify Your Controller
-Update your MenuController to support pagination, search, and sorting.
+1. Update the Controller (MenuController.cs)
+Modify your MenuItem action to handle pagination, searching, and sorting dynamically.
 
-Controller Code (MenuController.cs)
+Controller Action
 csharp
 Copy code
 using X.PagedList;
-using X.PagedList.Mvc.Core;
+using X.PagedList.Mvc;
 
-public IActionResult MenuItem(int? page, string search, string sortOrder)
+public ActionResult MenuItem(int categoryId, string search = "", int page = 1, string sortOrder = "")
 {
     int pageSize = 5; // Number of items per page
-    int pageNumber = (page ?? 1); // Default to page 1 if not provided
 
-    var menuItems = _context.MenuItems.AsQueryable(); // Fetch data from DB
+    var items = db.MenuItems.Where(i => i.CategoryId == categoryId);
 
-    // Search functionality
+    // Search filter
     if (!string.IsNullOrEmpty(search))
     {
-        menuItems = menuItems.Where(m => m.ItemName.Contains(search));
+        items = items.Where(i => i.ItemName.Contains(search));
     }
 
-    // Sorting functionality
+    // Sorting
+    ViewBag.NameSort = sortOrder == "name_asc" ? "name_desc" : "name_asc";
+    ViewBag.RateSort = sortOrder == "rate_asc" ? "rate_desc" : "rate_asc";
+
     switch (sortOrder)
     {
+        case "name_asc":
+            items = items.OrderBy(i => i.ItemName);
+            break;
         case "name_desc":
-            menuItems = menuItems.OrderByDescending(m => m.ItemName);
+            items = items.OrderByDescending(i => i.ItemName);
             break;
-        case "price_asc":
-            menuItems = menuItems.OrderBy(m => m.Rate);
+        case "rate_asc":
+            items = items.OrderBy(i => i.Rate);
             break;
-        case "price_desc":
-            menuItems = menuItems.OrderByDescending(m => m.Rate);
+        case "rate_desc":
+            items = items.OrderByDescending(i => i.Rate);
             break;
         default:
-            menuItems = menuItems.OrderBy(m => m.ItemName); // Default sorting by name
+            items = items.OrderBy(i => i.ItemId);
             break;
     }
 
-    var pagedItems = menuItems.ToPagedList(pageNumber, pageSize);
+    // Apply pagination
+    var pagedItems = items.ToPagedList(page, pageSize);
 
-    return PartialView("_MenuItemsPV", pagedItems); // Return only the partial view
+    var viewModel = new MenuCategoryVM
+    {
+        menuItems = pagedItems
+    };
+
+    return PartialView("_MenuItemsPV", viewModel);
 }
 2. Modify _MenuItemsPV.cshtml
-Now update your partial view to use pagination and sorting.
+Add search, sorting, and pagination controls.
 
 Updated _MenuItemsPV.cshtml
 html
 Copy code
 @using X.PagedList.Mvc.Core
-@model IPagedList<DAL.ViewModel.MenuItemVM>
+@model DAL.ViewModel.MenuCategoryVM
 
-<table id="table" class="table align-middle table-hover bg-white">
-    <thead class="bg-light">
+<form id="searchForm">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <input type="text" name="search" id="searchInput" class="form-control" placeholder="Search Item"
+                value="@Context.Request.Query["search"]">
+        </div>
+        <div class="col-md-3">
+            <select id="sortOrder" class="form-control">
+                <option value="">Sort By</option>
+                <option value="name_asc" selected="@((Context.Request.Query["sortOrder"] == "name_asc") ? "selected" : null)">Name Ascending</option>
+                <option value="name_desc" selected="@((Context.Request.Query["sortOrder"] == "name_desc") ? "selected" : null)">Name Descending</option>
+                <option value="rate_asc" selected="@((Context.Request.Query["sortOrder"] == "rate_asc") ? "selected" : null)">Rate Ascending</option>
+                <option value="rate_desc" selected="@((Context.Request.Query["sortOrder"] == "rate_desc") ? "selected" : null)">Rate Descending</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary">Search</button>
+            <button type="button" class="btn btn-secondary" id="clearSearch">Clear</button>
+        </div>
+    </div>
+</form>
+
+<table class="table table-hover">
+    <thead>
         <tr>
-            <th><input type="checkbox" class="me-2" id="selectAll" style="width: 16px; height: 16px;" />Name</th>
-            <th>
-                <a href="?sortOrder=@(ViewBag.SortOrder == "name_asc" ? "name_desc" : "name_asc")">
-                    Item Name
-                </a>
-            </th>
-            <th>
-                <a href="?sortOrder=@(ViewBag.SortOrder == "price_asc" ? "price_desc" : "price_asc")">
-                    Rate
-                </a>
-            </th>
+            <th>Name</th>
+            <th>Item Type</th>
+            <th>Rate</th>
             <th>Quantity</th>
             <th>Available</th>
             <th>Action</th>
         </tr>
     </thead>
     <tbody>
-        @foreach (var menuitem in Model)
+        @foreach (var item in Model.menuItems)
         {
-            <tr class="tblclass" data-id="@menuitem.ItemId">
+            <tr>
+                <td>@item.ItemName</td>
                 <td>
-                    <div class="d-flex align-items-center">
-                        <input type="checkbox" name="chkItem" class="checkclass" />
-                        <img src="~/assest/dining-menu.png" alt="" style="width: 45px; height: 45px"
-                            class="rounded-circle ms-2" />
-                        <div class="ms-3">
-                            <p class="text-secondary mb-1">@menuitem.ItemName</p>
-                        </div>
-                    </div>
+                    <img src="~/assest/icons/@(item.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
+                        style="width: 20px; height: 20px;" />
+                </td>
+                <td>@item.Rate</td>
+                <td>@item.Quantity</td>
+                <td>
+                    <input type="checkbox" @(item.IsAvailable ?? false ? "checked" : "") />
                 </td>
                 <td>
-                    <img src="~/assest/icons/@(menuitem.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
-                        style="width: 20px; height: 20px" class="rounded-circle" />
-                </td>
-                <td>
-                    <p class="fw-normal mb-1">@menuitem.Rate</p>
-                </td>
-                <td>
-                    <p class="fw-normal mb-1">@menuitem.Quantity</p>
-                </td>
-                <td class="text-center">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input canView" type="checkbox" id="toggleSwitch"
-                            @(menuitem.IsAvailable ?? false ? "checked" : "")>
-                    </div>
-                </td>
-                <td>
-                    <i class="fa-solid fa-marker" data-bs-toggle="modal" data-bs-target="#editMenuItemModal"
-                        onclick="editItem(@menuitem.ItemId)"></i>
-                    <i class="fa-regular fa-trash-can ms-4" data-bs-toggle="modal" data-bs-target="#editMenuItemModal"
-                        onclick="editItem(@menuitem.ItemId)"></i>
+                    <i class="fa-solid fa-marker" onclick="editItem(@item.ItemId)"></i>
+                    <i class="fa-regular fa-trash-can ms-4" onclick="deleteItem(@item.ItemId)"></i>
                 </td>
             </tr>
         }
@@ -113,62 +120,226 @@ Copy code
 </table>
 
 <!-- Pagination -->
-<div class="pagination-container">
-    @Html.PagedListPager(Model, page => Url.Action("MenuItem", new { page, search = ViewBag.Search, sortOrder = ViewBag.SortOrder }))
+<div class="d-flex justify-content-center">
+    @Html.PagedListPager(Model.menuItems, page => Url.Action("MenuItem",
+    new { categoryId = Context.Request.Query["categoryId"], search = Context.Request.Query["search"], sortOrder = Context.Request.Query["sortOrder"], page }),
+    new PagedListRenderOptions { Display = PagedListDisplayMode.IfNeeded })
 </div>
-3. Update menuCategoryPV.cshtml to Support AJAX Pagination
-Modify the search and pagination so that they work asynchronously.
 
-Modify the Search and Sorting Form
+<script>
+    $(document).ready(function () {
+        // Handle category click
+        $(".category-link").on("click", function () {
+            var categoryId = $(this).data("id");
+            loadMenuItems(categoryId);
+        });
+
+        // Handle search and sorting
+        $("#searchForm").on("submit", function (e) {
+            e.preventDefault();
+            var categoryId = $(".category-link.active").data("id");
+            var search = $("#searchInput").val();
+            var sortOrder = $("#sortOrder").val();
+            loadMenuItems(categoryId, 1, search, sortOrder);
+        });
+
+        // Clear search
+        $("#clearSearch").on("click", function () {
+            $("#searchInput").val("");
+            $("#sortOrder").val("");
+            $("#searchForm").submit();
+        });
+    });
+
+    function loadMenuItems(categoryId, page = 1, search = "", sortOrder = "") {
+        $.ajax({
+            url: '@Url.Action("MenuItem", "Menu")',
+            type: 'GET',
+            data: { categoryId: categoryId, search: search, sortOrder: sortOrder, page: page },
+            success: function (data) {
+                $("#menuItemsContainer").html(data);
+            },
+            error: function (xhr, status, error) {
+                console.error('Error fetching items:', error);
+            }
+        });
+    }
+</script>
+3. Update MenuCategoryPV.cshtml to Handle Category Click
+Ensure category selection loads the relevant items dynamically.
+
+Modify Category List in MenuCategoryPV.cshtml
 html
 Copy code
-<form id="searchForm">
-    <div class="row d-flex mb-2 align-item-center justify-content-center ms-0 me-0 rounded">
+@foreach (var category in Model.menuCategories)
+{
+    <div class="row hoverDiv">
         <div class="col">
-            <h1 class="">Items </h1>
+            <p class="fs-5 category-link" data-id="@category.CategoryId">
+                <i class="fa-solid fa-grip-vertical me-2"></i>@category.CategoryName
+            </p>
         </div>
-        <div class="col-5 d-flex align-items-center gap-3 justify-content-end pe-0">
-            <input class="form-control d-inline w-auto" type="search" id="searchBox" name="search"
-                placeholder="Search by Item Name">
+    </div>
+}
+4. How It Works
+When you click a category, the MenuItem action loads relevant menu items dynamically using AJAX.
+Searching and Sorting updates the table without a full page reload.
+Pagination ensures only a limited number of items appear per page.
+Clear Search resets the filters.
+Outcome
+Clicking a category dynamically loads only relevant items.
+Users can search, sort, and navigate through paginated results.
+The entire process happens without refreshing the page.
+This ensures a smooth user experience while maintaining efficiency in data retrieval and display. Let me know if you need any refinements!
+
+
+
+
+
+
+You said:
+My table is only in other partial view the search and that is in category partial view so according to that give me code
+ChatGPT said:
+Since your table (menu items) is in one partial view (_MenuItemsPV.cshtml) and the search bar (filters) is in another partial view (_MenuCategoryPV.cshtml), I'll modify the implementation accordingly.
+
+Here's how we'll set it up:
+
+Clicking on a category will load the corresponding menu items dynamically.
+Search and sorting inputs (in _MenuCategoryPV.cshtml) will update the items list in _MenuItemsPV.cshtml without reloading the page.
+Pagination will work dynamically and maintain the selected filters.
+1. Modify the Controller (MenuController.cs)
+Ensure that search, sorting, and pagination are handled properly.
+
+Updated MenuItem Action
+csharp
+Copy code
+using X.PagedList;
+
+public ActionResult MenuItem(int categoryId, string search = "", int page = 1, string sortOrder = "")
+{
+    int pageSize = 5; // Number of items per page
+
+    var items = db.MenuItems.Where(i => i.CategoryId == categoryId);
+
+    // Apply search filter
+    if (!string.IsNullOrEmpty(search))
+    {
+        items = items.Where(i => i.ItemName.Contains(search));
+    }
+
+    // Sorting logic
+    ViewBag.NameSort = sortOrder == "name_asc" ? "name_desc" : "name_asc";
+    ViewBag.RateSort = sortOrder == "rate_asc" ? "rate_desc" : "rate_asc";
+
+    switch (sortOrder)
+    {
+        case "name_asc":
+            items = items.OrderBy(i => i.ItemName);
+            break;
+        case "name_desc":
+            items = items.OrderByDescending(i => i.ItemName);
+            break;
+        case "rate_asc":
+            items = items.OrderBy(i => i.Rate);
+            break;
+        case "rate_desc":
+            items = items.OrderByDescending(i => i.Rate);
+            break;
+        default:
+            items = items.OrderBy(i => i.ItemId);
+            break;
+    }
+
+    // Apply pagination
+    var pagedItems = items.ToPagedList(page, pageSize);
+
+    var viewModel = new MenuCategoryVM
+    {
+        menuItems = pagedItems
+    };
+
+    return PartialView("_MenuItemsPV", viewModel);
+}
+2. Modify _MenuCategoryPV.cshtml (Category & Search UI)
+Since your search bar is in this partial view, we will trigger updates for the table dynamically.
+
+Updated _MenuCategoryPV.cshtml
+html
+Copy code
+@model DAL.ViewModel.MenuCategoryVM
+
+<!-- Category List -->
+@foreach (var category in Model.menuCategories)
+{
+    <div class="row hoverDiv">
+        <div class="col">
+            <p class="fs-5 category-link" data-id="@category.CategoryId">
+                <i class="fa-solid fa-grip-vertical me-2"></i>@category.CategoryName
+            </p>
+        </div>
+    </div>
+}
+
+<!-- Search and Sorting -->
+<form id="searchForm">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <input type="text" name="search" id="searchInput" class="form-control" placeholder="Search Item">
+        </div>
+        <div class="col-md-3">
+            <select id="sortOrder" class="form-control">
+                <option value="">Sort By</option>
+                <option value="name_asc">Name Ascending</option>
+                <option value="name_desc">Name Descending</option>
+                <option value="rate_asc">Rate Ascending</option>
+                <option value="rate_desc">Rate Descending</option>
+            </select>
+        </div>
+        <div class="col-md-3">
             <button type="submit" class="btn btn-primary">Search</button>
+            <button type="button" class="btn btn-secondary" id="clearSearch">Clear</button>
         </div>
     </div>
 </form>
-4. Add AJAX for Pagination, Search, and Sorting
-Modify your JavaScript to fetch the data dynamically.
 
-JavaScript Code
-html
-Copy code
 <script>
     $(document).ready(function () {
-        // Fetch initial data
-        fetchMenuItems();
+        var selectedCategoryId = null;
 
-        // Handle search form submission
-        $("#searchForm").submit(function (event) {
-            event.preventDefault();
-            fetchMenuItems();
+        // Handle category click
+        $(".category-link").on("click", function () {
+            selectedCategoryId = $(this).data("id");
+            $(".category-link").removeClass("active");
+            $(this).addClass("active");
+            loadMenuItems();
         });
 
-        // Handle pagination clicks
-        $(document).on("click", ".pagination-container a", function (event) {
-            event.preventDefault();
-            var page = $(this).attr("href").split("=")[1];
-            fetchMenuItems(page);
+        // Handle search and sorting
+        $("#searchForm").on("submit", function (e) {
+            e.preventDefault();
+            loadMenuItems();
         });
 
-        // Fetch menu items with AJAX
-        function fetchMenuItems(page = 1) {
-            var search = $("#searchBox").val();
-            var sortOrder = getUrlParameter('sortOrder') || '';
+        // Clear search
+        $("#clearSearch").on("click", function () {
+            $("#searchInput").val("");
+            $("#sortOrder").val("");
+            $("#searchForm").submit();
+        });
+
+        // Load menu items dynamically
+        function loadMenuItems(page = 1) {
+            if (!selectedCategoryId) return;
+
+            var search = $("#searchInput").val();
+            var sortOrder = $("#sortOrder").val();
 
             $.ajax({
                 url: '@Url.Action("MenuItem", "Menu")',
                 type: 'GET',
-                data: { page: page, search: search, sortOrder: sortOrder },
+                data: { categoryId: selectedCategoryId, search: search, sortOrder: sortOrder, page: page },
                 success: function (data) {
-                    $('#menuItemsContainer').html(data);
+                    $("#menuItemsContainer").html(data);
                 },
                 error: function (xhr, status, error) {
                     console.error('Error fetching items:', error);
@@ -176,19 +347,70 @@ Copy code
             });
         }
 
-        // Get URL parameters for sorting
-        function getUrlParameter(name) {
-            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-            var results = regex.exec(window.location.href);
-            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-        }
+        // Handle pagination click dynamically
+        $(document).on("click", ".pagination a", function (e) {
+            e.preventDefault();
+            var page = $(this).attr("href").split("page=")[1];
+            loadMenuItems(page);
+        });
     });
 </script>
-Final Outcome
-Pagination: Displays 5 items per page with Next and Previous buttons.
-Search: Filters items dynamically as you type.
-Sorting: Clicking on Item Name or Rate headers sorts the items.
-This ensures that only the menu items section updates without reloading the entire page.
+3. Modify _MenuItemsPV.cshtml (Table & Pagination)
+This partial view only contains the table and pagination.
 
-Let me know if you need modifications!
+Updated _MenuItemsPV.cshtml
+html
+Copy code
+@using X.PagedList.Mvc.Core
+@model DAL.ViewModel.MenuCategoryVM
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Item Type</th>
+            <th>Rate</th>
+            <th>Quantity</th>
+            <th>Available</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model.menuItems)
+        {
+            <tr>
+                <td>@item.ItemName</td>
+                <td>
+                    <img src="~/assest/icons/@(item.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
+                        style="width: 20px; height: 20px;" />
+                </td>
+                <td>@item.Rate</td>
+                <td>@item.Quantity</td>
+                <td>
+                    <input type="checkbox" @(item.IsAvailable ?? false ? "checked" : "") />
+                </td>
+                <td>
+                    <i class="fa-solid fa-marker" onclick="editItem(@item.ItemId)"></i>
+                    <i class="fa-regular fa-trash-can ms-4" onclick="deleteItem(@item.ItemId)"></i>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Pagination -->
+<div class="d-flex justify-content-center">
+    @Html.PagedListPager(Model.menuItems, page => "javascript:loadMenuItems(" + page + ")",
+    new PagedListRenderOptions { Display = PagedListDisplayMode.IfNeeded })
+</div>
+4. How It Works
+Clicking a category loads the corresponding items dynamically.
+Typing in the search bar and submitting the form updates the table dynamically.
+Sorting and filtering options update the table without refreshing the page.
+Pagination works dynamically while keeping search and sorting filters intact.
+Final Setup
+✅ _MenuCategoryPV.cshtml → Handles categories, search, and sorting.
+✅ _MenuItemsPV.cshtml → Displays menu items & pagination dynamically.
+✅ AJAX ensures a smooth experience without full page reloads.
+
+This setup ensures everything updates dynamically while maintaining category selection, search, sorting, and pagination seamlessly. Let me know if you need any tweaks!
