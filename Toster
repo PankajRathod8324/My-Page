@@ -1,4 +1,12 @@
-@using X.PagedList
+CREATE TABLE ItemModifierGroup (
+    item_id INT NOT NULL,  -- Existing Item ID (NO DUPLICATION)
+    modifier_group_id INT NOT NULL,
+    min_selection INT DEFAULT NULL,  -- Can override ModifierGroup min
+    max_selection INT DEFAULT NULL,  -- Can override ModifierGroup max
+    PRIMARY KEY (item_id, modifier_group_id),
+    FOREIGN KEY (item_id) REFERENCES Item(id) ON DELETE CASCADE,
+    FOREIGN KEY (modifier_group_id) REFERENCES ModifierGroup(id) ON DELETE CASCADE
+);@using X.PagedList
 @using X.PagedList.Mvc
 
 @model DAL.ViewModel.MenuCategoryVM
