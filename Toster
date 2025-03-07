@@ -1,4 +1,134 @@
-CREATE TABLE ItemModifierGroup (
+Data Access Layer (DAL) - Repository
+ItemRepository.cs
+csharp
+Copy code
+public class ItemRepository : IItemRepository
+{
+    private readonly AppDbContext _context;
+
+    public ItemRepository(AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<int> AddItemWithModifiersAsync(Item item, List<ItemModifierGroup> modifiers)
+    {
+        using (var transaction = await _context.Database.BeginTransactionAsync())
+        {
+            try
+            {
+                // Step 1: Add Item
+                _context.Items.Add(item);
+                await _context.SaveChangesAsync();
+
+                // Step 2: Add Modifier Groups
+                foreach (var modifier in modifiers)
+                {
+                    modifier.ItemId = item.Id; // Use the new item ID
+                    _context.ItemModifierGroups.Add(modifier);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return item.Id;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+    }
+}
+3️⃣ Business Logic Layer (BLL) - Service
+ItemService.cs
+csharp
+Copy code
+public class ItemService : IItemService
+{
+    private readonly IItemRepository _itemRepository;
+
+    public ItemService(IItemRepository itemRepository)
+    {
+        _itemRepository = itemRepository;
+    }
+
+    public async Task<int> CreateItemWithModifiersAsync(string itemName, List<ModifierGroupDto> modifiers)
+    {
+        var item = new Item { Name = itemName };
+        var itemModifiers = modifiers.Select(m => new ItemModifierGroup
+        {
+            ModifierGroupId = m.Id,
+            MinSelection = m.MinSelection,
+            MaxSelection = m.MaxSelection
+        }).ToList();
+
+        return await _itemRepository.AddItemWithModifiersAsync(item, itemModifiers);
+    }
+}
+4️⃣ Presentation Layer (Controller)
+ItemController.cs
+csharp
+Copy code
+[ApiController]
+[Route("api/[controller]")]
+public class ItemController : ControllerBase
+{
+    private readonly IItemService _itemService;
+
+    public ItemController(IItemService itemService)
+    {
+        _itemService = itemService;
+    }
+
+    [HttpPost("add")]
+    public async Task<IActionResult> AddItemWithModifiers([FromBody] ItemRequestDto request)
+    {
+        var itemId = await _itemService.CreateItemWithModifiersAsync(request.ItemName, request.Modifiers);
+        return Ok(new { itemId });
+    }
+}
+5️⃣ DTOs (For Clean Data Transfer)
+ItemRequestDto.cs
+csharp
+Copy code
+public class ItemRequestDto
+{
+    public string ItemName { get; set; }
+    public List<ModifierGroupDto> Modifiers { get; set; }
+}
+ModifierGroupDto.cs
+csharp
+Copy code
+public class ModifierGroupDto
+{
+    public int Id { get; set; }
+    public int MinSelection { get; set; }
+    public int MaxSelection { get; set; }
+}
+6️⃣ API Request Example (POST Request)
+POST /api/item/add
+json
+Copy code
+{
+  "itemName": "Pizza",
+  "modifiers": [
+    { "id": 1, "minSelection": 1, "maxSelection": 3 },
+    { "id": 2, "minSelection": 2, "maxSelection": 5 }
+  ]
+}
+7️⃣ Summary (N-Tier Breakdown)
+Layer	Responsibilities
+Database (PostgreSQL)	Stores Item, ModifierGroup, ItemModifierGroup
+Repository Layer (DAL)	Handles direct database operations using EF Core
+Service Layer (BLL)	Business logic: Processes input, validates data, calls DAL
+Controller (Presentation Layer)	Handles API requests, interacts with the service layer
+🔥 Benefits of This Approach
+✅ Clean N-Tier Separation → Makes it easier to maintain and test.
+✅ Transactional Safety → Ensures both Item & ModifierGroups are inserted together.
+✅ Scalability → Can be extended to update, delete, or fetch items with modifiers.
+
+Let me know if you need modifications! 🚀CREATE TABLE ItemModifierGroup (
     item_id INT NOT NULL,  -- Existing Item ID (NO DUPLICATION)
     modifier_group_id INT NOT NULL,
     min_selection INT DEFAULT NULL,  -- Can override ModifierGroup min
