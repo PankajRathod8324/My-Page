@@ -1,3 +1,26 @@
+    function loadMenuItems(page = 1) {
+                @* if (!selectedCategoryId) return; *@
+
+                var search = $("#searchInput").val();
+                var sortOrder = $("#sortOrder").val();
+@*                
+                console.log(search);
+                console.log(sortOrder); *@
+                console.log(selectedCategoryId);
+                $.ajax({
+                    url: '@Url.Action("MenuItem", "Menu")',
+                    type: 'GET',
+                    data: { categoryId: selectedCategoryId, search: search, sortOrder: sortOrder, page: page },
+                    success: function (data) {
+                        $("#menuItemsContainer").html(data);
+                         console.log(selectedCategoryId+"Hello");
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Error fetching items:', error);
+                    }
+                });
+            }
+
 paginate using the "Next" and "Previous" buttons, the href in @Url.Action("Userpage", ...) changes the route to "Userpage", which is why your URL changes from "home/menu" to "Userpage".
 
 Since you're using a partial view, you likely want to update only the partial content without changing the URL. You can achieve this using AJAX instead of full-page reloads.
