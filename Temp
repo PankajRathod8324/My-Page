@@ -1,629 +1,117 @@
-You can use AJAX with a Partial View to update only the results without refreshing the entire page when the search icon is clicked.
+paginate using the "Next" and "Previous" buttons, the href in @Url.Action("Userpage", ...) changes the route to "Userpage", which is why your URL changes from "home/menu" to "Userpage".
 
-✅ Steps to Implement AJAX Search with Partial View
-Use a Partial View (_MenuItemsPartial.cshtml) for paginated results.
-Use jQuery AJAX to call the action when the search button is clicked.
-Return only the filtered data in Partial View, preventing page refresh.
-1. Modify Your Controller (MenuController.cs)
-Update your action method to return a Partial View when AJAX is used.
+Since you're using a partial view, you likely want to update only the partial content without changing the URL. You can achieve this using AJAX instead of full-page reloads.
 
-csharp
-Copy code
-public IActionResult Index(string searchTerm, int? page)
-{
-    var pageNumber = page ?? 1;
-    var pageSize = 10;
+Solution: Use AJAX to Load the Partial View Dynamically
+Instead of using @Url.Action(...) directly in <a> tags, use JavaScript to send an AJAX request when pagination or pageSize changes.
 
-    // Fetch all units for mapping
-    var unitList = db.Units.ToList();
-
-    // Filter items based on search term
-    var filteredItems = db.MenuItems
-        .Where(m => string.IsNullOrEmpty(searchTerm) || m.ItemName.Contains(searchTerm))
-        .Select(item => new MenuItem
-        {
-            ItemId = item.ItemId,
-            ItemName = item.ItemName,
-            UnitId = item.UnitId,
-            UnitName = unitList.FirstOrDefault(u => u.UnitId == item.UnitId)?.UnitName
-        })
-        .ToPagedList(pageNumber, pageSize); // Apply pagination
-
-    // Create ViewModel
-    MenuCategoryVM itemvm = new MenuCategoryVM
-    {
-        menuItems = filteredItems
-    };
-
-    // If AJAX request, return only the partial view
-    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-    {
-        return PartialView("_MenuItemsPartial", itemvm);
-    }
-
-    return View(itemvm);
-}
-2. Create a Partial View (_MenuItemsPartial.cshtml)
-This only contains the table, and it will be updated via AJAX.
+1. Modify Your View to Use AJAX
+Replace Pagination Links and Page Size Dropdown
+Modify your HTML to trigger an AJAX request instead of a full-page reload.
 
 html
 Copy code
-@model MenuCategoryVM
+<div class="d-flex justify-content-end align-items-center my-3 gap-2">
+    <form id="paginationForm" method="get" class="d-flex align-items-center me-3">
+        <span class="me-2">Items per page:</span>
+        <select name="pageSize" class="form-select form-select-sm w-auto me-3" id="pageSizeDropdown">
+            <option value="5" @(Context.Request.Query["pageSize"] == "5" ? "selected" : "")>5</option>
+            <option value="10" @(Context.Request.Query["pageSize"] == "10" ? "selected" : "")>10</option>
+            <option value="15" @(Context.Request.Query["pageSize"] == "15" ? "selected" : "")>15</option>
+            <option value="20" @(Context.Request.Query["pageSize"] == "20" ? "selected" : "")>20</option>
+        </select>
 
-<table>
-    <thead>
-        <tr>
-            <th>Item Name</th>
-            <th>Unit Name</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model.menuItems)
-        {
-            <tr>
-                <td>@item.ItemName</td>
-                <td>@item.UnitName</td>
-            </tr>
-        }
-    </tbody>
-</table>
+        <!-- Pagination Summary -->
+        <span id="pagination-summary" class="text-muted">
+            Showing @(Model.PageSize * (Model.PageNumber - 1) + 1)
+            - @((Model.PageSize * Model.PageNumber) > Model.TotalItemCount ? Model.TotalItemCount :
+                                (Model.PageSize * Model.PageNumber))
+            of @Model.TotalItemCount results
+        </span>
+    </form>
 
-<!-- Pagination UI (works with AJAX) -->
-@Html.PagedListPager(Model.menuItems, page => "javascript:loadPage('" + page + "')")
-3. Modify Main View (Index.cshtml)
-Include Search Input and jQuery AJAX.
+    <!-- Previous Button -->
+    <button id="prevPage" class="btn btn-outline-dark @(Model.HasPreviousPage ? "" : "disabled")">
+        <i class="fa-solid fa-chevron-left"></i>
+    </button>
 
-html
-Copy code
-@model MenuCategoryVM
-
-<input type="text" id="searchBox" placeholder="Search Item" />
-<button type="button" id="searchButton">Search</button>
-
-<!-- Partial View Container -->
-<div id="menuItemsContainer">
-    @Html.Partial("_MenuItemsPartial", Model)
+    <!-- Next Button -->
+    <button id="nextPage" class="btn btn-outline-dark @(Model.HasNextPage ? "" : "disabled")">
+        <i class="fa-solid fa-chevron-right"></i>
+    </button>
 </div>
 
-<!-- jQuery AJAX to Handle Search & Pagination -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function () {
-        // Search event
-        $("#searchButton").click(function () {
-            loadPage(1); // Always reset to first page on new search
+<!-- Partial View Container -->
+<div id="partialViewContainer">
+    @await Html.PartialAsync("_YourPartialView")
+</div>
+2. Use AJAX to Load Partial View Dynamically
+Add this JavaScript at the end of your view (or in a separate file):
+
+javascript
+Copy code
+$(document).ready(function () {
+    function loadPartialView(page, pageSize) {
+        $.ajax({
+            url: "/home/menu",  // Keep the route unchanged
+            type: "GET",
+            data: {
+                page: page,
+                pageSize: pageSize,
+                search: new URLSearchParams(window.location.search).get("search"),
+                filterBy: new URLSearchParams(window.location.search).get("filterBy"),
+                sortBy: new URLSearchParams(window.location.search).get("sortBy")
+            },
+            success: function (data) {
+                $("#partialViewContainer").html($(data).find("#partialViewContainer").html());
+            },
+            error: function () {
+                alert("Failed to load data. Please try again.");
+            }
         });
+    }
 
-        // Function to load data via AJAX
-        function loadPage(page) {
-            var searchTerm = $("#searchBox").val();
+    // Handle Page Size Change
+    $("#pageSizeDropdown").change(function () {
+        let pageSize = $(this).val();
+        loadPartialView(1, pageSize); // Reset to page 1 when changing page size
+    });
 
-            $.ajax({
-                url: '@Url.Action("Index", "Menu")',
-                type: 'GET',
-                data: { searchTerm: searchTerm, page: page },
-                success: function (data) {
-                    $("#menuItemsContainer").html(data); // Update partial view
-                }
-            });
+    // Handle Pagination
+    $("#prevPage").click(function () {
+        let currentPage = parseInt(new URLSearchParams(window.location.search).get("page") || 1);
+        if (currentPage > 1) {
+            loadPartialView(currentPage - 1, $("#pageSizeDropdown").val());
         }
     });
-</script>
-🚀 How This Works
-✔ No Page Refresh – AJAX updates only the results.
-✔ Search Functionality – Searches dynamically without full-page reload.
-✔ Pagination Works – Clicking a page updates results via AJAX.
-✔ Partial View Reusability – You can reuse _MenuItemsPartial.cshtml anywhere.
 
-Now, your search and pagination will work smoothly without refreshing the page! 🚀 Let me know if you need further improvements.IPagedList<MenuCategoryVM>' does not contain a definition for 'menuitem' and no accessible extension method 'menuitem' accepting a first argument of type 'IPagedList<MenuCategoryVM>' could be found (are you missing a using directive or an assembly reference?)C
-// Project to ViewModel before pagination
-        var userViewModels = filtereditems
-            .Select(u => new MenuCategoryVM
-            {
-                menuItems = items
-               
-            }).ToPagedList(pageNumber, pageSize);
-
-
-        foreach (var item in filtereditems)
-        {
-            Console.WriteLine(item.ItemName);
-        }
-
-        MenuCategoryVM itemvm = new MenuCategoryVM
-        {
-            menuItems = (List<MenuItem>)filtereditems
-        };
-
-@using X.PagedList.Mvc.Core
-@model X.PagedList.IPagedList<DAL.ViewModel.UserViewModel>
-
-@{
-    ViewData["Title"] = "User Page";
-    if (TempData["Message"] != null)
-    {  
-        <div class="alert alert-@TempData["MessageType"]">@TempData["Message"]</div>
-    }
-}
-
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Page</title>
-    <link rel="stylesheet" href="~/css/style.css">
-    <link rel="stylesheet" href="~/css/media.css">
-    <link rel='stylesheet' href='https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css'>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
-   
-</head>
-
-<body class="bg-body-tertiary">
-
-    <!-- Overlay for small screens -->
-    <div class="overlay" id="overlay"></div>
-
-    <div class="content mt-2" id="content">
-        <!-- Main content goes here -->
-        <form method="get">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <input class="form-control d-inline w-auto" type="search" name="search"
-                        placeholder="Search by First Name" value="@Context.Request.Query["search"]">
-                    <select name="filterBy" class="form-select d-inline w-auto">
-                        <option value="">All Users</option>
-                        <option value="Active"
-                            selected="@(Context.Request.Query["filterBy"] == "Active" ? "selected" : null)">Active
-                        </option>
-                        <option value="Inactive"
-                            selected="@(Context.Request.Query["filterBy"] == "Inactive" ? "selected" : null)">Inactive
-                        </option>
-                    </select>
-                    <select name="pageSize" class="form-select d-inline w-auto" onchange="this.form.submit()">
-                        <option value="5" selected="@(Context.Request.Query["pageSize"] == "5" ? "selected" : null)">5
-                        </option>
-                        <option value="10" selected="@(Context.Request.Query["pageSize"] == "10" ? "selected" : null)">
-                            10</option>
-                        <option value="15" selected="@(Context.Request.Query["pageSize"] == "15" ? "selected" : null)">
-                            15</option>
-                    </select>
-                    <button type="submit" class="btn btn-primary">Search</button>
-                </div>
-            </div>
-        </form>
-
-        <div class="datatable table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th><a asp-action="Userpage" asp-route-sortBy="@ViewBag.NameSort">Name</a></th>
-                        <th><a asp-action="Userpage" asp-route-sortBy="@ViewBag.EmailSort">Email</a></th>
-                        <th>Phone</th>
-                        <th>Role</th>
-                        <th><a asp-action="Userpage" asp-route-sortBy="@ViewBag.StatusSort">Status</a></th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var user in Model)
-                    {
-                        var modalId = "deleteModal" + user.UserId;
-                        <tr>
-                            <td>@user.FirstName</td>
-                            <td>@user.Email</td>
-                            <td>@user.Phone</td>
-                            <td>@user.RoleName</td>
-                            <td>
-                                @if (user.IsActive ?? false)
-                                {
-                                    <span class="badge bg-success">Active</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-danger">Inactive</span>
-                                }
-                            </td>
-                            <td>
-                                <a asp-action="Edituser" asp-route-id="@user.UserId">Edit</a>
-                                <a href="#" data-bs-toggle="modal" data-bs-target="#@modalId">Delete</a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        <div>
-            @Html.PagedListPager(Model, page => Url.Action("Userpage", new
-            {
-                search = Context.Request.Query["search"],
-                        filterBy = Context.Request.Query["filterBy"],
-                        sortBy = Context.Request.Query["sortBy"],
-                        pageSize = Context.Request.Query["pageSize"],
-                        page
-                        }), new PagedListRenderOptions
-            {
-                Display = PagedListDisplayMode.IfNeeded,
-                UlElementClasses = new[] { "pagination" },
-                LiElementClasses = new[] { "page-item" },
-                PageClasses = new[] { "page-link" }
-            })
-        </div>
-
-
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-        crossorigin="anonymous"></script>
-    <script src='https://code.jquery.com/jquery-3.7.0.js'></script>
-    @* <script src='https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js'></script>
-    <script src='https://cdn.datatables.net/responsive/2.1.0/js/dataTables.responsive.min.js'></script> *@
-    <script src='https://cdn.datatables.net/1.13.5/js/dataTables.bootstrap5.min.js'></script>
-    <script src="~/js/userPage.js"></script>
-</body>
-
-</html>
-
-
-
-    public async Task<IActionResult> Userpage(string search, string filterBy, string sortBy, int? page, int pageSize = 5)
-    {
-        int pageNumber = page ?? 1;
-
-        var filteredUsers = _userService.GetAllUsers().AsQueryable();
-
-        // Filtering
-        if (!string.IsNullOrEmpty(filterBy))
-        {
-            filteredUsers = filterBy switch
-            {
-                "Active" => filteredUsers.Where(u => u.IsActive == true),
-                "Inactive" => filteredUsers.Where(u => u.IsActive == false),
-                _ => filteredUsers
-            };
-        }
-
-        if (!string.IsNullOrEmpty(search))
-        {
-            filteredUsers = filteredUsers.Where(u => u.FirstName.ToLower().Contains(search.ToLower()));
-        }
-
-        // Sorting Logic
-        ViewBag.NameSort = string.IsNullOrEmpty(sortBy) ? "name_desc" : "";
-        ViewBag.EmailSort = sortBy == "email" ? "email_desc" : "email";
-        ViewBag.StatusSort = sortBy == "status" ? "status_desc" : "status";
-
-        filteredUsers = sortBy switch
-        {
-            "name_desc" => filteredUsers.OrderByDescending(u => u.FirstName),
-            "email" => filteredUsers.OrderBy(u => u.Email),
-            "email_desc" => filteredUsers.OrderByDescending(u => u.Email),
-            "status" => filteredUsers.OrderBy(u => u.IsActive),
-            "status_desc" => filteredUsers.OrderByDescending(u => u.IsActive),
-            _ => filteredUsers.OrderBy(u => u.UserId) // Default sorting
-        };
-
-        // Project to ViewModel before pagination
-        var userViewModels = filteredUsers
-            .Select(u => new UserViewModel
-            {
-                UserId = u.UserId,
-                FirstName = u.FirstName,
-                LastName = u.LastName,
-                Email = u.Email,
-                Phone = u.Phone,
-                Address = u.Address,
-                Password = u.Password,
-                IsActive = u.IsActive,
-                ProfilePhoto = u.ProfilePhoto,
-                RoleName = u.RoleId.HasValue ? _userService.GetRoleNameById(u.RoleId.Value) : "No Role"
-            }).ToPagedList(pageNumber, pageSize);
-
-        return View(userViewModels);
-    }
-
-
-Updated Controller Code
-csharp
-Copy
-Edit
-public IActionResult MenuModifier(int modifierId)
-{
-    var units = _menuService.GetAllUnits(); // Fetch Units from the database
-    var unitSelectList = units.Select(r => new SelectListItem
-    {
-        Value = r.UnitId.ToString(),
-        Text = r.UnitName
-    }).ToList();
-    ViewBag.Units = unitSelectList;
-
-    var modifiergroups = _menuService.GetAllModifierGroups(); // Fetch Modifier Groups from the database
-    var modifiergroupSelectList = modifiergroups.Select(r => new SelectListItem
-    {
-        Value = r.ModifierGroupId.ToString(),
-        Text = r.ModifierGroupName
-    }).ToList();
-    ViewBag.ModifierGroups = modifiergroupSelectList;
-
-    Console.WriteLine("Click this : " + modifierId);
-    
-    var modifiers = _menuService.GetModifiersByModifierGroupId(modifierId);
-
-    var modifierViewModels = modifiers.Select(m => new ModifierViewModel
-    {
-        ModifierId = m.ModifierId,
-        ModifierName = m.ModifierName,
-        UnitId = m.UnitId,
-        UnitName = m.UnitId.HasValue ? _menuService.GetUnitById(m.UnitId.Value)?.UnitName : "No Unit"
-    }).ToList();
-
-    foreach (var modifier in modifierViewModels)
-    {
-        Console.WriteLine($"Modifier: {modifier.ModifierName}, Unit: {modifier.UnitName}");
-    }
-
-    MenuModifierGroupVM modifiervm = new MenuModifierGroupVM
-    {
-        menuModifiers = modifierViewModels
-    };
-
-    return PartialView("_MenuModifierPV", modifiervm);
-}
-ViewModel Changes
-Since MenuModifierGroupVM doesn't include UnitName, create a new ModifierViewModel:
+    $("#nextPage").click(function () {
+        let currentPage = parseInt(new URLSearchParams(window.location.search).get("page") || 1);
+        loadPartialView(currentPage + 1, $("#pageSizeDropdown").val());
+    });
+});
+3. Modify Your Controller (HomeController.cs)
+Make sure your controller returns the partial view when it's an AJAX request:
 
 csharp
-Copy
-Edit
-public class ModifierViewModel
+Copy code
+public IActionResult Menu(int page = 1, int pageSize = 5, string search = "", string filterBy = "", string sortBy = "")
 {
-    public int ModifierId { get; set; }
-    public string ModifierName { get; set; }
-    public int? UnitId { get; set; }
-    public string UnitName { get; set; }
-}
-Why This Works?
-✅ Maps UnitName to UnitId dynamically.
-✅ Ensures UnitId exists before fetching UnitName.
-✅ Avoids null exceptions with ?. operator.
-✅ Improves readability by using ModifierViewModel.
-
-Let me know if you need more tweaks! 🚀
-
-here what is happening  when  i do any item edit or anything the page refress because they r all in partial view so it will in one page but i want not that
-ChatGPT said:
-If your partial views are causing a full-page refresh when editing or making changes, you should use AJAX to update only the relevant section dynamically without refreshing the whole page.
-
-Solution: AJAX with jQuery
-Load Partial View Dynamically
-Prevent Full Page Refresh
-Submit Forms Using AJAX
-Steps to Fix
-✅ Step 1: Modify Your MenuModifier Action
-Return the partial view only if it's an AJAX request.
-
-csharp
-Copy
-Edit
-public IActionResult MenuModifier(int modifierId)
-{
-    var units = _menuService.GetAllUnits();
-    var unitSelectList = units.Select(r => new SelectListItem
-    {
-        Value = r.UnitId.ToString(),
-        Text = r.UnitName
-    }).ToList();
-    ViewBag.Units = unitSelectList;
-
-    var modifiergroups = _menuService.GetAllModifierGroups();
-    var modifiergroupSelectList = modifiergroups.Select(r => new SelectListItem
-    {
-        Value = r.ModifierGroupId.ToString(),
-        Text = r.ModifierGroupName
-    }).ToList();
-    ViewBag.ModifierGroups = modifiergroupSelectList;
-
-    var modifiers = _menuService.GetModifiersByModifierGroupId(modifierId);
-
-    var modifierViewModels = modifiers.Select(m => new ModifierViewModel
-    {
-        ModifierId = m.ModifierId,
-        ModifierName = m.ModifierName,
-        UnitId = m.UnitId,
-        UnitName = m.UnitId.HasValue ? _menuService.GetUnitById(m.UnitId.Value)?.UnitName : "No Unit"
-    }).ToList();
-
-    var modifiervm = new MenuModifierGroupVM
-    {
-        menuModifiers = modifierViewModels
-    };
+    var model = _yourService.GetPagedData(page, pageSize, search, filterBy, sortBy);
 
     if (Request.Headers["X-Requested-With"] == "XMLHttpRequest") // Check if it's an AJAX request
     {
-        return PartialView("_MenuModifierPV", modifiervm);
+        return PartialView("_YourPartialView", model);
     }
 
-    return View(modifiervm); // If not AJAX, return the full page
+    return View(model);
 }
-✅ Step 2: Update Your View
-Use a div placeholder to load the partial view dynamically.
-
-html
-Copy
-Edit
-<div id="menuModifierContainer">
-    @Html.Partial("_MenuModifierPV", Model)
-</div>
-✅ Step 3: Use AJAX to Load Partial View
-Write this jQuery AJAX code to fetch and update the partial view without a full page refresh.
-
-html
-Copy
-Edit
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    function loadMenuModifier(modifierId) {
-        $.ajax({
-            url: '@Url.Action("MenuModifier", "YourController")', 
-            type: 'GET',
-            data: { modifierId: modifierId },
-            success: function (data) {
-                $('#menuModifierContainer').html(data); // Replace partial view content
-            },
-            error: function () {
-                alert("Failed to load data.");
-            }
-        });
-    }
-
-    // Example: Call this function on button click
-    $(document).on("click", ".edit-modifier", function () {
-        var modifierId = $(this).data("modifier-id");
-        loadMenuModifier(modifierId);
-    });
-</script>
-✅ Step 4: Use AJAX for Submitting Forms
-Modify your form to prevent page refresh on submit.
-
-html
-Copy
-Edit
-<form id="modifierForm">
-    <!-- Form Fields Here -->
-    <button type="submit">Save</button>
-</form>
-
-<script>
-    $(document).on("submit", "#modifierForm", function (e) {
-        e.preventDefault(); // Prevent default page refresh
-
-        $.ajax({
-            url: '@Url.Action("SaveModifier", "YourController")',
-            type: 'POST',
-            data: $(this).serialize(),
-            success: function (response) {
-                alert("Changes saved successfully!");
-                loadMenuModifier(response.modifierId); // Reload only the updated section
-            },
-            error: function () {
-                alert("Error saving data.");
-            }
-        });
-    });
-</script>
-🔥 Benefits of This Approach
-✅ No full-page refresh
-✅ Only the required section updates dynamically
-✅ Better user experience
-✅ Faster interactions
-
-Let me know if you need modifications! 🚀
-
-You said:
-here i do something edit in userpage in 3pages like 15-20 record so i eedited successfully but come to the page 1-5 record like refress that userpage but i didn't want that 
-ChatGPT said:
-It sounds like after editing records in Userpage, the page is refreshing and resetting to page 1-5 records, but you want to stay on the same page where you edited the records.
-
-✅ Solution: Use AJAX to Submit Form and Maintain Current Page
-Instead of refreshing the entire page, update only the required records using AJAX. Here’s how:
-
-1️⃣ Modify Your Controller to Return JSON
-In your UserController, modify the edit action to return JSON instead of a full page reload.
-
-csharp
-Copy
-Edit
-[HttpPost]
-public IActionResult EditUser(UserViewModel model, int currentPage)
-{
-    if (ModelState.IsValid)
-    {
-        var user = _userService.GetUserById(model.UserId);
-        if (user != null)
-        {
-            user.FirstName = model.FirstName;
-            user.LastName = model.LastName;
-            user.Email = model.Email;
-            user.Phone = model.Phone;
-            user.Address = model.Address;
-            user.IsActive = model.IsActive;
-            _userService.UpdateUser(user);
-        }
-
-        return Json(new { success = true, currentPage = currentPage });
-    }
-
-    return Json(new { success = false });
-}
-Saves the edited user without refreshing the page
-Returns currentPage to keep track of the user's position
-2️⃣ Add AJAX to Submit the Form Without Refreshing
-Modify your UserPage.cshtml to handle form submission via AJAX.
-
-html
-Copy
-Edit
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).on("submit", ".edit-user-form", function (e) {
-        e.preventDefault(); // Prevent page refresh
-
-        var form = $(this);
-        var formData = form.serialize();
-        var currentPage = $("#currentPage").val(); // Store current page number
-
-        $.ajax({
-            url: form.attr("action"),
-            type: "POST",
-            data: formData + "&currentPage=" + currentPage, // Send currentPage value
-            success: function (response) {
-                if (response.success) {
-                    alert("User updated successfully!");
-
-                    // Reload only the current page dynamically
-                    loadUserPage(response.currentPage);
-                } else {
-                    alert("Error updating user.");
-                }
-            },
-            error: function () {
-                alert("Something went wrong.");
-            }
-        });
-    });
-
-    function loadUserPage(pageNumber) {
-        $.ajax({
-            url: '@Url.Action("Userpage", "User")',
-            type: "GET",
-            data: { page: pageNumber },
-            success: function (data) {
-                $("#userListContainer").html($(data).find("#userListContainer").html());
-                $("#currentPage").val(pageNumber); // Update hidden input with current page
-            },
-            error: function () {
-                alert("Failed to load user data.");
-            }
-        });
-    }
-</script>
-3️⃣ Add a Hidden Input to Track Page Number
-Inside your Userpage.cshtml, add:
-
-html
-Copy
-Edit
-<input type="hidden" id="currentPage" value="@ViewBag.CurrentPage" />
-🔥 Now, What Happens?
-✅ Edits are saved without a full-page refresh
-✅ User stays on the same page after editing
-✅ Only the relevant part of the page updates dynamically
+How This Works
+Pagination and pageSize changes trigger AJAX requests instead of a full-page reload.
+The loadPartialView() function loads only the partial view's content, keeping the URL unchanged (/home/menu).
+The controller detects AJAX requests and returns only the partial view, preventing layout re-rendering.
+Expected Outcome
+The route stays /home/menu instead of changing.
+Pagination and page size changes work dynamically without reloading the page.
+The user experience improves as only relevant content updates.
+Would you like to enhance this further with additional features like loading indicators or smooth transitions?
