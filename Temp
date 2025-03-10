@@ -1,4 +1,127 @@
-Updated JavaScript (site.js or inline in View)
+based on data. It will:
+
+Retrieve menu items based on the selected category, search query, and sorting.
+Adjust page size dynamically based on the data.
+Ensure correct pagination logic.
+Support AJAX requests to return only the partial view.
+Controller Code (MenuController.cs)
+csharp
+Copy code
+public IActionResult MenuItem(int categoryId = 0, string search = "", string sortOrder = "asc", int page = 1, int pageSize = 5)
+{
+    // Get all items based on filters
+    var allItems = _menuService.GetMenuItems(categoryId, search, sortOrder);
+    
+    // If pageSize exceeds total items, adjust it
+    int totalItems = allItems.Count();
+    if (pageSize > totalItems) pageSize = totalItems > 0 ? totalItems : 5; // Prevent pageSize from being zero
+
+    // Calculate total pages
+    int totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+
+    // Ensure page number is within range
+    page = Math.Max(1, Math.Min(page, totalPages));
+
+    // Paginate the items
+    var pagedItems = allItems.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+    // Create ViewModel for pagination
+    var model = new PaginatedMenuItemsViewModel
+    {
+        Items = pagedItems,
+        PageNumber = page,
+        PageSize = pageSize,
+        TotalItemCount = totalItems,
+        TotalPages = totalPages,
+        HasNextPage = page < totalPages,
+        HasPreviousPage = page > 1
+    };
+
+    // Return partial view for AJAX requests
+    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+    {
+        return PartialView("_MenuItemsPartial", model);
+    }
+
+    return View(model);
+}
+ViewModel for Pagination (PaginatedMenuItemsViewModel.cs)
+csharp
+Copy code
+public class PaginatedMenuItemsViewModel
+{
+    public List<MenuItem> Items { get; set; } // List of items in current page
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalItemCount { get; set; }
+    public int TotalPages { get; set; }
+    public bool HasNextPage { get; set; }
+    public bool HasPreviousPage { get; set; }
+}
+Service Layer (MenuService.cs)
+Modify your service to return filtered & sorted data before pagination.
+
+csharp
+Copy code
+public List<MenuItem> GetMenuItems(int categoryId, string search, string sortOrder)
+{
+    var items = _context.MenuItems.AsQueryable();
+
+    if (categoryId > 0)
+        items = items.Where(i => i.CategoryId == categoryId);
+
+    if (!string.IsNullOrEmpty(search))
+        items = items.Where(i => i.Name.Contains(search));
+
+    if (sortOrder == "desc")
+        items = items.OrderByDescending(i => i.Name);
+    else
+        items = items.OrderBy(i => i.Name);
+
+    return items.ToList();
+}
+Partial View (_MenuItemsPartial.cshtml)
+html
+Copy code
+<div id="menuItemsContainer">
+    @foreach (var item in Model.Items)
+    {
+        <div class="menu-item">
+            <h5>@item.Name</h5>
+            <p>@item.Description</p>
+        </div>
+    }
+</div>
+
+<!-- Pagination Controls -->
+<div id="paginationContainer">
+    @if (Model.HasPreviousPage)
+    {
+        <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber - 1)">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+    }
+
+    <span class="mx-2">Page @Model.PageNumber of @Model.TotalPages</span>
+
+    @if (Model.HasNextPage)
+    {
+        <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber + 1)">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    }
+</div>
+How It Works
+Dynamically adjusts pageSize so it doesn't exceed total items.
+Handles filtering, sorting, and pagination properly.
+Returns only the partial view for AJAX requests.
+Ensures pagination buttons are disabled when no more pages exist.
+Final Result
+✅ Pagination works dynamically.
+✅ Page size adjusts based on data.
+✅ No unnecessary reloading, only content updates via AJAX.
+
+Would you like any more refinementsUpdated JavaScript (site.js or inline in View)
 This version supports category selection, pagination, sorting, search, and page size selection dynamically without reloading the page.
 
 javascript
