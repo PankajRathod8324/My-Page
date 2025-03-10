@@ -1,3 +1,30 @@
+.category-link {
+    text-decoration: none;
+    padding: 8px 12px;
+    color: black;
+    display: inline-block;
+}
+
+.category-link.active-category {
+    font-weight: bold;
+    color: blue; /* Highlight the active category */
+    border-bottom: 2px solid blue;
+}
+<div id="categoryContainer">
+    @foreach (var category in Model.Categories)
+    {
+        <a href="#" class="category-link @(category.Id == Model.SelectedCategoryId ? "active-category" : "")"
+           data-category-id="@category.Id">
+            @category.Name
+        </a>
+    }
+</div>
+
+<!-- Menu Items Container -->
+<div id="menuItemsContainer">
+    @await Html.PartialAsync("_MenuItemsPartial", Model)
+</div>
+
 based on data. It will:
 
 Retrieve menu items based on the selected category, search query, and sorting.
