@@ -1,51 +1,93 @@
-@model DAL.ViewModel.MenuModifierGroupVM
+Update the Razor View (Menu.cshtml or Partial View)
+Loop through Model.ModifierGroups instead of a single Model.ModifierGroupVM
+Ensure correct input naming for multiple groups (MenuModifierGroups[index])
+razor
+Copy code
+@model List<DAL.ViewModel.MenuModifierGroupVM>
 
-@if (Model != null)
+@if (Model != null && Model.Any())
 {
-    <div class="modifier-group mt-3 p-2 border rounded">
-        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].ModifierGroupId" value="@Model.ModifierGroupId">
-        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].ModifierGroupName" value="@Model.ModifierGroupName">
+    @for (int groupIndex = 0; groupIndex < Model.Count; groupIndex++)
+    {
+        var modifierGroup = Model[groupIndex];
 
-        <div class="d-flex justify-content-between align-items-center">
-            <h5>@Model.ModifierGroupName</h5>
-            <button type="button" class="btn btn-sm delete-group" data-groupid="@Model.ModifierGroupId">
-                <i class="fa fa-trash"></i>
-            </button>
-        </div>
+        <div class="modifier-group mt-3 p-2 border rounded">
+            <input type="hidden" name="MenuModifierGroups[@groupIndex].ModifierGroupId" value="@modifierGroup.ModifierGroupId">
+            <input type="hidden" name="MenuModifierGroups[@groupIndex].ModifierGroupName" value="@modifierGroup.ModifierGroupName">
 
-        <div class="d-flex justify-content-between align-items-center">
-            <select class="form-select" asp-for="MinSelection">
-                @for (int i = 0; i <= 5; i++)
+            <div class="d-flex justify-content-between align-items-center">
+                <h5>@modifierGroup.ModifierGroupName</h5>
+                <button type="button" class="btn btn-sm delete-group" data-groupid="@modifierGroup.ModifierGroupId">
+                    <i class="fa fa-trash"></i>
+                </button>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <select class="form-select" name="MenuModifierGroups[@groupIndex].MinSelection">
+                    @for (int i = 0; i <= 5; i++)
+                    {
+                        <option value="@i" selected="@(modifierGroup.MinSelection == i ? "selected" : null)">@i</option>
+                    }
+                </select>
+                <select class="form-select" name="MenuModifierGroups[@groupIndex].MaxSelection">
+                    @for (int i = 0; i <= 10; i++)
+                    {
+                        <option value="@i" selected="@(modifierGroup.MaxSelection == i ? "selected" : null)">@i</option>
+                    }
+                </select>
+            </div>
+
+            <ul class="list-unstyled mt-2">
+                @for (int modifierIndex = 0; modifierIndex < modifierGroup.menuModifiers.Count; modifierIndex++)
                 {
-                    <option value="@i">@i</option>
-                }
-            </select>
-            <select class="form-select" asp-for="MaxSelection">
-                @for (int i = 0; i <= 10; i++)
-                {
-                    <option value="@i">@i</option>
-                }
-            </select>
-        </div>
+                    var modifier = modifierGroup.menuModifiers[modifierIndex];
 
-        <ul class="list-unstyled mt-2">
-            @for (int i = 0; i < Model.menuModifiers.Count; i++)
-            {
-                var modifier = Model.menuModifiers[i];
-                <li class="d-flex justify-content-between">
-                    <span>• @modifier.ModifierName</span>
-                    <span>₹ @modifier.ModifierRate</span>
-                    
-                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers.Index" value="@i">
-                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierId" value="@modifier.ModifierId">
-                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierName" value="@modifier.ModifierName">
-                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierRate" value="@modifier.ModifierRate">
-                </li>
-            }
-        </ul>
-    </div>
+                    <li class="d-flex justify-content-between">
+                        <span>• @modifier.ModifierName</span>
+                        <span>₹ @modifier.ModifierRate</span>
+
+                        <input type="hidden" name="MenuModifierGroups[@groupIndex].menuModifiers[@modifierIndex].ModifierId" value="@modifier.ModifierId">
+                        <input type="hidden" name="MenuModifierGroups[@groupIndex].menuModifiers[@modifierIndex].ModifierName" value="@modifier.ModifierName">
+                        <input type="hidden" name="MenuModifierGroups[@groupIndex].menuModifiers[@modifierIndex].ModifierRate" value="@modifier.ModifierRate">
+                    </li>
+                }
+            </ul>
+        </div>
+    }
 }
 else
 {
     <p>No modifiers available.</p>
 }
+2️⃣ Modify the Controller to Accept a List
+Controller (MenuController.cs)
+Modify your POST method to accept a list of modifier groups.
+
+csharp
+Copy code
+[HttpPost]
+public IActionResult SaveMenuModifiers(List<MenuModifierGroupVM> MenuModifierGroups)
+{
+    if (MenuModifierGroups != null && MenuModifierGroups.Any())
+    {
+        foreach (var group in MenuModifierGroups)
+        {
+            Console.WriteLine($"Modifier Group: {group.ModifierGroupName}, ID: {group.ModifierGroupId}");
+            foreach (var modifier in group.menuModifiers)
+            {
+                Console.WriteLine($"  - Modifier: {modifier.ModifierName}, Rate: {modifier.ModifierRate}");
+            }
+        }
+
+        // Process and save data to the database
+    }
+
+    return RedirectToAction("Menu");
+}
+3️⃣ How This Works
+✅ Displays multiple modifier groups dynamically
+✅ Ensures form names match list indexing (MenuModifierGroups[index])
+✅ Sends a list of modifier groups to the controller
+✅ Handles pagination, deletion, and updates correctly
+
+Now, when you submit the form
