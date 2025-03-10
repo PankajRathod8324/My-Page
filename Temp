@@ -1,411 +1,51 @@
-.category-link {
-    text-decoration: none;
-    padding: 8px 12px;
-    color: black;
-    display: inline-block;
-}
+@model DAL.ViewModel.MenuModifierGroupVM
 
-.category-link.active-category {
-    font-weight: bold;
-    color: blue; /* Highlight the active category */
-    border-bottom: 2px solid blue;
-}
-<div id="categoryContainer">
-    @foreach (var category in Model.Categories)
-    {
-        <a href="#" class="category-link @(category.Id == Model.SelectedCategoryId ? "active-category" : "")"
-           data-category-id="@category.Id">
-            @category.Name
-        </a>
-    }
-</div>
-
-<!-- Menu Items Container -->
-<div id="menuItemsContainer">
-    @await Html.PartialAsync("_MenuItemsPartial", Model)
-</div>
-
-based on data. It will:
-
-Retrieve menu items based on the selected category, search query, and sorting.
-Adjust page size dynamically based on the data.
-Ensure correct pagination logic.
-Support AJAX requests to return only the partial view.
-Controller Code (MenuController.cs)
-csharp
-Copy code
-public IActionResult MenuItem(int categoryId = 0, string search = "", string sortOrder = "asc", int page = 1, int pageSize = 5)
+@if (Model != null)
 {
-    // Get all items based on filters
-    var allItems = _menuService.GetMenuItems(categoryId, search, sortOrder);
-    
-    // If pageSize exceeds total items, adjust it
-    int totalItems = allItems.Count();
-    if (pageSize > totalItems) pageSize = totalItems > 0 ? totalItems : 5; // Prevent pageSize from being zero
+    <div class="modifier-group mt-3 p-2 border rounded">
+        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].ModifierGroupId" value="@Model.ModifierGroupId">
+        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].ModifierGroupName" value="@Model.ModifierGroupName">
 
-    // Calculate total pages
-    int totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
-
-    // Ensure page number is within range
-    page = Math.Max(1, Math.Min(page, totalPages));
-
-    // Paginate the items
-    var pagedItems = allItems.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-
-    // Create ViewModel for pagination
-    var model = new PaginatedMenuItemsViewModel
-    {
-        Items = pagedItems,
-        PageNumber = page,
-        PageSize = pageSize,
-        TotalItemCount = totalItems,
-        TotalPages = totalPages,
-        HasNextPage = page < totalPages,
-        HasPreviousPage = page > 1
-    };
-
-    // Return partial view for AJAX requests
-    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-    {
-        return PartialView("_MenuItemsPartial", model);
-    }
-
-    return View(model);
-}
-ViewModel for Pagination (PaginatedMenuItemsViewModel.cs)
-csharp
-Copy code
-public class PaginatedMenuItemsViewModel
-{
-    public List<MenuItem> Items { get; set; } // List of items in current page
-    public int PageNumber { get; set; }
-    public int PageSize { get; set; }
-    public int TotalItemCount { get; set; }
-    public int TotalPages { get; set; }
-    public bool HasNextPage { get; set; }
-    public bool HasPreviousPage { get; set; }
-}
-Service Layer (MenuService.cs)
-Modify your service to return filtered & sorted data before pagination.
-
-csharp
-Copy code
-public List<MenuItem> GetMenuItems(int categoryId, string search, string sortOrder)
-{
-    var items = _context.MenuItems.AsQueryable();
-
-    if (categoryId > 0)
-        items = items.Where(i => i.CategoryId == categoryId);
-
-    if (!string.IsNullOrEmpty(search))
-        items = items.Where(i => i.Name.Contains(search));
-
-    if (sortOrder == "desc")
-        items = items.OrderByDescending(i => i.Name);
-    else
-        items = items.OrderBy(i => i.Name);
-
-    return items.ToList();
-}
-Partial View (_MenuItemsPartial.cshtml)
-html
-Copy code
-<div id="menuItemsContainer">
-    @foreach (var item in Model.Items)
-    {
-        <div class="menu-item">
-            <h5>@item.Name</h5>
-            <p>@item.Description</p>
+        <div class="d-flex justify-content-between align-items-center">
+            <h5>@Model.ModifierGroupName</h5>
+            <button type="button" class="btn btn-sm delete-group" data-groupid="@Model.ModifierGroupId">
+                <i class="fa fa-trash"></i>
+            </button>
         </div>
-    }
-</div>
 
-<!-- Pagination Controls -->
-<div id="paginationContainer">
-    @if (Model.HasPreviousPage)
-    {
-        <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber - 1)">
-            <i class="fa-solid fa-chevron-left"></i>
-        </button>
-    }
+        <div class="d-flex justify-content-between align-items-center">
+            <select class="form-select" asp-for="MinSelection">
+                @for (int i = 0; i <= 5; i++)
+                {
+                    <option value="@i">@i</option>
+                }
+            </select>
+            <select class="form-select" asp-for="MaxSelection">
+                @for (int i = 0; i <= 10; i++)
+                {
+                    <option value="@i">@i</option>
+                }
+            </select>
+        </div>
 
-    <span class="mx-2">Page @Model.PageNumber of @Model.TotalPages</span>
-
-    @if (Model.HasNextPage)
-    {
-        <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber + 1)">
-            <i class="fa-solid fa-chevron-right"></i>
-        </button>
-    }
-</div>
-How It Works
-Dynamically adjusts pageSize so it doesn't exceed total items.
-Handles filtering, sorting, and pagination properly.
-Returns only the partial view for AJAX requests.
-Ensures pagination buttons are disabled when no more pages exist.
-Final Result
-✅ Pagination works dynamically.
-✅ Page size adjusts based on data.
-✅ No unnecessary reloading, only content updates via AJAX.
-
-Would you like any more refinementsUpdated JavaScript (site.js or inline in View)
-This version supports category selection, pagination, sorting, search, and page size selection dynamically without reloading the page.
-
-javascript
-Copy code
-var selectedCategoryId = null; // Set default category
-
-$(document).ready(function () {
-    loadMenuItems(1); // Load items initially
-
-    // Function to Load Items Based on Filters
-    function loadMenuItems(page = 1) {
-        var search = $("#searchInput").val();
-        var sortOrder = $("#sortOrder").val();
-        var pageSize = $("#pageSizeDropdown").val();
-
-        console.log("Category:", selectedCategoryId, "Page:", page, "PageSize:", pageSize);
-
-        $.ajax({
-            url: '/menu/menuitem',  // Ensure this route matches your controller
-            type: 'GET',
-            data: {
-                categoryId: selectedCategoryId,
-                search: search,
-                sortOrder: sortOrder,
-                page: page,
-                pageSize: pageSize
-            },
-            success: function (data) {
-                $("#menuItemsContainer").html(data);  // Update the menu items container
-            },
-            error: function (xhr, status, error) {
-                console.error('Error fetching items:', error);
+        <ul class="list-unstyled mt-2">
+            @for (int i = 0; i < Model.menuModifiers.Count; i++)
+            {
+                var modifier = Model.menuModifiers[i];
+                <li class="d-flex justify-content-between">
+                    <span>• @modifier.ModifierName</span>
+                    <span>₹ @modifier.ModifierRate</span>
+                    
+                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers.Index" value="@i">
+                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierId" value="@modifier.ModifierId">
+                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierName" value="@modifier.ModifierName">
+                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierRate" value="@modifier.ModifierRate">
+                </li>
             }
-        });
-    }
-
-    // Handle Page Size Change
-    $("#pageSizeDropdown").change(function () {
-        loadMenuItems(1); // Reset to page 1 when changing page size
-    });
-
-    // Handle Pagination
-    $(document).on("click", ".pagination-btn", function (e) {
-        e.preventDefault();
-        var page = $(this).data("page"); // Get page number from button
-        loadMenuItems(page);
-    });
-
-    // Handle Category Selection
-    $(".category-btn").click(function () {
-        selectedCategoryId = $(this).data("category-id"); // Get selected category ID
-        loadMenuItems(1); // Reset to page 1
-    });
-
-    // Handle Search Input
-    $("#searchInput").keyup(function () {
-        loadMenuItems(1); // Reset to page 1 on search
-    });
-
-    // Handle Sort Order Change
-    $("#sortOrder").change(function () {
-        loadMenuItems(1); // Reset to page 1 when sorting changes
-    });
-});
-Update Your View (Menu.cshtml)
-Modify the pagination buttons and page size dropdown to trigger AJAX.
-
-html
-Copy code
-<!-- Page Size Dropdown -->
-<select id="pageSizeDropdown" class="form-select form-select-sm w-auto me-3">
-    <option value="5">5</option>
-    <option value="10">10</option>
-    <option value="15">15</option>
-    <option value="20">20</option>
-</select>
-
-<!-- Pagination Buttons (Rendered from Partial View) -->
-<div id="paginationContainer">
-    @if (Model.HasPreviousPage)
-    {
-        <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber - 1)">
-            <i class="fa-solid fa-chevron-left"></i>
-        </button>
-    }
-
-    <span class="mx-2">Page @Model.PageNumber of @Model.TotalPages</span>
-
-    @if (Model.HasNextPage)
-    {
-        <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber + 1)">
-            <i class="fa-solid fa-chevron-right"></i>
-        </button>
-    }
-</div>
-
-<!-- Menu Items Container -->
-<div id="menuItemsContainer">
-    @await Html.PartialAsync("_MenuItemsPartial", Model)
-</div>
-Update Controller (MenuController.cs)
-Modify your controller to support pagination and detect AJAX requests.
-
-csharp
-Copy code
-public IActionResult MenuItem(int categoryId = 0, string search = "", string sortOrder = "asc", int page = 1, int pageSize = 5)
-{
-    var model = _menuService.GetPagedMenuItems(categoryId, search, sortOrder, page, pageSize);
-
-    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest") // Check if AJAX request
-    {
-        return PartialView("_MenuItemsPartial", model);  // Return only partial view for AJAX
-    }
-
-    return View(model);  // Full page load (if needed)
+        </ul>
+    </div>
 }
-Expected Behavior
-✅ Clicking a category filters items without reloading the page.
-✅ Pagination updates items without changing the route.
-✅ Page size dropdown modifies the number of items per page dynamically.
-✅ Search and sorting work without affecting the page URL.    function loadMenuItems(page = 1) {
-                @* if (!selectedCategoryId) return; *@
-
-                var search = $("#searchInput").val();
-                var sortOrder = $("#sortOrder").val();
-@*                
-                console.log(search);
-                console.log(sortOrder); *@
-                console.log(selectedCategoryId);
-                $.ajax({
-                    url: '@Url.Action("MenuItem", "Menu")',
-                    type: 'GET',
-                    data: { categoryId: selectedCategoryId, search: search, sortOrder: sortOrder, page: page },
-                    success: function (data) {
-                        $("#menuItemsContainer").html(data);
-                         console.log(selectedCategoryId+"Hello");
-                    },
-                    error: function (xhr, status, error) {
-                        console.error('Error fetching items:', error);
-                    }
-                });
-            }
-
-paginate using the "Next" and "Previous" buttons, the href in @Url.Action("Userpage", ...) changes the route to "Userpage", which is why your URL changes from "home/menu" to "Userpage".
-
-Since you're using a partial view, you likely want to update only the partial content without changing the URL. You can achieve this using AJAX instead of full-page reloads.
-
-Solution: Use AJAX to Load the Partial View Dynamically
-Instead of using @Url.Action(...) directly in <a> tags, use JavaScript to send an AJAX request when pagination or pageSize changes.
-
-1. Modify Your View to Use AJAX
-Replace Pagination Links and Page Size Dropdown
-Modify your HTML to trigger an AJAX request instead of a full-page reload.
-
-html
-Copy code
-<div class="d-flex justify-content-end align-items-center my-3 gap-2">
-    <form id="paginationForm" method="get" class="d-flex align-items-center me-3">
-        <span class="me-2">Items per page:</span>
-        <select name="pageSize" class="form-select form-select-sm w-auto me-3" id="pageSizeDropdown">
-            <option value="5" @(Context.Request.Query["pageSize"] == "5" ? "selected" : "")>5</option>
-            <option value="10" @(Context.Request.Query["pageSize"] == "10" ? "selected" : "")>10</option>
-            <option value="15" @(Context.Request.Query["pageSize"] == "15" ? "selected" : "")>15</option>
-            <option value="20" @(Context.Request.Query["pageSize"] == "20" ? "selected" : "")>20</option>
-        </select>
-
-        <!-- Pagination Summary -->
-        <span id="pagination-summary" class="text-muted">
-            Showing @(Model.PageSize * (Model.PageNumber - 1) + 1)
-            - @((Model.PageSize * Model.PageNumber) > Model.TotalItemCount ? Model.TotalItemCount :
-                                (Model.PageSize * Model.PageNumber))
-            of @Model.TotalItemCount results
-        </span>
-    </form>
-
-    <!-- Previous Button -->
-    <button id="prevPage" class="btn btn-outline-dark @(Model.HasPreviousPage ? "" : "disabled")">
-        <i class="fa-solid fa-chevron-left"></i>
-    </button>
-
-    <!-- Next Button -->
-    <button id="nextPage" class="btn btn-outline-dark @(Model.HasNextPage ? "" : "disabled")">
-        <i class="fa-solid fa-chevron-right"></i>
-    </button>
-</div>
-
-<!-- Partial View Container -->
-<div id="partialViewContainer">
-    @await Html.PartialAsync("_YourPartialView")
-</div>
-2. Use AJAX to Load Partial View Dynamically
-Add this JavaScript at the end of your view (or in a separate file):
-
-javascript
-Copy code
-$(document).ready(function () {
-    function loadPartialView(page, pageSize) {
-        $.ajax({
-            url: "/home/menu",  // Keep the route unchanged
-            type: "GET",
-            data: {
-                page: page,
-                pageSize: pageSize,
-                search: new URLSearchParams(window.location.search).get("search"),
-                filterBy: new URLSearchParams(window.location.search).get("filterBy"),
-                sortBy: new URLSearchParams(window.location.search).get("sortBy")
-            },
-            success: function (data) {
-                $("#partialViewContainer").html($(data).find("#partialViewContainer").html());
-            },
-            error: function () {
-                alert("Failed to load data. Please try again.");
-            }
-        });
-    }
-
-    // Handle Page Size Change
-    $("#pageSizeDropdown").change(function () {
-        let pageSize = $(this).val();
-        loadPartialView(1, pageSize); // Reset to page 1 when changing page size
-    });
-
-    // Handle Pagination
-    $("#prevPage").click(function () {
-        let currentPage = parseInt(new URLSearchParams(window.location.search).get("page") || 1);
-        if (currentPage > 1) {
-            loadPartialView(currentPage - 1, $("#pageSizeDropdown").val());
-        }
-    });
-
-    $("#nextPage").click(function () {
-        let currentPage = parseInt(new URLSearchParams(window.location.search).get("page") || 1);
-        loadPartialView(currentPage + 1, $("#pageSizeDropdown").val());
-    });
-});
-3. Modify Your Controller (HomeController.cs)
-Make sure your controller returns the partial view when it's an AJAX request:
-
-csharp
-Copy code
-public IActionResult Menu(int page = 1, int pageSize = 5, string search = "", string filterBy = "", string sortBy = "")
+else
 {
-    var model = _yourService.GetPagedData(page, pageSize, search, filterBy, sortBy);
-
-    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest") // Check if it's an AJAX request
-    {
-        return PartialView("_YourPartialView", model);
-    }
-
-    return View(model);
+    <p>No modifiers available.</p>
 }
-How This Works
-Pagination and pageSize changes trigger AJAX requests instead of a full-page reload.
-The loadPartialView() function loads only the partial view's content, keeping the URL unchanged (/home/menu).
-The controller detects AJAX requests and returns only the partial view, preventing layout re-rendering.
-Expected Outcome
-The route stays /home/menu instead of changing.
-Pagination and page size changes work dynamically without reloading the page.
-The user experience improves as only relevant content updates.
-Would you like to enhance this further with additional features like loading indicators or smooth transitions?
