@@ -1,24 +1,29 @@
-public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
+[HttpPost]
+public IActionResult AddMenuItem([FromBody] JsonObject menuItemData)
 {
     try
     {
-        if (menuItemdata == null)
+        if (menuItemData == null)
         {
             return BadRequest("Invalid JSON format. Could not parse data.");
         }
 
-        Console.WriteLine("Raw JSON received: " + menuItemdata.ToString());
+        Console.WriteLine("Raw JSON received: " + menuItemData.ToString());
 
-        // Extract individual values
-        var itemName = menuItemdata["ItemName"]?.ToString();
-        var categoryId = menuItemdata["CategoryId"];
-        var rate = menuItemdata["Rate"];
-        var quantity = menuItemdata["Quantity"];
-        var unitId = menuItemdata["UnitId"];
-        var isAvailable = menuItemdata["IsAvailable"];
-        
-        // Deserialize Modifier Groups JSON array
-        List<ItemModifierGroup> modifierGroups = JsonConvert.DeserializeObject<List<ItemModifierGroup>>(menuItemdata["ModifierGroupIdForAdd"].ToString());
+        // Extract individual values safely
+        string itemName = menuItemData["ItemName"]?.ToString();
+        int? categoryId = menuItemData["CategoryId"]?.GetValue<int>();
+        decimal? rate = menuItemData["Rate"]?.GetValue<decimal>();
+        int? quantity = menuItemData["Quantity"]?.GetValue<int>();
+        int? unitId = menuItemData["UnitId"]?.GetValue<int>();
+        bool? isAvailable = menuItemData["IsAvailable"]?.GetValue<bool>();
+
+        // Parse Modifier Groups array safely
+        List<ItemModifierGroup> modifierGroups = new List<ItemModifierGroup>();
+        if (menuItemData.ContainsKey("ModifierGroups") && menuItemData["ModifierGroups"] != null)
+        {
+            modifierGroups = JsonConvert.DeserializeObject<List<ItemModifierGroup>>(menuItemData["ModifierGroups"].ToString());
+        }
 
         Console.WriteLine($"Received Item Name: {itemName}");
         Console.WriteLine($"Modifier Groups: {string.Join(",", modifierGroups.Select(m => m.ModifierGroupId))}");
@@ -26,24 +31,24 @@ public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
         // Step 1: Save Menu Item
         var menuitem = new MenuItem
         {
-            CategoryId = (int?)categoryId,
+            CategoryId = categoryId,
             ItemName = itemName,
-            Rate = (decimal)rate,
-            Quantity = (int)quantity,
-            UnitId = (int?)unitId,
-            IsAvailable = (bool?)isAvailable
+            Rate = rate,
+            Quantity = quantity,
+            UnitId = unitId,
+            IsAvailable = isAvailable
         };
 
         _menuService.AddMenuItem(menuitem);
 
-        // Step 2: Save Multiple Modifier Groups
-        if (modifierGroups != null && modifierGroups.Any())
+        // Step 2: Save Modifier Groups (if present)
+        if (modifierGroups.Any())
         {
             foreach (var modifierGroup in modifierGroups)
             {
                 var menuitemmodifier = new ItemModifierGroup
                 {
-                    ItemId = menuitem.ItemId,
+                    ItemId = menuitem.ItemId,  // Ensure ItemId is assigned
                     ModifierGroupId = modifierGroup.ModifierGroupId,
                     MinSelection = modifierGroup.MinSelection,
                     MaxSelection = modifierGroup.MaxSelection
