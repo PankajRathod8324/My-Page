@@ -1,77 +1,130 @@
- $("#modifierGroupDropdown").change(function () {
-                var groupId = $(this).val();
-                var parentdiv = $('.min-input').val();
-                @* var min = parentdiv.find('.min-input').val(); *@
-                console.log(parentdiv);
-                selectedModifierGroups.push({
-                    modifiergroupid: groupId,
-                });
-                console.log(groupId);
-                console.log(selectedModifierGroups);
+partial view correctly captures the min/max values and updates the selectedModifierGroups array accordingly.
 
-                if (groupId) {
-                    $.ajax({
-                        url: '@Url.Action("GetModifiersByGroup", "Menu")', // Change ControllerName
-                        type: 'GET',
-                        data: { groupId: groupId },
-                        success: function (response) {
-                            $("#modifierList").append(response); // Update modifier list
-                        }
+Updated AJAX Code
+Modify your JavaScript to:
+
+Capture the selected modifier group ID.
+Retrieve the min and max values from the corresponding dropdowns.
+Add this data to selectedModifierGroups.
+Send this data using FormData in the AJAX request.
+Updated jQuery AJAX Code
+javascript
+Copy code
+$(document).ready(function () {
+    var selectedModifierGroups = [];
+
+    $("#modifierGroupDropdown").change(function () {
+        var groupId = $(this).val();
+
+        if (!groupId) {
+            $("#modifierList").html(""); // Clear list if no group selected
+            return;
+        }
+
+        // Find the parent div where the new modifier group will be appended
+        var parentDiv = $("#modifierList");
+
+        $.ajax({
+            url: '@Url.Action("GetModifiersByGroup", "Menu")',
+            type: 'GET',
+            data: { groupId: groupId },
+            success: function (response) {
+                // Append the new modifier group to the UI
+                parentDiv.append(response);
+
+                // Once the partial view is appended, attach event listeners to min/max dropdowns
+                setTimeout(() => {
+                    var newGroup = parentDiv.find(".modifier-group").last(); // Get the latest added modifier group
+
+                    var minSelection = newGroup.find(".min-input").val();
+                    var maxSelection = newGroup.find(".max-input").val();
+
+                    selectedModifierGroups.push({
+                        modifiergroupid: groupId,
+                        minSelection: minSelection,
+                        maxSelection: maxSelection
                     });
-                } else {
-                    $("#modifierList").html(""); // Clear list if no group selected
-                }
-            });
 
-this is my ajax ahere i want to send formndata with the array selected mosifiergroup in which array has min and nmax value also which is partial view when i click on dropdown the partial view will be append  this is partial view @model DAL.ViewModel.MenuModifierGroupVM
-
-@if (Model != null)
-{
-    <div class="modifier-group mt-3 p-2 border rounded">
-        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].ModifierGroupId"
-            value="@Model.ModifierGroupId">
-        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].ModifierGroupName"
-            value="@Model.ModifierGroupName">
-
-        <div class="d-flex justify-content-between align-items-center">
-            <h5>@Model.ModifierGroupName</h5>
-            <button type="button" class="btn btn-sm delete-group" data-groupid="@Model.ModifierGroupId">
-                <i class="fa fa-trash"></i>
-            </button>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center" id="modifierminmax">
-            <select class="form-select min-input" value="MinSelection" name="MinSelection">
-                @for (int i = 0; i <= 5; i++)
-                {
-                    <option value="@i">@i</option>
-                }
-            </select>
-            <select class="form-select max-input" value="MaxSelection" name="MaxSelection">
-                @for (int i = 0; i <= 10; i++)
-                {
-                    <option value="@i">@i</option>
-                }
-            </select>
-        </div>
-
-        <ul class="list-unstyled mt-2">
-            @for (int i = 0; i < Model.menuModifiers.Count; i++)
-            {
-                var modifier = Model.menuModifiers[i];
-                <li class="d-flex justify-content-between">
-                    <span>• @modifier.ModifierName</span>
-                    <span>₹ @modifier.ModifierRate</span>
-
-                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers.Index" value="@i">
-                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierId"
-                        value="@modifier.ModifierId">
-                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierName"
-                        value="@modifier.ModifierName">
-                    <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierRate"
-                        value="@modifier.ModifierRate">
-                </li>
+                    console.log("Selected Modifier Groups:", selectedModifierGroups);
+                }, 500);
             }
-        </ul>
-    </div>
-} and make things work
+        });
+    });
+
+    // Listen for changes in min/max selection
+    $(document).on("change", ".min-input, .max-input", function () {
+        var parentGroup = $(this).closest(".modifier-group");
+        var groupId = parentGroup.find("input[name*='ModifierGroupId']").val();
+        var minSelection = parentGroup.find(".min-input").val();
+        var maxSelection = parentGroup.find(".max-input").val();
+
+        // Update the selectedModifierGroups array
+        selectedModifierGroups.forEach((group) => {
+            if (group.modifiergroupid == groupId) {
+                group.minSelection = minSelection;
+                group.maxSelection = maxSelection;
+            }
+        });
+
+        console.log("Updated Selected Modifier Groups:", selectedModifierGroups);
+    });
+
+    // When submitting form, send selectedModifierGroups data
+    $("#submitForm").click(function (e) {
+        e.preventDefault();
+
+        var formData = new FormData($("#menuForm")[0]);
+        formData.append("selectedModifierGroups", JSON.stringify(selectedModifierGroups));
+
+        $.ajax({
+            url: '@Url.Action("SubmitMenu", "Menu")',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function (response) {
+                alert("Menu Item Added Successfully!");
+            }
+        });
+    });
+});
+Controller (C#)
+Modify your MenuController to handle the request:
+
+csharp
+Copy code
+[HttpPost]
+public IActionResult SubmitMenu(MenuViewModel model, string selectedModifierGroups)
+{
+    if (string.IsNullOrEmpty(selectedModifierGroups))
+    {
+        return BadRequest("Modifier groups data is missing.");
+    }
+
+    // Deserialize the selectedModifierGroups JSON string into a list
+    var modifierGroups = JsonConvert.DeserializeObject<List<MenuModifierGroupVM>>(selectedModifierGroups);
+
+    // Save the data to the database (process model and modifierGroups)
+    foreach (var group in modifierGroups)
+    {
+        Console.WriteLine($"Group ID: {group.ModifierGroupId}, Min: {group.MinSelection}, Max: {group.MaxSelection}");
+    }
+
+    return Json(new { success = true, message = "Menu Item Added Successfully!" });
+}
+Explanation
+Dropdown Change Event
+
+Triggers an AJAX request to get the modifiers for the selected group.
+Appends the partial view with modifier options.
+Stores the selected group's min & max values in selectedModifierGroups.
+Min/Max Selection Change
+
+Updates the selectedModifierGroups array when users modify min/max values.
+Form Submission
+
+Sends the selected modifier groups (with min/max values) as JSON in FormData.
+The controller deserializes the JSON and processes the data.
+Final Thoughts
+This solution appends the partial view dynamically, tracks min/max values, and ensures form submission includes all required data.
+You can enhance this by adding validation (e.g., min cannot be greater than
