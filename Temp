@@ -1,49 +1,3 @@
-properly extract and deserialize the data in the controller. Here’s how you can do it:
-
-✅ Updated AJAX Request
-Modify your AJAX request to send proper JSON format.
-
-javascript
-Copy code
-$("#Additem").submit(function (e) {
-    e.preventDefault();
-    console.log("Submitting AddItem form");
-
-    // Serialize form fields
-    var formData = $(this).serializeArray();
-    var formDataobj = {};
-
-    // Convert serialized array into an object
-    $.each(formData, function (index, field) {
-        formDataobj[field.name] = field.value;
-    });
-
-    // Ensure ModifierGroupIdForAdd is an array
-    formDataobj.ModifierGroupIdForAdd = JSON.stringify(selectedModifierGroups); // Convert array to JSON string
-
-    var submissionData = JSON.stringify(formDataobj); // Final JSON string
-
-    console.log("Sending data:", submissionData);
-
-    $.ajax({
-        url: '/Menu/AddMenuItem',
-        type: 'POST',
-        contentType: "application/json",
-        data: submissionData,
-        success: function (response) {
-            alert("Item Added Successfully!");
-        },
-        error: function (xhr, status, error) {
-            console.error('Error:', xhr.responseText); // Log detailed error
-        }
-    });
-});
-✅ Updated Controller Using JsonObject
-Since you're using JsonObject, you need to manually extract and deserialize the JSON.
-
-csharp
-Copy code
-[HttpPost]
 public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
 {
     try
@@ -56,12 +10,12 @@ public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
         Console.WriteLine("Raw JSON received: " + menuItemdata.ToString());
 
         // Extract individual values
-        string itemName = menuItemdata["ItemName"]?.ToString();
-        int categoryId = Convert.ToInt32(menuItemdata["CategoryId"]);
-        decimal rate = Convert.ToDecimal(menuItemdata["Rate"]);
-        int quantity = Convert.ToInt32(menuItemdata["Quantity"]);
-        int unitId = Convert.ToInt32(menuItemdata["UnitId"]);
-        bool isAvailable = Convert.ToBoolean(menuItemdata["IsAvailable"]);
+        var itemName = menuItemdata["ItemName"]?.ToString();
+        var categoryId = menuItemdata["CategoryId"];
+        var rate = menuItemdata["Rate"];
+        var quantity = menuItemdata["Quantity"];
+        var unitId = menuItemdata["UnitId"];
+        var isAvailable = menuItemdata["IsAvailable"];
         
         // Deserialize Modifier Groups JSON array
         List<ItemModifierGroup> modifierGroups = JsonConvert.DeserializeObject<List<ItemModifierGroup>>(menuItemdata["ModifierGroupIdForAdd"].ToString());
@@ -72,12 +26,12 @@ public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
         // Step 1: Save Menu Item
         var menuitem = new MenuItem
         {
-            CategoryId = categoryId,
+            CategoryId = (int?)categoryId,
             ItemName = itemName,
-            Rate = rate,
-            Quantity = quantity,
-            UnitId = unitId,
-            IsAvailable = isAvailable
+            Rate = (decimal)rate,
+            Quantity = (int)quantity,
+            UnitId = (int?)unitId,
+            IsAvailable = (bool?)isAvailable
         };
 
         _menuService.AddMenuItem(menuitem);
@@ -107,8 +61,3 @@ public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
         return BadRequest($"Error: {ex.Message}");
     }
 }
-✅ Summary of Fixes
-Ensure AJAX sends correct JSON (including selectedModifierGroups as a proper array).
-Use JsonObject and manually extract values.
-Use JsonConvert.DeserializeObject<List<ItemModifierGroup>>() to parse modifier groups.
-This will ensure your controller receives and processes the correct 
