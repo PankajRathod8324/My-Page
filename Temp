@@ -1,58 +1,64 @@
- [Authorize(Policy = "MenuEditPolicy")]
-    [HttpPost]
-    public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
+d[Authorize(Policy = "MenuEditPolicy")]
+[HttpPost]
+public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
+{
+    try
     {
-        // if (!ModelState.IsValid)
-        // {
-        //     foreach (var state in ModelState)
-        //     {
-        //         foreach (var error in state.Value.Errors)
-        //         {
-        //             Console.WriteLine($"Property: {state.Key}, Error: {error.ErrorMessage}");
-        //         }
-        //     }
-        //     return View(menuItem);
-        // }
-        MenuCategoryVM menuCategoryVM = JsonConvert.DeserializeObject<MenuCategoryVM>((string)menuItemdata);
+        // Convert JsonObject to string and deserialize into the ViewModel
+        string jsonString = menuItemdata.ToJsonString(); // Correct way to get JSON string
+        var menuCategoryVM = JsonConvert.DeserializeObject<MenuCategoryVM>(jsonString);
 
-        Console.WriteLine(menuCategoryVM);
-        // // Step 1: Save Menu Item
-        // var menuitem = new MenuItem
-        // {
-        //     CategoryId = menuItem.CategoryId,
-        //     ItemName = menuItem.ItemName,
-        //     ItemtypeId = menuItem.ItemtypeId,
-        //     Rate = menuItem.Rate,
-        //     Quantity = menuItem.Quantity,
-        //     UnitId = menuItem.UnitId,
-        //     IsAvailable = menuItem.IsAvailable,
-        //     TaxDefault = menuItem.TaxDefault,
-        //     TaxPercentage = menuItem.TaxPercentage,
-        //     ShortCode = menuItem.ShortCode,
-        //     Description = menuItem.Description
-        // };
+        if (menuCategoryVM == null)
+        {
+            return BadRequest("Invalid JSON format. Could not parse data.");
+        }
 
-        // _menuService.AddMenuItem(menuitem);
+        Console.WriteLine($"Received Item Name: {menuCategoryVM.ItemName}");
+        Console.WriteLine($"Received Modifier Groups: {string.Join(",", menuCategoryVM.ModifierGroupIds)}");
 
-        // // Step 2: Save Multiple Modifier Groups
-        // if (menuItem.ModifierGroupIds != null && menuItem.ModifierGroupIds.Any())
-        // {
-        //     foreach (var modifierGroupId in menuItem.ModifierGroupIds)
-        //     {
-        //         var menuitemmodifier = new ItemModifierGroup
-        //         {
-        //             ItemId = menuitem.ItemId, // Link to menu item
-        //             ModifierGroupId = modifierGroupId.ModifierGroupId,
-        //             MinSelection = menuItem.MinSelection,
-        //             MaxSelection = menuItem.MaxSelection
-        //         };
+        // Step 1: Save Menu Item
+        var menuitem = new MenuItem
+        {
+            CategoryId = menuCategoryVM.CategoryId,
+            ItemName = menuCategoryVM.ItemName,
+            ItemtypeId = menuCategoryVM.ItemtypeId,
+            Rate = menuCategoryVM.Rate,
+            Quantity = menuCategoryVM.Quantity,
+            UnitId = menuCategoryVM.UnitId,
+            IsAvailable = menuCategoryVM.IsAvailable,
+            TaxDefault = menuCategoryVM.TaxDefault,
+            TaxPercentage = menuCategoryVM.TaxPercentage,
+            ShortCode = menuCategoryVM.ShortCode,
+            Description = menuCategoryVM.Description
+        };
 
-        //         _menuService.AddMenuItemModifierGroup(menuitemmodifier);
-        //     }
-        // }
+        _menuService.AddMenuItem(menuitem);
+
+        // Step 2: Save Modifier Groups (if any)
+        if (menuCategoryVM.ModifierGroupIds != null && menuCategoryVM.ModifierGroupIds.Any())
+        {
+            foreach (var modifierGroup in menuCategoryVM.ModifierGroupIds)
+            {
+                var menuitemmodifier = new ItemModifierGroup
+                {
+                    ItemId = menuitem.ItemId, // Link to menu item
+                    ModifierGroupId = modifierGroup.ModifierGroupId,
+                    MinSelection = modifierGroup.MinSelection,
+                    MaxSelection = modifierGroup.MaxSelection
+                };
+
+                _menuService.AddMenuItemModifierGroup(menuitemmodifier);
+            }
+        }
 
         TempData["Message"] = "Menu item added successfully!";
         TempData["MessageType"] = "success";
 
         return RedirectToAction("MenuModifier", "Menu");
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Error: " + ex.Message);
+        return BadRequest($"Error: {ex.Message}");
+    }
+}
