@@ -1,29 +1,152 @@
-  var formData = $(this).serializeArray();
-                    var formDataobj = {};
+submissionData JSON might not match the expected structure in your C# model, causing deserialization errors in the controller.
 
-                    $.each(formData, function (index, field) {
-                        formDataobj[field.name] = field.value;
-                    });
+✅ Fix Your AJAX JSON Structure
+Modify the JavaScript to ensure selectedModifierGroups is properly included in the request.
 
-                    formDataobj.ModifierGroupIdForAdd = selectedModifierGroups;
-                    @* formData.push({ name: "ModifierGroupIds", value: selectedModifierGroups }); *@
-                   
-                    var submissionData = JSON.stringify(formDataobj);
+javascript
+Copy code
+$("#Additem").submit(function (e) {
+    e.preventDefault();
+    console.log("Submitting AddItem form");
 
-                    console.log(submissionData);
+    // Serialize form fields
+    var formData = $(this).serializeArray();
+    var formDataobj = {};
 
+    // Convert serialized array into an object
+    $.each(formData, function (index, field) {
+        formDataobj[field.name] = field.value;
+    });
 
-                    $.ajax({
-                        url: '/Menu/AddMenuItem',
-                        type: 'POST',
-                        contentType: "application/json",
-                        data: submissionData,
-                        success: function (data) {
-                            @* $('#newitemModal').modal('hide');
-                            $('.modal-backdrop').remove(); *@
-                                alert("Item Added Successfully!");
-                        },
-                        error: function (xhr, status, error) {
-                            console.error('Error:', error);
-                        }
-                    });
+    // Ensure ModifierGroupIdForAdd is an array
+    formDataobj.ModifierGroupIdForAdd = selectedModifierGroups;
+
+    // Convert object to JSON string
+    var submissionData = JSON.stringify(formDataobj);
+
+    console.log("Sending data:", submissionData);
+
+    $.ajax({
+        url: '/Menu/AddMenuItem',
+        type: 'POST',
+        contentType: "application/json",
+        data: submissionData,
+        success: function (response) {
+            alert("Item Added Successfully!");
+        },
+        error: function (xhr, status, error) {
+            console.error('Error:', xhr.responseText); // Log detailed error
+        }
+    });
+});
+✅ Ensure Your Model Matches the JSON
+Your C# model must match the expected JSON structure.
+
+Expected JSON Output from AJAX
+json
+Copy code
+{
+  "ItemName": "Pizza",
+  "CategoryId": 1,
+  "Rate": 10.99,
+  "Quantity": 2,
+  "UnitId": 3,
+  "IsAvailable": true,
+  "ModifierGroupIdForAdd": [
+    {
+      "ModifierGroupId": 101,
+      "MinSelection": 1,
+      "MaxSelection": 3
+    },
+    {
+      "ModifierGroupId": 102,
+      "MinSelection": 2,
+      "MaxSelection": 4
+    }
+  ]
+}
+C# Model (MenuCategoryVM)
+Modify your model so it matches the JSON structure.
+
+csharp
+Copy code
+public class MenuCategoryVM
+{
+    public int CategoryId { get; set; }
+    public string ItemName { get; set; }
+    public decimal Rate { get; set; }
+    public int Quantity { get; set; }
+    public int UnitId { get; set; }
+    public bool IsAvailable { get; set; }
+    public List<ModifierGroupVM> ModifierGroupIdForAdd { get; set; }
+}
+
+public class ModifierGroupVM
+{
+    public int ModifierGroupId { get; set; }
+    public int MinSelection { get; set; }
+    public int MaxSelection { get; set; }
+}
+✅ Update Your Controller
+Ensure FromBody is used correctly and deserialize properly.
+
+csharp
+Copy code
+[HttpPost]
+public IActionResult AddMenuItem([FromBody] MenuCategoryVM menuCategoryVM)
+{
+    try
+    {
+        if (menuCategoryVM == null)
+        {
+            return BadRequest("Invalid JSON format. Could not parse data.");
+        }
+
+        Console.WriteLine($"Received Item Name: {menuCategoryVM.ItemName}");
+        Console.WriteLine($"Modifier Groups: {string.Join(",", menuCategoryVM.ModifierGroupIdForAdd.Select(m => m.ModifierGroupId))}");
+
+        // Save Menu Item
+        var menuitem = new MenuItem
+        {
+            CategoryId = menuCategoryVM.CategoryId,
+            ItemName = menuCategoryVM.ItemName,
+            Rate = menuCategoryVM.Rate,
+            Quantity = menuCategoryVM.Quantity,
+            UnitId = menuCategoryVM.UnitId,
+            IsAvailable = menuCategoryVM.IsAvailable
+        };
+
+        _menuService.AddMenuItem(menuitem);
+
+        // Save Modifier Groups
+        if (menuCategoryVM.ModifierGroupIdForAdd != null && menuCategoryVM.ModifierGroupIdForAdd.Any())
+        {
+            foreach (var modifierGroup in menuCategoryVM.ModifierGroupIdForAdd)
+            {
+                var menuitemmodifier = new ItemModifierGroup
+                {
+                    ItemId = menuitem.ItemId,
+                    ModifierGroupId = modifierGroup.ModifierGroupId,
+                    MinSelection = modifierGroup.MinSelection,
+                    MaxSelection = modifierGroup.MaxSelection
+                };
+
+                _menuService.AddMenuItemModifierGroup(menuitemmodifier);
+            }
+        }
+
+        return Json(new { success = true, message = "Menu Item Added Successfully!" });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Error: " + ex.Message);
+        return BadRequest($"Error: {ex.Message}");
+    }
+}
+🛠 Summary of Fixes
+✅ Ensure JSON structure matches C# model
+✅ Use FromBody] correctly
+✅ Fix serialization of selectedModifierGroups
+✅ Test JSON output in DevTools → Network → Payload
+
+Now, your ModifierGrou
