@@ -1,142 +1,54 @@
-JSON data contains some fields that are strings but should be numbers or booleans. We need to properly convert them before saving to prevent errors like "string cannot be converted to System.Int32".
 
-✅ Fixed ASP.NET Controller Code
-csharp
-Copy code
-[HttpPost]
-public IActionResult AddMenuItem([FromBody] JsonObject menuItemData)
-{
-    try
+    [Authorize(Policy = "MenuEditPolicy")]
+    public IActionResult EditMenuItem(int itemId)
     {
-        if (menuItemData == null)
+        // Fetch Categories
+        ViewBag.Categories = _menuService.GetAllCategories()
+            .Select(r => new SelectListItem { Value = r.CategoryId.ToString(), Text = r.CategoryName })
+            .ToList();
+
+        // Fetch Item Types
+        ViewBag.Itemtypes = _menuService.GetAllItemTypes()
+            .Select(r => new SelectListItem { Value = r.ItemtypeId.ToString(), Text = r.ItemType1 })
+            .ToList();
+
+        // Fetch Units
+        ViewBag.Units = _menuService.GetAllUnits()
+            .Select(r => new SelectListItem { Value = r.UnitId.ToString(), Text = r.UnitName })
+            .ToList();
+
+        // Fetch Modifier Groups
+        ViewBag.ModifierGroups = _menuService.GetAllModifierGroups()
+            .Select(r => new SelectListItem { Value = r.ModifierGroupId.ToString(), Text = r.ModifierGroupName })
+            .ToList();
+
+        // Get the Item
+        var item = _menuService.GetItemById(itemId);
+        if (item == null)
         {
-            return BadRequest("Invalid JSON format. Could not parse data.");
+            return NotFound(); // Return a 404 if the item doesn't exist
         }
 
-        Console.WriteLine("Raw JSON received: " + menuItemData.ToString());
+        // Fetch associated modifier groups
+        ItemModifierGroup itemModifiers = _menuService.GetItemModifier(item.ItemId, (int)item.ModifierGroupId);
 
-        // Extract individual values safely
-        string itemName = menuItemData["ItemName"]?.ToString();
-        int categoryId = TryParseInt(menuItemData["CategoryId"]);
-        int itemTypeId = TryParseInt(menuItemData["ItemtypeId"]);
-        decimal rate = TryParseDecimal(menuItemData["Rate"]);
-        int quantity = TryParseInt(menuItemData["Quantity"]);
-        int unitId = TryParseInt(menuItemData["UnitId"]);
-        bool isAvailable = TryParseBool(menuItemData["IsAvailable"]);
-        decimal taxPercentage = TryParseDecimal(menuItemData["TaxPercentage"]);
-        string shortCode = menuItemData["ShortCode"]?.ToString();
-        string description = menuItemData["Description"]?.ToString();
-        bool taxDefault = TryParseBool(menuItemData["TaxDefault"]);
-
-        // Parse Modifier Groups JSON array safely
-        List<ItemModifierGroup> modifierGroups = new List<ItemModifierGroup>();
-        if (menuItemData.ContainsKey("ModifierGroupIdForAdd") && menuItemData["ModifierGroupIdForAdd"] != null)
+        var itemvm = new MenuCategoryVM
         {
-            modifierGroups = JsonConvert.DeserializeObject<List<ItemModifierGroup>>(menuItemData["ModifierGroupIdForAdd"].ToString());
-        }
-
-        Console.WriteLine($"Received Item Name: {itemName}");
-        Console.WriteLine($"Modifier Groups: {string.Join(",", modifierGroups.Select(m => m.ModifierGroupId))}");
-
-        // Step 1: Save Menu Item
-        var menuitem = new MenuItem
-        {
-            CategoryId = categoryId,
-            ItemName = itemName,
-            ItemTypeId = itemTypeId,
-            Rate = rate,
-            Quantity = quantity,
-            UnitId = unitId,
-            IsAvailable = isAvailable,
-            TaxPercentage = taxPercentage,
-            ShortCode = shortCode,
-            Description = description,
-            TaxDefault = taxDefault
+            CategoryId = item.CategoryId,
+            ItemId = item.ItemId,
+            ItemName = item.ItemName,
+            ItemtypeId = item.ItemtypeId,
+            Rate = item.Rate,
+            Quantity = item.Quantity,
+            UnitId = item.UnitId,
+            IsAvailable = item.IsAvailable ?? false,
+            TaxDefault = item.TaxDefault,
+            TaxPercentage = item.TaxPercentage,
+            ShortCode = item.ShortCode,
+            Description = item.Description,
+            ModifierGroupId = item.ModifierGroupId
         };
 
-        _menuService.AddMenuItem(menuitem);
 
-        // Step 2: Save Modifier Groups (if present)
-        if (modifierGroups.Any())
-        {
-            foreach (var modifierGroup in modifierGroups)
-            {
-                var menuitemmodifier = new ItemModifierGroup
-                {
-                    ItemId = menuitem.ItemId,
-                    ModifierGroupId = modifierGroup.ModifierGroupId,
-                    MinSelection = modifierGroup.MinSelection,
-                    MaxSelection = modifierGroup.MaxSelection
-                };
-
-                _menuService.AddMenuItemModifierGroup(menuitemmodifier);
-            }
-        }
-
-        return Json(new { success = true, message = "Menu Item Added Successfully!" });
+        return PartialView("_EditItemPV", itemvm);
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine("Error: " + ex.Message);
-        return BadRequest($"Error: {ex.Message}");
-    }
-}
-✅ Helper Methods for Type Conversion
-Since JSON properties are received as strings, we need helper methods to safely convert them to int, decimal, and bool:
-
-csharp
-Copy code
-private int TryParseInt(object value)
-{
-    return int.TryParse(value?.ToString(), out int result) ? result : 0;
-}
-
-private decimal TryParseDecimal(object value)
-{
-    return decimal.TryParse(value?.ToString(), out decimal result) ? result : 0;
-}
-
-private bool TryParseBool(object value)
-{
-    return bool.TryParse(value?.ToString(), out bool result) ? result : false;
-}
-🚀 Fixes Applied
-✔ Safely converts string-based numbers using helper methods (TryParseInt, TryParseDecimal)
-✔ Prevents null issues by providing default values (0 for numbers, false for booleans)
-✔ Properly deserializes ModifierGroupIdForAdd array
-
-📌 Now, send this AJAX Request
-javascript
-Copy code
-$.ajax({
-    url: "/YourController/AddMenuItem",
-    type: "POST",
-    contentType: "application/json",
-    data: JSON.stringify({
-        CategoryId: "15",
-        ItemName: "srfddfsdsfsdf",
-        ItemtypeId: "1",
-        Rate: "40",
-        Quantity: "3",
-        UnitId: "1",
-        IsAvailable: "",
-        TaxPercentage: "0",
-        ShortCode: "",
-        Description: "gfrgrffgfr",
-        ModifierGroupId: "5",
-        ModifierGroupName: "Toppings",
-        MinSelection: "1",
-        MaxSelection: "4",
-        TaxDefault: "false",
-        ModifierGroupIdForAdd: [
-            { modifiergroupid: "5", minSelection: "1", maxSelection: "4" }
-        ]
-    }),
-    success: function (response) {
-        console.log("Success:", response);
-    },
-    error: function (xhr, status, error) {
-        console.error("Error:", xhr.responseText);
-    }
-});
-This will now correctly convert JSON values and add the menu item with mod
