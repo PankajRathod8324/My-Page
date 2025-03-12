@@ -1,416 +1,119 @@
-achieve pagination, searching, and sorting for items under a selected category in your ASP.NET MVC project, follow these steps:
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
 
-1. Update the Controller (MenuController.cs)
-Modify your MenuItem action to handle pagination, searching, and sorting dynamically.
+using namespace std;
 
-Controller Action
-csharp
-Copy code
-using X.PagedList;
-using X.PagedList.Mvc;
-
-public ActionResult MenuItem(int categoryId, string search = "", int page = 1, string sortOrder = "")
-{
-    int pageSize = 5; // Number of items per page
-
-    var items = db.MenuItems.Where(i => i.CategoryId == categoryId);
-
-    // Search filter
-    if (!string.IsNullOrEmpty(search))
-    {
-        items = items.Where(i => i.ItemName.Contains(search));
-    }
-
-    // Sorting
-    ViewBag.NameSort = sortOrder == "name_asc" ? "name_desc" : "name_asc";
-    ViewBag.RateSort = sortOrder == "rate_asc" ? "rate_desc" : "rate_asc";
-
-    switch (sortOrder)
-    {
-        case "name_asc":
-            items = items.OrderBy(i => i.ItemName);
-            break;
-        case "name_desc":
-            items = items.OrderByDescending(i => i.ItemName);
-            break;
-        case "rate_asc":
-            items = items.OrderBy(i => i.Rate);
-            break;
-        case "rate_desc":
-            items = items.OrderByDescending(i => i.Rate);
-            break;
-        default:
-            items = items.OrderBy(i => i.ItemId);
-            break;
-    }
-
-    // Apply pagination
-    var pagedItems = items.ToPagedList(page, pageSize);
-
-    var viewModel = new MenuCategoryVM
-    {
-        menuItems = pagedItems
-    };
-
-    return PartialView("_MenuItemsPV", viewModel);
+// 1. Find the Missing Number in an Array
+int findMissingNumber(vector<int>& nums, int N) {
+    int total = N * (N + 1) / 2; // Sum of first N natural numbers
+    int sum = 0;
+    for (int num : nums) sum += num;
+    return total - sum;
 }
-2. Modify _MenuItemsPV.cshtml
-Add search, sorting, and pagination controls.
 
-Updated _MenuItemsPV.cshtml
-html
-Copy code
-@using X.PagedList.Mvc.Core
-@model DAL.ViewModel.MenuCategoryVM
+// 2. String Compression
+string compressString(const string& s) {
+    string compressed = "";
+    int count = 1;
 
-<form id="searchForm">
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <input type="text" name="search" id="searchInput" class="form-control" placeholder="Search Item"
-                value="@Context.Request.Query["search"]">
-        </div>
-        <div class="col-md-3">
-            <select id="sortOrder" class="form-control">
-                <option value="">Sort By</option>
-                <option value="name_asc" selected="@((Context.Request.Query["sortOrder"] == "name_asc") ? "selected" : null)">Name Ascending</option>
-                <option value="name_desc" selected="@((Context.Request.Query["sortOrder"] == "name_desc") ? "selected" : null)">Name Descending</option>
-                <option value="rate_asc" selected="@((Context.Request.Query["sortOrder"] == "rate_asc") ? "selected" : null)">Rate Ascending</option>
-                <option value="rate_desc" selected="@((Context.Request.Query["sortOrder"] == "rate_desc") ? "selected" : null)">Rate Descending</option>
-            </select>
-        </div>
-        <div class="col-md-3">
-            <button type="submit" class="btn btn-primary">Search</button>
-            <button type="button" class="btn btn-secondary" id="clearSearch">Clear</button>
-        </div>
-    </div>
-</form>
-
-<table class="table table-hover">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Item Type</th>
-            <th>Rate</th>
-            <th>Quantity</th>
-            <th>Available</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model.menuItems)
-        {
-            <tr>
-                <td>@item.ItemName</td>
-                <td>
-                    <img src="~/assest/icons/@(item.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
-                        style="width: 20px; height: 20px;" />
-                </td>
-                <td>@item.Rate</td>
-                <td>@item.Quantity</td>
-                <td>
-                    <input type="checkbox" @(item.IsAvailable ?? false ? "checked" : "") />
-                </td>
-                <td>
-                    <i class="fa-solid fa-marker" onclick="editItem(@item.ItemId)"></i>
-                    <i class="fa-regular fa-trash-can ms-4" onclick="deleteItem(@item.ItemId)"></i>
-                </td>
-            </tr>
+    for (size_t i = 1; i <= s.length(); i++) {
+        if (i < s.length() && s[i] == s[i - 1]) {
+            count++;
+        } else {
+            compressed += s[i - 1] + to_string(count);
+            count = 1;
         }
-    </tbody>
-</table>
-
-<!-- Pagination -->
-<div class="d-flex justify-content-center">
-    @Html.PagedListPager(Model.menuItems, page => Url.Action("MenuItem",
-    new { categoryId = Context.Request.Query["categoryId"], search = Context.Request.Query["search"], sortOrder = Context.Request.Query["sortOrder"], page }),
-    new PagedListRenderOptions { Display = PagedListDisplayMode.IfNeeded })
-</div>
-
-<script>
-    $(document).ready(function () {
-        // Handle category click
-        $(".category-link").on("click", function () {
-            var categoryId = $(this).data("id");
-            loadMenuItems(categoryId);
-        });
-
-        // Handle search and sorting
-        $("#searchForm").on("submit", function (e) {
-            e.preventDefault();
-            var categoryId = $(".category-link.active").data("id");
-            var search = $("#searchInput").val();
-            var sortOrder = $("#sortOrder").val();
-            loadMenuItems(categoryId, 1, search, sortOrder);
-        });
-
-        // Clear search
-        $("#clearSearch").on("click", function () {
-            $("#searchInput").val("");
-            $("#sortOrder").val("");
-            $("#searchForm").submit();
-        });
-    });
-
-    function loadMenuItems(categoryId, page = 1, search = "", sortOrder = "") {
-        $.ajax({
-            url: '@Url.Action("MenuItem", "Menu")',
-            type: 'GET',
-            data: { categoryId: categoryId, search: search, sortOrder: sortOrder, page: page },
-            success: function (data) {
-                $("#menuItemsContainer").html(data);
-            },
-            error: function (xhr, status, error) {
-                console.error('Error fetching items:', error);
-            }
-        });
     }
-</script>
-3. Update MenuCategoryPV.cshtml to Handle Category Click
-Ensure category selection loads the relevant items dynamically.
-
-Modify Category List in MenuCategoryPV.cshtml
-html
-Copy code
-@foreach (var category in Model.menuCategories)
-{
-    <div class="row hoverDiv">
-        <div class="col">
-            <p class="fs-5 category-link" data-id="@category.CategoryId">
-                <i class="fa-solid fa-grip-vertical me-2"></i>@category.CategoryName
-            </p>
-        </div>
-    </div>
-}
-4. How It Works
-When you click a category, the MenuItem action loads relevant menu items dynamically using AJAX.
-Searching and Sorting updates the table without a full page reload.
-Pagination ensures only a limited number of items appear per page.
-Clear Search resets the filters.
-Outcome
-Clicking a category dynamically loads only relevant items.
-Users can search, sort, and navigate through paginated results.
-The entire process happens without refreshing the page.
-This ensures a smooth user experience while maintaining efficiency in data retrieval and display. Let me know if you need any refinements!
-
-
-
-
-
-
-You said:
-My table is only in other partial view the search and that is in category partial view so according to that give me code
-ChatGPT said:
-Since your table (menu items) is in one partial view (_MenuItemsPV.cshtml) and the search bar (filters) is in another partial view (_MenuCategoryPV.cshtml), I'll modify the implementation accordingly.
-
-Here's how we'll set it up:
-
-Clicking on a category will load the corresponding menu items dynamically.
-Search and sorting inputs (in _MenuCategoryPV.cshtml) will update the items list in _MenuItemsPV.cshtml without reloading the page.
-Pagination will work dynamically and maintain the selected filters.
-1. Modify the Controller (MenuController.cs)
-Ensure that search, sorting, and pagination are handled properly.
-
-Updated MenuItem Action
-csharp
-Copy code
-using X.PagedList;
-
-public ActionResult MenuItem(int categoryId, string search = "", int page = 1, string sortOrder = "")
-{
-    int pageSize = 5; // Number of items per page
-
-    var items = db.MenuItems.Where(i => i.CategoryId == categoryId);
-
-    // Apply search filter
-    if (!string.IsNullOrEmpty(search))
-    {
-        items = items.Where(i => i.ItemName.Contains(search));
-    }
-
-    // Sorting logic
-    ViewBag.NameSort = sortOrder == "name_asc" ? "name_desc" : "name_asc";
-    ViewBag.RateSort = sortOrder == "rate_asc" ? "rate_desc" : "rate_asc";
-
-    switch (sortOrder)
-    {
-        case "name_asc":
-            items = items.OrderBy(i => i.ItemName);
-            break;
-        case "name_desc":
-            items = items.OrderByDescending(i => i.ItemName);
-            break;
-        case "rate_asc":
-            items = items.OrderBy(i => i.Rate);
-            break;
-        case "rate_desc":
-            items = items.OrderByDescending(i => i.Rate);
-            break;
-        default:
-            items = items.OrderBy(i => i.ItemId);
-            break;
-    }
-
-    // Apply pagination
-    var pagedItems = items.ToPagedList(page, pageSize);
-
-    var viewModel = new MenuCategoryVM
-    {
-        menuItems = pagedItems
-    };
-
-    return PartialView("_MenuItemsPV", viewModel);
-}
-2. Modify _MenuCategoryPV.cshtml (Category & Search UI)
-Since your search bar is in this partial view, we will trigger updates for the table dynamically.
-
-Updated _MenuCategoryPV.cshtml
-html
-Copy code
-@model DAL.ViewModel.MenuCategoryVM
-
-<!-- Category List -->
-@foreach (var category in Model.menuCategories)
-{
-    <div class="row hoverDiv">
-        <div class="col">
-            <p class="fs-5 category-link" data-id="@category.CategoryId">
-                <i class="fa-solid fa-grip-vertical me-2"></i>@category.CategoryName
-            </p>
-        </div>
-    </div>
+    return compressed.length() < s.length() ? compressed : s;
 }
 
-<!-- Search and Sorting -->
-<form id="searchForm">
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <input type="text" name="search" id="searchInput" class="form-control" placeholder="Search Item">
-        </div>
-        <div class="col-md-3">
-            <select id="sortOrder" class="form-control">
-                <option value="">Sort By</option>
-                <option value="name_asc">Name Ascending</option>
-                <option value="name_desc">Name Descending</option>
-                <option value="rate_asc">Rate Ascending</option>
-                <option value="rate_desc">Rate Descending</option>
-            </select>
-        </div>
-        <div class="col-md-3">
-            <button type="submit" class="btn btn-primary">Search</button>
-            <button type="button" class="btn btn-secondary" id="clearSearch">Clear</button>
-        </div>
-    </div>
-</form>
+// 3. Find Pairs with Given Sum in an Array
+vector<pair<int, int>> findPairsWithSum(vector<int>& arr, int target) {
+    unordered_set<int> seen;
+    vector<pair<int, int>> result;
 
-<script>
-    $(document).ready(function () {
-        var selectedCategoryId = null;
-
-        // Handle category click
-        $(".category-link").on("click", function () {
-            selectedCategoryId = $(this).data("id");
-            $(".category-link").removeClass("active");
-            $(this).addClass("active");
-            loadMenuItems();
-        });
-
-        // Handle search and sorting
-        $("#searchForm").on("submit", function (e) {
-            e.preventDefault();
-            loadMenuItems();
-        });
-
-        // Clear search
-        $("#clearSearch").on("click", function () {
-            $("#searchInput").val("");
-            $("#sortOrder").val("");
-            $("#searchForm").submit();
-        });
-
-        // Load menu items dynamically
-        function loadMenuItems(page = 1) {
-            if (!selectedCategoryId) return;
-
-            var search = $("#searchInput").val();
-            var sortOrder = $("#sortOrder").val();
-
-            $.ajax({
-                url: '@Url.Action("MenuItem", "Menu")',
-                type: 'GET',
-                data: { categoryId: selectedCategoryId, search: search, sortOrder: sortOrder, page: page },
-                success: function (data) {
-                    $("#menuItemsContainer").html(data);
-                },
-                error: function (xhr, status, error) {
-                    console.error('Error fetching items:', error);
-                }
-            });
+    for (int num : arr) {
+        int complement = target - num;
+        if (seen.find(complement) != seen.end()) {
+            result.push_back({complement, num});
         }
+        seen.insert(num);
+    }
+    return result;
+}
 
-        // Handle pagination click dynamically
-        $(document).on("click", ".pagination a", function (e) {
-            e.preventDefault();
-            var page = $(this).attr("href").split("page=")[1];
-            loadMenuItems(page);
-        });
-    });
-</script>
-3. Modify _MenuItemsPV.cshtml (Table & Pagination)
-This partial view only contains the table and pagination.
+// 4. Check if a String is a Valid Anagram
+bool isAnagram(string s1, string s2) {
+    if (s1.length() != s2.length()) return false;
 
-Updated _MenuItemsPV.cshtml
-html
-Copy code
-@using X.PagedList.Mvc.Core
-@model DAL.ViewModel.MenuCategoryVM
+    unordered_map<char, int> freq;
+    for (char c : s1) freq[c]++;
+    for (char c : s2) {
+        if (--freq[c] < 0) return false;
+    }
+    return true;
+}
 
-<table class="table table-hover">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Item Type</th>
-            <th>Rate</th>
-            <th>Quantity</th>
-            <th>Available</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model.menuItems)
-        {
-            <tr>
-                <td>@item.ItemName</td>
-                <td>
-                    <img src="~/assest/icons/@(item.ItemtypeId == 1 ? "veg-icon.svg" : "non-veg-icon.svg")"
-                        style="width: 20px; height: 20px;" />
-                </td>
-                <td>@item.Rate</td>
-                <td>@item.Quantity</td>
-                <td>
-                    <input type="checkbox" @(item.IsAvailable ?? false ? "checked" : "") />
-                </td>
-                <td>
-                    <i class="fa-solid fa-marker" onclick="editItem(@item.ItemId)"></i>
-                    <i class="fa-regular fa-trash-can ms-4" onclick="deleteItem(@item.ItemId)"></i>
-                </td>
-            </tr>
+// 5. Find First Non-Repeating Character in a String
+char firstNonRepeatingChar(const string& s) {
+    unordered_map<char, int> freq;
+    for (char c : s) freq[c]++;
+    
+    for (char c : s) {
+        if (freq[c] == 1) return c;
+    }
+    return '\0'; // Return null character if no non-repeating character exists
+}
+
+// 6. Find Majority Element in an Array (Boyer-Moore Voting Algorithm)
+int findMajorityElement(vector<int>& nums) {
+    int candidate = 0, count = 0;
+
+    for (int num : nums) {
+        if (count == 0) {
+            candidate = num;
         }
-    </tbody>
-</table>
+        count += (num == candidate) ? 1 : -1;
+    }
 
-<!-- Pagination -->
-<div class="d-flex justify-content-center">
-    @Html.PagedListPager(Model.menuItems, page => "javascript:loadMenuItems(" + page + ")",
-    new PagedListRenderOptions { Display = PagedListDisplayMode.IfNeeded })
-</div>
-4. How It Works
-Clicking a category loads the corresponding items dynamically.
-Typing in the search bar and submitting the form updates the table dynamically.
-Sorting and filtering options update the table without refreshing the page.
-Pagination works dynamically while keeping search and sorting filters intact.
-Final Setup
-✅ _MenuCategoryPV.cshtml → Handles categories, search, and sorting.
-✅ _MenuItemsPV.cshtml → Displays menu items & pagination dynamically.
-✅ AJAX ensures a smooth experience without full page reloads.
+    // Verify if candidate is actually the majority element
+    count = 0;
+    for (int num : nums) {
+        if (num == candidate) count++;
+    }
 
-This setup ensures everything updates dynamically while maintaining category selection, search, sorting, and pagination seamlessly. Let me know if you need any tweaks!
+    return (count > nums.size() / 2) ? candidate : -1; // Return -1 if no majority element exists
+}
+
+int main() {
+    // Test case 1: Find Missing Number
+    vector<int> nums1 = {1, 2, 4, 5, 6};
+    cout << "Missing Number: " << findMissingNumber(nums1, 6) << endl;
+
+    // Test case 2: String Compression
+    string s = "aaabbcddddd";
+    cout << "Compressed String: " << compressString(s) << endl;
+
+    // Test case 3: Find Pairs with Given Sum
+    vector<int> arr = {2, 7, 11, 15, -2, 4};
+    int target = 9;
+    vector<pair<int, int>> pairs = findPairsWithSum(arr, target);
+    cout << "Pairs with Sum " << target << ": ";
+    for (auto p : pairs) cout << "(" << p.first << ", " << p.second << ") ";
+    cout << endl;
+
+    // Test case 4: Check if Strings are Anagrams
+    cout << "Are 'listen' and 'silent' anagrams? " << (isAnagram("listen", "silent") ? "Yes" : "No") << endl;
+
+    // Test case 5: Find First Non-Repeating Character
+    string str = "aabbcdeff";
+    cout << "First Non-Repeating Character: " << firstNonRepeatingChar(str) << endl;
+
+    // Test case 6: Find Majority Element
+    vector<int> nums2 = {3, 3, 4, 2, 3, 3, 3, 1};
+    cout << "Majority Element: " << findMajorityElement(nums2) << endl;
+
+    return 0;
+}
