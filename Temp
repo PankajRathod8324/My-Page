@@ -1,7 +1,7 @@
-submissionData JSON might not match the expected structure in your C# model, causing deserialization errors in the controller.
+extract and deserialize the data in the controller. Here’s how you can do it:
 
-✅ Fix Your AJAX JSON Structure
-Modify the JavaScript to ensure selectedModifierGroups is properly included in the request.
+✅ Updated AJAX Request
+Modify your AJAX request to send proper JSON format.
 
 javascript
 Copy code
@@ -19,10 +19,9 @@ $("#Additem").submit(function (e) {
     });
 
     // Ensure ModifierGroupIdForAdd is an array
-    formDataobj.ModifierGroupIdForAdd = selectedModifierGroups;
+    formDataobj.ModifierGroupIdForAdd = JSON.stringify(selectedModifierGroups); // Convert array to JSON string
 
-    // Convert object to JSON string
-    var submissionData = JSON.stringify(formDataobj);
+    var submissionData = JSON.stringify(formDataobj); // Final JSON string
 
     console.log("Sending data:", submissionData);
 
@@ -39,89 +38,54 @@ $("#Additem").submit(function (e) {
         }
     });
 });
-✅ Ensure Your Model Matches the JSON
-Your C# model must match the expected JSON structure.
-
-Expected JSON Output from AJAX
-json
-Copy code
-{
-  "ItemName": "Pizza",
-  "CategoryId": 1,
-  "Rate": 10.99,
-  "Quantity": 2,
-  "UnitId": 3,
-  "IsAvailable": true,
-  "ModifierGroupIdForAdd": [
-    {
-      "ModifierGroupId": 101,
-      "MinSelection": 1,
-      "MaxSelection": 3
-    },
-    {
-      "ModifierGroupId": 102,
-      "MinSelection": 2,
-      "MaxSelection": 4
-    }
-  ]
-}
-C# Model (MenuCategoryVM)
-Modify your model so it matches the JSON structure.
-
-csharp
-Copy code
-public class MenuCategoryVM
-{
-    public int CategoryId { get; set; }
-    public string ItemName { get; set; }
-    public decimal Rate { get; set; }
-    public int Quantity { get; set; }
-    public int UnitId { get; set; }
-    public bool IsAvailable { get; set; }
-    public List<ModifierGroupVM> ModifierGroupIdForAdd { get; set; }
-}
-
-public class ModifierGroupVM
-{
-    public int ModifierGroupId { get; set; }
-    public int MinSelection { get; set; }
-    public int MaxSelection { get; set; }
-}
-✅ Update Your Controller
-Ensure FromBody is used correctly and deserialize properly.
+✅ Updated Controller Using JsonObject
+Since you're using JsonObject, you need to manually extract and deserialize the JSON.
 
 csharp
 Copy code
 [HttpPost]
-public IActionResult AddMenuItem([FromBody] MenuCategoryVM menuCategoryVM)
+public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
 {
     try
     {
-        if (menuCategoryVM == null)
+        if (menuItemdata == null)
         {
             return BadRequest("Invalid JSON format. Could not parse data.");
         }
 
-        Console.WriteLine($"Received Item Name: {menuCategoryVM.ItemName}");
-        Console.WriteLine($"Modifier Groups: {string.Join(",", menuCategoryVM.ModifierGroupIdForAdd.Select(m => m.ModifierGroupId))}");
+        Console.WriteLine("Raw JSON received: " + menuItemdata.ToString());
 
-        // Save Menu Item
+        // Extract individual values
+        string itemName = menuItemdata["ItemName"]?.ToString();
+        int categoryId = Convert.ToInt32(menuItemdata["CategoryId"]);
+        decimal rate = Convert.ToDecimal(menuItemdata["Rate"]);
+        int quantity = Convert.ToInt32(menuItemdata["Quantity"]);
+        int unitId = Convert.ToInt32(menuItemdata["UnitId"]);
+        bool isAvailable = Convert.ToBoolean(menuItemdata["IsAvailable"]);
+        
+        // Deserialize Modifier Groups JSON array
+        List<ItemModifierGroup> modifierGroups = JsonConvert.DeserializeObject<List<ItemModifierGroup>>(menuItemdata["ModifierGroupIdForAdd"].ToString());
+
+        Console.WriteLine($"Received Item Name: {itemName}");
+        Console.WriteLine($"Modifier Groups: {string.Join(",", modifierGroups.Select(m => m.ModifierGroupId))}");
+
+        // Step 1: Save Menu Item
         var menuitem = new MenuItem
         {
-            CategoryId = menuCategoryVM.CategoryId,
-            ItemName = menuCategoryVM.ItemName,
-            Rate = menuCategoryVM.Rate,
-            Quantity = menuCategoryVM.Quantity,
-            UnitId = menuCategoryVM.UnitId,
-            IsAvailable = menuCategoryVM.IsAvailable
+            CategoryId = categoryId,
+            ItemName = itemName,
+            Rate = rate,
+            Quantity = quantity,
+            UnitId = unitId,
+            IsAvailable = isAvailable
         };
 
         _menuService.AddMenuItem(menuitem);
 
-        // Save Modifier Groups
-        if (menuCategoryVM.ModifierGroupIdForAdd != null && menuCategoryVM.ModifierGroupIdForAdd.Any())
+        // Step 2: Save Multiple Modifier Groups
+        if (modifierGroups != null && modifierGroups.Any())
         {
-            foreach (var modifierGroup in menuCategoryVM.ModifierGroupIdForAdd)
+            foreach (var modifierGroup in modifierGroups)
             {
                 var menuitemmodifier = new ItemModifierGroup
                 {
@@ -143,10 +107,8 @@ public IActionResult AddMenuItem([FromBody] MenuCategoryVM menuCategoryVM)
         return BadRequest($"Error: {ex.Message}");
     }
 }
-🛠 Summary of Fixes
-✅ Ensure JSON structure matches C# model
-✅ Use FromBody] correctly
-✅ Fix serialization of selectedModifierGroups
-✅ Test JSON output in DevTools → Network → Payload
-
-Now, your ModifierGrou
+✅ Summary of Fixes
+Ensure AJAX sends correct JSON (including selectedModifierGroups as a proper array).
+Use JsonObject and manually extract values.
+Use JsonConvert.DeserializeObject<List<ItemModifierGroup>>() to parse modifier groups.
+This will ensure your controller receives and processes the correct
