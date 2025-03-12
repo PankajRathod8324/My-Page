@@ -1,4 +1,4 @@
-extract and deserialize the data in the controller. Here’s how you can do it:
+properly extract and deserialize the data in the controller. Here’s how you can do it:
 
 ✅ Updated AJAX Request
 Modify your AJAX request to send proper JSON format.
@@ -111,4 +111,4 @@ public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
 Ensure AJAX sends correct JSON (including selectedModifierGroups as a proper array).
 Use JsonObject and manually extract values.
 Use JsonConvert.DeserializeObject<List<ItemModifierGroup>>() to parse modifier groups.
-This will ensure your controller receives and processes the correct
+This will ensure your controller receives and processes the correct 
