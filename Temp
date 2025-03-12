@@ -1,23 +1,58 @@
-                $("#Additem").submit(function (e) {
-                    e.preventDefault();
-                    console.log("went Are in Add item");
-                    var formData = $(this).serializeArray();
-                    formData.push({ name: "ModifierGroupIds", value: selectedModifierGroups });
-                    console.log(formData);
+ [Authorize(Policy = "MenuEditPolicy")]
+    [HttpPost]
+    public IActionResult AddMenuItem([FromBody] JsonObject menuItemdata)
+    {
+        // if (!ModelState.IsValid)
+        // {
+        //     foreach (var state in ModelState)
+        //     {
+        //         foreach (var error in state.Value.Errors)
+        //         {
+        //             Console.WriteLine($"Property: {state.Key}, Error: {error.ErrorMessage}");
+        //         }
+        //     }
+        //     return View(menuItem);
+        // }
+        MenuCategoryVM menuCategoryVM = JsonConvert.DeserializeObject<MenuCategoryVM>((string)menuItemdata);
 
-                    var submissionData = JSON.stringify(formData);
+        Console.WriteLine(menuCategoryVM);
+        // // Step 1: Save Menu Item
+        // var menuitem = new MenuItem
+        // {
+        //     CategoryId = menuItem.CategoryId,
+        //     ItemName = menuItem.ItemName,
+        //     ItemtypeId = menuItem.ItemtypeId,
+        //     Rate = menuItem.Rate,
+        //     Quantity = menuItem.Quantity,
+        //     UnitId = menuItem.UnitId,
+        //     IsAvailable = menuItem.IsAvailable,
+        //     TaxDefault = menuItem.TaxDefault,
+        //     TaxPercentage = menuItem.TaxPercentage,
+        //     ShortCode = menuItem.ShortCode,
+        //     Description = menuItem.Description
+        // };
 
-                    $.ajax({
-                        url: '/Menu/AddMenuItem',
-                        type: 'POST',
-                        contentType: "application/json",
-                        data: formData,
-                        success: function (data) {
-                            @* $('#newitemModal').modal('hide');
-                            $('.modal-backdrop').remove(); *@
-                            alert("Item Added Successfully!");
-                        },
-                        error: function (xhr, status, error) {
-                            console.error('Error:', error);
-                        }
-                    });
+        // _menuService.AddMenuItem(menuitem);
+
+        // // Step 2: Save Multiple Modifier Groups
+        // if (menuItem.ModifierGroupIds != null && menuItem.ModifierGroupIds.Any())
+        // {
+        //     foreach (var modifierGroupId in menuItem.ModifierGroupIds)
+        //     {
+        //         var menuitemmodifier = new ItemModifierGroup
+        //         {
+        //             ItemId = menuitem.ItemId, // Link to menu item
+        //             ModifierGroupId = modifierGroupId.ModifierGroupId,
+        //             MinSelection = menuItem.MinSelection,
+        //             MaxSelection = menuItem.MaxSelection
+        //         };
+
+        //         _menuService.AddMenuItemModifierGroup(menuitemmodifier);
+        //     }
+        // }
+
+        TempData["Message"] = "Menu item added successfully!";
+        TempData["MessageType"] = "success";
+
+        return RedirectToAction("MenuModifier", "Menu");
+    }
