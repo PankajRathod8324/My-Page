@@ -1,4 +1,224 @@
-Update the Razor View (Menu.cshtml or Partial View)
+need to implement a Modifier Group System for an Item, where:
+
+An Item can have multiple Modifier Groups.
+A Modifier Group contains multiple Modifiers (like options).
+Each Modifier Group has:
+A minimum selection (minModifiers) → Minimum number of modifiers a user must select.
+A maximum selection (maxModifiers) → Maximum number of modifiers a user can select.
+Each Modifier belongs to a Modifier Group.
+Database Schema
+Item Table
+sql
+Copy code
+CREATE TABLE Items (
+    ItemID INT PRIMARY KEY IDENTITY(1,1),
+    ItemName VARCHAR(255),
+    Price DECIMAL(10,2)
+);
+Modifier Group Table
+sql
+Copy code
+CREATE TABLE ModifierGroups (
+    GroupID INT PRIMARY KEY IDENTITY(1,1),
+    GroupName VARCHAR(255),
+    MinModifiers INT,
+    MaxModifiers INT
+);
+Modifier Table
+sql
+Copy code
+CREATE TABLE Modifiers (
+    ModifierID INT PRIMARY KEY IDENTITY(1,1),
+    ModifierName VARCHAR(255),
+    Price DECIMAL(10,2),
+    GroupID INT,
+    FOREIGN KEY (GroupID) REFERENCES ModifierGroups(GroupID)
+);
+Item-ModifierGroup Relationship Table (Many-to-Many)
+sql
+Copy code
+CREATE TABLE ItemModifierGroups (
+    ItemID INT,
+    GroupID INT,
+    FOREIGN KEY (ItemID) REFERENCES Items(ItemID),
+    FOREIGN KEY (GroupID) REFERENCES ModifierGroups(GroupID),
+    PRIMARY KEY (ItemID, GroupID)
+);
+Entity Classes in C# (ASP.NET MVC - Layered Architecture)
+Item Model
+csharp
+Copy code
+public class Item
+{
+    public int ItemID { get; set; }
+    public string ItemName { get; set; }
+    public decimal Price { get; set; }
+    public List<ModifierGroup> ModifierGroups { get; set; } = new List<ModifierGroup>();
+}
+ModifierGroup Model
+csharp
+Copy code
+public class ModifierGroup
+{
+    public int GroupID { get; set; }
+    public string GroupName { get; set; }
+    public int MinModifiers { get; set; }
+    public int MaxModifiers { get; set; }
+    public List<Modifier> Modifiers { get; set; } = new List<Modifier>();
+}
+Modifier Model
+csharp
+Copy code
+public class Modifier
+{
+    public int ModifierID { get; set; }
+    public string ModifierName { get; set; }
+    public decimal Price { get; set; }
+    public int GroupID { get; set; }
+}
+Repository Layer (Data Access Layer - DAL)
+Item Repository
+csharp
+Copy code
+public class ItemRepository
+{
+    private readonly ApplicationDbContext _context;
+
+    public ItemRepository(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public void AddItem(Item item)
+    {
+        _context.Items.Add(item);
+        _context.SaveChanges();
+    }
+
+    public Item GetItemWithModifiers(int itemId)
+    {
+        return _context.Items
+            .Include(i => i.ModifierGroups)
+                .ThenInclude(g => g.Modifiers)
+            .FirstOrDefault(i => i.ItemID == itemId);
+    }
+}
+Service Layer (Business Logic - Service Layer)
+csharp
+Copy code
+public class ItemService
+{
+    private readonly ItemRepository _itemRepository;
+
+    public ItemService(ItemRepository itemRepository)
+    {
+        _itemRepository = itemRepository;
+    }
+
+    public void AddItemWithModifiers(Item item)
+    {
+        _itemRepository.AddItem(item);
+    }
+
+    public Item GetItemDetails(int itemId)
+    {
+        return _itemRepository.GetItemWithModifiers(itemId);
+    }
+}
+Controller (Presentation Layer - MVC Controller)
+csharp
+Copy code
+public class ItemController : Controller
+{
+    private readonly ItemService _itemService;
+
+    public ItemController(ItemService itemService)
+    {
+        _itemService = itemService;
+    }
+
+    [HttpPost]
+    public IActionResult AddItem(ItemViewModel model)
+    {
+        var item = new Item
+        {
+            ItemName = model.ItemName,
+            Price = model.Price,
+            ModifierGroups = model.ModifierGroups.Select(g => new ModifierGroup
+            {
+                GroupName = g.GroupName,
+                MinModifiers = g.MinModifiers,
+                MaxModifiers = g.MaxModifiers,
+                Modifiers = g.Modifiers.Select(m => new Modifier
+                {
+                    ModifierName = m.ModifierName,
+                    Price = m.Price
+                }).ToList()
+            }).ToList()
+        };
+
+        _itemService.AddItemWithModifiers(item);
+        return RedirectToAction("ItemList");
+    }
+
+    [HttpGet]
+    public IActionResult ItemDetails(int id)
+    {
+        var item = _itemService.GetItemDetails(id);
+        return View(item);
+    }
+}
+Front-End (Razor View Example)
+Add Item with Modifiers
+html
+Copy code
+<form asp-action="AddItem" method="post">
+    <label>Item Name</label>
+    <input type="text" name="ItemName" required />
+
+    <label>Price</label>
+    <input type="number" name="Price" step="0.01" required />
+
+    <div id="modifierGroups">
+        <label>Modifier Group</label>
+        <input type="text" name="ModifierGroups[0].GroupName" placeholder="Group Name" required />
+        <label>Min Modifiers</label>
+        <input type="number" name="ModifierGroups[0].MinModifiers" required />
+        <label>Max Modifiers</label>
+        <input type="number" name="ModifierGroups[0].MaxModifiers" required />
+
+        <div id="modifiers">
+            <label>Modifier</label>
+            <input type="text" name="ModifierGroups[0].Modifiers[0].ModifierName" placeholder="Modifier Name" required />
+            <label>Price</label>
+            <input type="number" name="ModifierGroups[0].Modifiers[0].Price" step="0.01" required />
+        </div>
+    </div>
+
+    <button type="submit">Add Item</button>
+</form>
+Validation Logic for Min & Max Modifiers (Client-Side - JavaScript)
+javascript
+Copy code
+document.querySelector("form").addEventListener("submit", function(event) {
+    let groups = document.querySelectorAll("#modifierGroups");
+    
+    groups.forEach(group => {
+        let min = parseInt(group.querySelector("[name*='MinModifiers']").value);
+        let max = parseInt(group.querySelector("[name*='MaxModifiers']").value);
+        let selected = group.querySelectorAll("[name*='Modifiers']").length;
+
+        if (selected < min || selected > max) {
+            alert(`Please select between ${min} and ${max} modifiers for ${group.querySelector("[name*='GroupName']").value}`);
+            event.preventDefault();
+        }
+    });
+});
+Conclusion
+This design ensures one Item can have multiple Modifier Groups, and each group contains multiple Modifiers.
+It enforces min/max selection rules.
+Uses Layered Architecture with Repository, Service, and Controller for maintainability.
+Includes front-end validation to ensure modifier limits are respected.Update the Razor View (Menu.cshtml or Partial View)
 Loop through Model.ModifierGroups instead of a single Model.ModifierGroupVM
 Ensure correct input naming for multiple groups (MenuModifierGroups[index])
 razor
