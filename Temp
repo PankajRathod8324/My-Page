@@ -12,11 +12,11 @@ public IActionResult AddMenuItem([FromBody] JsonObject menuItemData)
 
         // Extract individual values safely
         string itemName = menuItemData["ItemName"]?.ToString();
-        int? categoryId = menuItemData["CategoryId"]?.GetValue<int>();
-        decimal? rate = menuItemData["Rate"]?.GetValue<decimal>();
-        int? quantity = menuItemData["Quantity"]?.GetValue<int>();
-        int? unitId = menuItemData["UnitId"]?.GetValue<int>();
-        bool? isAvailable = menuItemData["IsAvailable"]?.GetValue<bool>();
+        int categoryId = menuItemData["CategoryId"] != null ? Convert.ToInt32(menuItemData["CategoryId"].ToString()) : 0;
+        decimal rate = menuItemData["Rate"] != null ? Convert.ToDecimal(menuItemData["Rate"].ToString()) : 0;
+        int quantity = menuItemData["Quantity"] != null ? Convert.ToInt32(menuItemData["Quantity"].ToString()) : 0;
+        int unitId = menuItemData["UnitId"] != null ? Convert.ToInt32(menuItemData["UnitId"].ToString()) : 0;
+        bool isAvailable = menuItemData["IsAvailable"] != null ? Convert.ToBoolean(menuItemData["IsAvailable"].ToString()) : false;
 
         // Parse Modifier Groups array safely
         List<ItemModifierGroup> modifierGroups = new List<ItemModifierGroup>();
@@ -48,7 +48,7 @@ public IActionResult AddMenuItem([FromBody] JsonObject menuItemData)
             {
                 var menuitemmodifier = new ItemModifierGroup
                 {
-                    ItemId = menuitem.ItemId,  // Ensure ItemId is assigned
+                    ItemId = menuitem.ItemId,
                     ModifierGroupId = modifierGroup.ModifierGroupId,
                     MinSelection = modifierGroup.MinSelection,
                     MaxSelection = modifierGroup.MaxSelection
