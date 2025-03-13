@@ -1,19 +1,124 @@
- <div class="col">
-                                <div class="card  text-center p-3 h-100" style="background-color: #fff4e6;">
+using System;
+using System.Collections.Generic;
 
-                                    <select class="form-select" asp-for="ModifierGroupId"
-                                        asp-items=" ViewBag.ModifierGroups">
-                                        <option selected>Select Modifier Groups(s)</option>
-                                    </select>
-                                    <span asp-validation-for="ModifierGroupId" class="text-danger"></span>
-                                   <div id="modifierList">
-                                        @if (Model.ModifierGroupIds != null)
-                                        {
-                                            @foreach (var group in Model.ModifierGroupIds)
-                                            {
-                                                @await Html.PartialAsync("_ModifierList", group)
-                                            }
-                                        }
-                                    </div>
-                                </div>
-                            </div>
+class Program
+{
+    // 1. Find the Missing Number in an Array
+    static int FindMissingNumber(int[] nums, int N)
+    {
+        int total = N * (N + 1) / 2;
+        int sum = 0;
+        foreach (int num in nums) sum += num;
+        return total - sum;
+    }
+
+    // 2. String Compression
+    static string CompressString(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return s;
+
+        string compressed = "";
+        int count = 1;
+
+        for (int i = 1; i < s.Length; i++)
+        {
+            if (s[i] == s[i - 1])
+                count++;
+            else
+            {
+                compressed += s[i - 1] + count.ToString();
+                count = 1;
+            }
+        }
+        compressed += s[^1] + count.ToString();
+        return compressed.Length < s.Length ? compressed : s;
+    }
+
+    // 3. Find Pairs with Given Sum in an Array
+    static List<(int, int)> FindPairsWithSum(int[] arr, int target)
+    {
+        HashSet<int> seen = new HashSet<int>();
+        List<(int, int)> result = new List<(int, int)>();
+
+        foreach (int num in arr)
+        {
+            int complement = target - num;
+            if (seen.Contains(complement))
+                result.Add((complement, num));
+
+            seen.Add(num);
+        }
+        return result;
+    }
+
+    // 4. Check if a String is a Valid Anagram
+    static bool IsAnagram(string s1, string s2)
+    {
+        if (s1.Length != s2.Length) return false;
+
+        Dictionary<char, int> freq = new Dictionary<char, int>();
+        foreach (char c in s1) freq[c] = freq.GetValueOrDefault(c, 0) + 1;
+        foreach (char c in s2)
+        {
+            if (!freq.ContainsKey(c) || --freq[c] < 0) return false;
+        }
+        return true;
+    }
+
+    // 5. Find First Non-Repeating Character in a String
+    static char FirstNonRepeatingChar(string s)
+    {
+        Dictionary<char, int> freq = new Dictionary<char, int>();
+        foreach (char c in s) freq[c] = freq.GetValueOrDefault(c, 0) + 1;
+        
+        foreach (char c in s)
+        {
+            if (freq[c] == 1) return c;
+        }
+        return '\0'; // No non-repeating character found
+    }
+
+    // 6. Find Majority Element in an Array (Boyer-Moore Voting Algorithm)
+    static int FindMajorityElement(int[] nums)
+    {
+        int candidate = 0, count = 0;
+
+        foreach (int num in nums)
+        {
+            if (count == 0) candidate = num;
+            count += (num == candidate) ? 1 : -1;
+        }
+
+        count = 0;
+        foreach (int num in nums) if (num == candidate) count++;
+        return count > nums.Length / 2 ? candidate : -1;
+    }
+
+    static void Main()
+    {
+        // Test case 1: Find Missing Number
+        int[] nums1 = { 1, 2, 4, 5, 6 };
+        Console.WriteLine("Missing Number: " + FindMissingNumber(nums1, 6));
+
+        // Test case 2: String Compression
+        string s = "aaabbcddddd";
+        Console.WriteLine("Compressed String: " + CompressString(s));
+
+        // Test case 3: Find Pairs with Given Sum
+        int[] arr = { 2, 7, 11, 15, -2, 4 };
+        int target = 9;
+        var pairs = FindPairsWithSum(arr, target);
+        Console.WriteLine("Pairs with Sum " + target + ": " + string.Join(", ", pairs));
+
+        // Test case 4: Check if Strings are Anagrams
+        Console.WriteLine("Are 'listen' and 'silent' anagrams? " + (IsAnagram("listen", "silent") ? "Yes" : "No"));
+
+        // Test case 5: Find First Non-Repeating Character
+        string str = "aabbcdeff";
+        Console.WriteLine("First Non-Repeating Character: " + FirstNonRepeatingChar(str));
+
+        // Test case 6: Find Majority Element
+        int[] nums2 = { 3, 3, 4, 2, 3, 3, 3, 1 };
+        Console.WriteLine("Majority Element: " + FindMajorityElement(nums2));
+    }
+}
