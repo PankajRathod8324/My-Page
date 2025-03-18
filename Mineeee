@@ -1,0 +1,52 @@
+your GetModifiersByGroupEdit method to return an ItemModifierVM instead of MenuModifierGroupVM. Here’s how you can properly structure it:
+
+🔹 Updated Code
+csharp
+Copy code
+[Authorize]
+public IActionResult GetModifiersByGroupEdit(int groupId, UserFilterOptions filterOptions)
+{
+    var modifiers = _menuService.GetModifiersByModifierGroupId(groupId);
+    var groupName = _menuService.GetModifierGroupById(groupId);
+
+    var modifieritems = modifiers.Select(item => new MenuModifierGroupVM
+    {
+        ModifierGroupId = (int)item.ModifierGroupId,
+        ModifierName = item.ModifierName,
+        ModifierRate = item.ModifierRate,
+        UnitId = item.UnitId,
+        Quantity = item.Quantity,
+        ModifierDecription = item.ModifierDecription,
+        UnitName = item.UnitId.HasValue ? _menuService.GetUnitById(item.UnitId.Value) : "No Unit"
+    }).ToList();
+
+    // Creating the ItemModifierVM instance
+    ItemModifierVM modifieritemvm = new ItemModifierVM
+    {
+        ModifierGroupId = groupId,
+        ModifierGroupName = groupName.ModifierGroupName,
+        MenuModifiers = modifieritems
+    };
+
+    return PartialView("_EditModifierList", modifieritemvm);
+}
+🔹 Changes & Fixes
+Return ItemModifierVM Instead of MenuModifierGroupVM
+
+Now the method returns ItemModifierVM instead of MenuModifierGroupVM, ensuring consistency.
+Ensure MenuModifiers Is Passed Correctly
+
+The list of modifiers (modifieritems) is now set inside ItemModifierVM under MenuModifiers.
+Ensure groupName is Not Null
+
+Before accessing groupName.ModifierGroupName, it’s good to ensure groupName is not null:
+csharp
+Copy code
+var groupName = _menuService.GetModifierGroupById(groupId) ?? new ModifierGroup();
+This prevents a NullReferenceException if groupName is null.
+🔹 Expected Behavior
+✅ The controller will return _EditModifierList partial view.
+✅ The model (ItemModifierVM) will now contain all necessary properties.
+✅ Your view should now work properly when rendering modifier data.
+
+Would you like any additional
