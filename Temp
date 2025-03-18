@@ -1,20 +1,38 @@
-using System;
-class Program
-{
-    static void Main()
+ [Authorize]
+    public IActionResult GetModifiersByGroupEdit(int groupId, UserFilterOptions filterOptions)
     {
-        Console.WriteLine("Enter Size Of Array: ");
-        int n = int.Parse(Console.ReadLine());
-        int[] arr = new int[n];
-        Console.WriteLine("Enter The Element Of The Array: ");
-        for (int i = 0; i < n; i++)
+        var modifiers = _menuService.GetModifiersByModifierGroupId(groupId);
+        var groupName = _menuService.GetModifierGroupById(groupId);
+        // var combinemodifier = _menuService.GetItemModifier()
+
+        var modifieritems = modifiers
+           .Select(item => new MenuModifierGroupVM
+           {
+               ModifierGroupId = (int)item.ModifierGroupId,
+               ModifierName = item.ModifierName,
+               ModifierRate = item.ModifierRate,
+               UnitId = item.UnitId,
+               Quantity = item.Quantity,
+               ModifierDecription = item.ModifierDecription,
+               UnitName = item.UnitId.HasValue ? _menuService.GetUnitById(item.UnitId.Value) : "No Unit"
+
+           }).ToList();
+        MenuModifierGroupVM modifiervm = new MenuModifierGroupVM
         {
-            arr[i] = int.Parse(Console.ReadLine());
-        }
-        Console.WriteLine("Array elements are:");
-        foreach (int element in arr)
+            menuModifiers = modifieritems,
+            ModifierGroupId = groupId,
+            ModifierGroupName = groupName.ModifierGroupName
+
+
+            // UnitName = modifiers.UnitId.HasValue ? _menuService.GetUnitById(modifiers.UnitId.Value) : "No Units"
+        };
+
+        ItemModifierVM modifieritemvm = new ItemModifierVM
         {
-            Console.Write(element + " ");
+
         }
+
+
+        // var groupName = _menuService.GetModifierNameById(groupId, modifiervm);
+        return PartialView("_EditModifierList", modifiervm);
     }
-}
