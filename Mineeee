@@ -1,52 +1,25 @@
-your GetModifiersByGroupEdit method to return an ItemModifierVM instead of MenuModifierGroupVM. Here’s how you can properly structure it:
+document.addEventListener("DOMContentLoaded", function () {
+    const togglePassword = document.getElementsByClassName("togglePassword");
+    const passwordField = document.getElementsByClassName("password");
+    // const togglePassword2 = document.getElementById("togglePassword2");
+    // const passwordField2 = document.getElementById("password2");
+    console.log("loginPage.js is loaded successfully!");
 
-🔹 Updated Code
-csharp
-Copy code
-[Authorize]
-public IActionResult GetModifiersByGroupEdit(int groupId, UserFilterOptions filterOptions)
-{
-    var modifiers = _menuService.GetModifiersByModifierGroupId(groupId);
-    var groupName = _menuService.GetModifierGroupById(groupId);
+    for (var i = 0; i <= togglePassword.length; i++) {
 
-    var modifieritems = modifiers.Select(item => new MenuModifierGroupVM
-    {
-        ModifierGroupId = (int)item.ModifierGroupId,
-        ModifierName = item.ModifierName,
-        ModifierRate = item.ModifierRate,
-        UnitId = item.UnitId,
-        Quantity = item.Quantity,
-        ModifierDecription = item.ModifierDecription,
-        UnitName = item.UnitId.HasValue ? _menuService.GetUnitById(item.UnitId.Value) : "No Unit"
-    }).ToList();
-
-    // Creating the ItemModifierVM instance
-    ItemModifierVM modifieritemvm = new ItemModifierVM
-    {
-        ModifierGroupId = groupId,
-        ModifierGroupName = groupName.ModifierGroupName,
-        MenuModifiers = modifieritems
-    };
-
-    return PartialView("_EditModifierList", modifieritemvm);
-}
-🔹 Changes & Fixes
-Return ItemModifierVM Instead of MenuModifierGroupVM
-
-Now the method returns ItemModifierVM instead of MenuModifierGroupVM, ensuring consistency.
-Ensure MenuModifiers Is Passed Correctly
-
-The list of modifiers (modifieritems) is now set inside ItemModifierVM under MenuModifiers.
-Ensure groupName is Not Null
-
-Before accessing groupName.ModifierGroupName, it’s good to ensure groupName is not null:
-csharp
-Copy code
-var groupName = _menuService.GetModifierGroupById(groupId) ?? new ModifierGroup();
-This prevents a NullReferenceException if groupName is null.
-🔹 Expected Behavior
-✅ The controller will return _EditModifierList partial view.
-✅ The model (ItemModifierVM) will now contain all necessary properties.
-✅ Your view should now work properly when rendering modifier data.
-
-Would you like any additional
+        if (togglePassword[i] && passwordField[i]) {
+            togglePassword[i].addEventListener("click", function () {
+                if (passwordField.type === "password") {
+                    passwordField.type = "text";
+                    togglePassword[i].classList.remove("fa-eye-slash");
+                    togglePassword[i].classList.add("fa-eye");
+                } else {
+                    passwordField.type = "password";
+                    togglePassword[i].classList.remove("fa-eye");
+                    togglePassword[i].classList.add("fa-eye-slash");
+                }
+            });
+        } else {
+            console.error("Toggle password elements not found!");
+        }
+    }
