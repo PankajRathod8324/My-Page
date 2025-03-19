@@ -1,8 +1,14 @@
-  $(".hoverDiv").click(function () {
-            selectedSectionId = $(this).data("id");
-            var sectionId = selectedSectionId;
-            @* console.log(categoryId); *@
-                $(this).addClass("active");
+$(".hoverDiv").click(function () {
+    // Remove 'active' class from all .hoverDiv elements
+    $(".hoverDiv").removeClass("active");
 
-            loadMenuTables(sectionId);
-        })
+    // Add 'active' class only to the clicked element
+    $(this).addClass("active");
+
+    // Get selected section ID
+    selectedSectionId = $(this).data("id");
+    var sectionId = selectedSectionId;
+
+    // Load menu tables for the selected section
+    loadMenuTables(sectionId);
+});
