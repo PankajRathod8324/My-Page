@@ -1,20 +1,21 @@
-                                <div class="row">
-                                    <!-- Switch Toggles -->
-                                    <div class="col-4">
-                                        <div
-                                            class="form-check form-switch d-flex align-item-center justify-space-between gap-2 ">
-                                            <input class="form-check-input" type="checkbox" id="toggleSwitch" name="IsEnabled"
-                                                asp-for="IsEnabled">
-                                            <label for="floatingInput" asp-for="IsEnabled" class="form-label mt-1 ms-3">IsEnabled</label>
-                                        </div>
-                                    </div>
+<div class="row">
+    <!-- IsEnabled Switch -->
+    <div class="col-4">
+        <div class="form-check form-switch d-flex align-items-center justify-content-between gap-2">
+            <input class="form-check-input" type="checkbox" id="toggleIsEnabled" 
+                   name="IsEnabled" asp-for="IsEnabled" value="true" />
+            <input type="hidden" name="IsEnabled" value="false" />  <!-- Hidden field for unchecked case -->
+            <label for="toggleIsEnabled" class="form-label mt-1 ms-3">IsEnabled</label>
+        </div>
+    </div>
 
-                                    <div class="col-4">
-                                        <div
-                                            class="form-check form-switch d-flex align-item-center justify-space-between gap-2 ">
-                                            <input class="form-check-input" type="checkbox" id="toggleSwitch" name="IsDefault"
-                                                asp-for="IsDefault">
-                                            <label for="floatingInput" asp-for="IsDefault" class="form-label mt-1 ms-3">Default</label>
-                                        </div>
-                                    </div>
-                                </div>
+    <!-- IsDefault Switch -->
+    <div class="col-4">
+        <div class="form-check form-switch d-flex align-items-center justify-content-between gap-2">
+            <input class="form-check-input" type="checkbox" id="toggleIsDefault" 
+                   name="IsDefault" asp-for="IsDefault" value="true" />
+            <input type="hidden" name="IsDefault" value="false" />  <!-- Hidden field for unchecked case -->
+            <label for="toggleIsDefault" class="form-label mt-1 ms-3">Default</label>
+        </div>
+    </div>
+</div>
