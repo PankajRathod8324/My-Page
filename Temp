@@ -1,152 +1,129 @@
-Here are the final files for your ASP.NET Core email sending feature, including fetching the logo from wwwroot, retrieving user details from the database, and using an HTML template for a professional look.
-
-✅ 1. Email Sending Logic (EmailService.cs)
-Create a service to send emails.
-
-📌 Location: Services/EmailService.cs
-
-csharp
-Copy code
-using System;
-using System.IO;
-using System.Net;
-using System.Net.Mail;
-using System.Threading.Tasks;
-
-public class EmailService
-{
-    private readonly IUserService _userService;  // Injected User Service
-    private readonly IHttpContextAccessor _httpContextAccessor;
-
-    public EmailService(IUserService userService, IHttpContextAccessor httpContextAccessor)
-    {
-        _userService = userService;
-        _httpContextAccessor = httpContextAccessor;
-    }
-
-    public async Task SendResetEmailAsync(string email)
-    {
-        // Fetch user details from the database
-        var user = _userService.GetUserByEmail(email);
-        if (user == null) return; // Exit if user doesn't exist
-
-        // Get the request context
-        var request = _httpContextAccessor.HttpContext.Request;
-
-        // Fetch logo URL dynamically from wwwroot
-        var logoUrl = $"{request.Scheme}://{request.Host}/images/logo.png";
-
-        // Load the email template from wwwroot
-        string templatePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/templates/EmailTemplate.html");
-        string emailBody = await File.ReadAllTextAsync(templatePath);
-
-        // Generate reset link
-        var resetLink = $"{request.Scheme}://{request.Host}/Authentication/Resetpasswordpage?email={email}";
-
-        // Replace placeholders in the email template
-        emailBody = emailBody.Replace("{{LOGO_URL}}", logoUrl)
-                             .Replace("{{USERNAME}}", user.Name)  // Fetch username from DB
-                             .Replace("{{EMAIL}}", user.Email)
-                             .Replace("{{TEMP_PASSWORD}}", user.TempPassword)  // Fetch temp password
-                             .Replace("{{RESET_LINK}}", resetLink)
-                             .Replace("{{YEAR}}", DateTime.Now.Year.ToString());
-
-        // Create the email message
-        var message = new MailMessage
-        {
-            From = new MailAddress("test.dotnet@etatvasoft.com", "Your Company"),
-            Subject = "Your Account Details",
-            Body = emailBody,
-            IsBodyHtml = true
-        };
-        message.To.Add(new MailAddress(email));
-
-        // Configure SMTP client
-        using (var smtp = new SmtpClient("mail.etatvasoft.com", 587))
-        {
-            smtp.EnableSsl = true;
-            smtp.Credentials = new NetworkCredential("test.dotnet@etatvasoft.com", "P}N^{z-]7Ilp");
-            await smtp.SendMailAsync(message);
-        }
-    }
-}
-✅ 2. HTML Email Template (EmailTemplate.html)
-📌 Location: wwwroot/templates/EmailTemplate.html
-
+HTML (index.html)
 html
 Copy code
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Welcome to Our Platform</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Gallery with Filters</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
-<body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
-    <div style="max-width: 600px; background: white; padding: 20px; border-radius: 5px; box-shadow: 0px 0px 10px #ccc;">
-        <div style="text-align: center;">
-            <img src="{{LOGO_URL}}" alt="Company Logo" style="width: 150px;">
-            <h2>Welcome, {{USERNAME}}!</h2>
-            <p>Your account has been created successfully.</p>
-        </div>
-        <hr>
-        <p><strong>Email:</strong> {{EMAIL}}</p>
-        <p><strong>Temporary Password:</strong> <span style="color: red;">{{TEMP_PASSWORD}}</span></p>
-        <p>Please reset your password by clicking the button below:</p>
-        <div style="text-align: center;">
-            <a href="{{RESET_LINK}}" style="background: blue; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">
-                Reset Your Password
-            </a>
-        </div>
-        <p style="text-align: center; margin-top: 20px;">&copy; {{YEAR}} Your Company. All rights reserved.</p>
+<body>
+
+    <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="nature">Nature</button>
+        <button class="filter-btn" data-filter="animals">Animals</button>
+        <button class="filter-btn" data-filter="architecture">Architecture</button>
     </div>
+
+    <div class="gallery">
+        <div class="image nature"><img src="nature1.jpg" alt="Nature"><div class="title">Nature 1</div></div>
+        <div class="image animals"><img src="animals1.jpg" alt="Animals"><div class="title">Animal 1</div></div>
+        <div class="image architecture"><img src="architecture1.jpg" alt="Architecture"><div class="title">Architecture 1</div></div>
+        <div class="image nature"><img src="nature2.jpg" alt="Nature"><div class="title">Nature 2</div></div>
+        <div class="image animals"><img src="animals2.jpg" alt="Animals"><div class="title">Animal 2</div></div>
+        <div class="image architecture"><img src="architecture2.jpg" alt="Architecture"><div class="title">Architecture 2</div></div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
-✅ 3. Calling SendResetEmailAsync from Controller
-📌 Location: Controllers/UserController.cs
-
-csharp
+2. CSS (styles.css)
+css
 Copy code
-[HttpPost]
-public async Task<IActionResult> CreateUser(UserViewModel model)
-{
-    if (ModelState.IsValid)
-    {
-        var user = new User
-        {
-            Name = model.Name,
-            Email = model.Email,
-            TempPassword = GenerateTemporaryPassword() // Generate a random password
-        };
-
-        _userService.AddUser(user); // Save user in DB
-
-        // Send email with login details
-        await _emailService.SendResetEmailAsync(user.Email);
-
-        return RedirectToAction("UserList");
-    }
-    return View(model);
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background-color: #f4f4f4;
+    padding: 20px;
 }
-✅ 4. Register EmailService in Program.cs
-📌 Location: Program.cs
 
-csharp
+.filter-buttons {
+    margin-bottom: 20px;
+}
+
+.filter-btn {
+    padding: 10px 15px;
+    margin: 5px;
+    border: none;
+    cursor: pointer;
+    background: #333;
+    color: #fff;
+    border-radius: 5px;
+}
+
+.filter-btn.active {
+    background: #007BFF;
+}
+
+.gallery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.image {
+    position: relative;
+    width: 200px;
+    overflow: hidden;
+    display: none; /* Hide all images initially */
+}
+
+.image img {
+    width: 100%;
+    border-radius: 5px;
+    transition: transform 0.3s ease-in-out;
+}
+
+.image:hover img {
+    transform: scale(1.1);
+}
+
+.title {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    padding: 5px;
+    text-align: center;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.image:hover .title {
+    opacity: 1;
+}
+3. jQuery (script.js)
+js
 Copy code
-builder.Services.AddScoped<IUserService, UserService>(); // Register User Service
-builder.Services.AddScoped<EmailService>(); // Register Email Service
-builder.Services.AddHttpContextAccessor(); // Needed for generating URLs in email
-✅ Summary of Features
-✔ Fetch user details (email, name, temp password) from the database
-✔ Fetch logo dynamically from wwwroot
-✔ Use an HTML template for a beautiful email layout
-✔ Send emails via SMTP
+$(document).ready(function () {
+    $(".image").fadeIn(); // Show all images on load
 
-✅ Expected Email Output
-📩 Subject: Your Account Details
-📨 Body:
+    $(".filter-btn").click(function () {
+        $(".filter-btn").removeClass("active");
+        $(this).addClass("active");
 
-Includes Company Logo
-Shows User Email & Temporary Password
-Has a "Reset Password" Button
-Displays Year (Dynamic)
-This implementation ensures scalability, maintainability, and reus
+        let filter = $(this).attr("data-filter");
+
+        if (filter === "all") {
+            $(".image").fadeIn();
+        } else {
+            $(".image").fadeOut(300);
+            setTimeout(() => {
+                $("." + filter).fadeIn(300);
+            }, 300);
+        }
+    });
+});
+How It Works:
+Clicking a button → Filters images based on category.
+Smooth fade effect → Hides and shows relevant images.
+Hovering over an image → Zooms the image and displays the title.
+This is a minimal and effective way to implement an image gallery with filters using
