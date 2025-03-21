@@ -1,50 +1,88 @@
-function performAction(url, requestData) {
-                console.log(requestData);
-                $.ajax({
-                    url: '/TaxAndFee/AddTax', // Same URL for both permission check and action
-                    type: "POST", // Use POST if you're modifying data
-                    contentType: "application/json",
-                    data: requestData,
-                    success: function (response) {
-                        if (response.status === "forbidden") {
-                            // ❌ User lacks permission, show toast
-                            $("#newtaxModal").modal("show");
-                            toastr.error('You do not have Permission', "UnAuthorise");
-                        } else if (response.status === "success") {
-                            // ✅ Action was successful
-                            alert("Tax Added Successfully!");
-                            // Example: Open modal
-                        } else {
-                            // ⚠️ Some other unexpected response
-                            toastr.error('You do not have Permission', "UnAuthorise");
-                        }
-                    },
-                    error: function () {
-                         toastr.error('You do not have Permission', "UnAuthorise");
-                    }
-                });
-            }
-            $(".addBtn").click(function (e) {
-                e.preventDefault();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Gallery Filter</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .filter-buttons {
+            margin-bottom: 20px;
+        }
+        .filter-buttons button {
+            margin: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+        }
+        .filter-buttons button:hover {
+            background-color: #0056b3;
+        }
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .gallery img {
+            width: 200px;
+            height: 150px;
+            margin: 10px;
+            border-radius: 10px;
+            transition: all 0.5s ease;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
 
-                console.log("Submitting AddTax form");
+    <!-- Filter Buttons -->
+    <div class="filter-buttons">
+        <button data-filter="all">All</button>
+        <button data-filter="animals">Animals</button>
+        <button data-filter="nature">Nature</button>
+        <button data-filter="cars">Cars</button>
+    </div>
 
-                // Serialize form fields
-                var formData = $("#AddTax").serializeArray();
-                var formDataobj = {};
+    <!-- Image Gallery -->
+    <div class="gallery">
+        <img src="https://source.unsplash.com/200x150/?dog" class="animals">
+        <img src="https://source.unsplash.com/200x150/?cat" class="animals">
+        <img src="https://source.unsplash.com/200x150/?lion" class="animals">
+        
+        <img src="https://source.unsplash.com/200x150/?forest" class="nature">
+        <img src="https://source.unsplash.com/200x150/?mountains" class="nature">
+        <img src="https://source.unsplash.com/200x150/?river" class="nature">
+        
+        <img src="https://source.unsplash.com/200x150/?car" class="cars">
+        <img src="https://source.unsplash.com/200x150/?sports-car" class="cars">
+        <img src="https://source.unsplash.com/200x150/?luxury-car" class="cars">
+    </div>
 
-                // Convert serialized array into an object
-                $.each(formData, function (index, field) {
-                    formDataobj[field.name] = field.value;
-                });
+    <script>
+        $(document).ready(function () {
+            $(".filter-buttons button").click(function () {
+                var filter = $(this).attr("data-filter");
 
-                formDataobj["IsEnabled"] = $("#toggleSwitch[name='IsEnabled']").prop("checked");
-                formDataobj["IsDefault"] = $("#toggleSwitch[name='IsDefault']").prop("checked");
-
-                var submissionData = JSON.stringify(formDataobj); // Final JSON string
-
-                console.log("Sending data:", submissionData);
-
-                performAction("/TaxAndFee/AddTax", submissionData);
+                if (filter === "all") {
+                    $(".gallery img").fadeIn(); // Show all images
+                } else {
+                    $(".gallery img").fadeOut(); // Hide all images
+                    setTimeout(function () {
+                        $("." + filter).fadeIn(); // Show only selected category
+                    }, 300);
+                }
             });
         });
+    </script>
+
+</body>
+</html>
