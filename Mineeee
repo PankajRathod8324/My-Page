@@ -1,45 +1,50 @@
-request once and let the controller handle both permission checking and action execution.
-
-🔹 JavaScript Code (Single AJAX Call)
-javascript
-Copy code
 function performAction(url, requestData) {
-    $.ajax({
-        url: url, // Same URL for both permission check and action
-        type: "POST", // Use POST if you're modifying data
-        contentType: "application/json",
-        data: JSON.stringify(requestData),
-        success: function (response) {
-            if (response.status === "forbidden") {
-                // ❌ User lacks permission, show toast
-                showToast("You don't have permission for this action!", "error");
-            } else if (response.status === "success") {
-                // ✅ Action was successful
-                showToast("Action performed successfully!", "success");
-                $("#editModal").modal("show"); // Example: Open modal
-            } else {
-                // ⚠️ Some other unexpected response
-                showToast("Unexpected response from server!", "warning");
+                console.log(requestData);
+                $.ajax({
+                    url: '/TaxAndFee/AddTax', // Same URL for both permission check and action
+                    type: "POST", // Use POST if you're modifying data
+                    contentType: "application/json",
+                    data: requestData,
+                    success: function (response) {
+                        if (response.status === "forbidden") {
+                            // ❌ User lacks permission, show toast
+                            $("#newtaxModal").modal("show");
+                            toastr.error('You do not have Permission', "UnAuthorise");
+                        } else if (response.status === "success") {
+                            // ✅ Action was successful
+                            alert("Tax Added Successfully!");
+                            // Example: Open modal
+                        } else {
+                            // ⚠️ Some other unexpected response
+                            toastr.error('You do not have Permission', "UnAuthorise");
+                        }
+                    },
+                    error: function () {
+                         toastr.error('You do not have Permission', "UnAuthorise");
+                    }
+                });
             }
-        },
-        error: function () {
-            showToast("Something went wrong!", "error");
-        }
-    });
-}
+            $(".addBtn").click(function (e) {
+                e.preventDefault();
 
-// Generic Toast Function
-function showToast(message, type) {
-    toastr[type](message); // Types: 'success', 'error', 'info', 'warning'
-}
-🔹 Usage Example
-javascript
-Copy code
-$(".editBtn").click(function () {
-    var id = $(this).data("id");
+                console.log("Submitting AddTax form");
 
-    // Single AJAX call for both permission check & action
-    performAction("/TaxAndFee/Edit", { id: id });
-});
-✅ Backend Controller (ASP.NET)
-Modify your control
+                // Serialize form fields
+                var formData = $("#AddTax").serializeArray();
+                var formDataobj = {};
+
+                // Convert serialized array into an object
+                $.each(formData, function (index, field) {
+                    formDataobj[field.name] = field.value;
+                });
+
+                formDataobj["IsEnabled"] = $("#toggleSwitch[name='IsEnabled']").prop("checked");
+                formDataobj["IsDefault"] = $("#toggleSwitch[name='IsDefault']").prop("checked");
+
+                var submissionData = JSON.stringify(formDataobj); // Final JSON string
+
+                console.log("Sending data:", submissionData);
+
+                performAction("/TaxAndFee/AddTax", submissionData);
+            });
+        });
