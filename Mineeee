@@ -1,158 +1,199 @@
-index.html (Main Structure)
+Here’s how you can create an Order Management Page in ASP.NET MVC with the following features:
+✅ Display order details (Order ID, Date, Customer, Status, Payment Mode, Rating as Stars, Total Amount, Action).
+✅ Action Button: Generates & downloads a PDF with order details.
+✅ Export Button: Exports order data to an Excel file & downloads it.
+
+📂 Folder Structure
+pgsql
+Copy code
+/OrderManagement
+    ├── Controllers
+    │   ├── OrderController.cs
+    ├── Views
+    │   ├── Order
+    │   │   ├── Index.cshtml
+    ├── Models
+    │   ├── Order.cs
+    ├── wwwroot
+    │   ├── js
+    │   │   ├── order.js
+1️⃣ Order Model (Models/Order.cs)
+csharp
+Copy code
+using System;
+
+namespace YourNamespace.Models
+{
+    public class Order
+    {
+        public int Id { get; set; }
+        public DateTime Date { get; set; }
+        public string Customer { get; set; }
+        public string Status { get; set; }
+        public string PaymentMode { get; set; }
+        public int Rating { get; set; } // Integer stored, converted to stars
+        public decimal TotalAmount { get; set; }
+    }
+}
+2️⃣ Controller (Controllers/OrderController.cs)
+csharp
+Copy code
+using iTextSharp.text;
+using iTextSharp.text.pdf;
+using ClosedXML.Excel;
+using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using YourNamespace.Models;
+
+namespace YourNamespace.Controllers
+{
+    public class OrderController : Controller
+    {
+        // Sample data
+        private static readonly List<Order> orders = new List<Order>
+        {
+            new Order { Id = 1, Date = DateTime.Now, Customer = "John Doe", Status = "Completed", PaymentMode = "Credit Card", Rating = 4, TotalAmount = 150.75M },
+            new Order { Id = 2, Date = DateTime.Now, Customer = "Jane Smith", Status = "Pending", PaymentMode = "PayPal", Rating = 5, TotalAmount = 220.00M },
+        };
+
+        public IActionResult Index()
+        {
+            return View(orders);
+        }
+
+        // Generate PDF for specific order
+        public IActionResult DownloadPDF(int id)
+        {
+            var order = orders.Find(o => o.Id == id);
+            if (order == null) return NotFound();
+
+            using (MemoryStream ms = new MemoryStream())
+            {
+                Document document = new Document();
+                PdfWriter.GetInstance(document, ms);
+                document.Open();
+
+                document.Add(new Paragraph($"Order ID: {order.Id}"));
+                document.Add(new Paragraph($"Date: {order.Date.ToString("yyyy-MM-dd")}"));
+                document.Add(new Paragraph($"Customer: {order.Customer}"));
+                document.Add(new Paragraph($"Status: {order.Status}"));
+                document.Add(new Paragraph($"Payment Mode: {order.PaymentMode}"));
+                document.Add(new Paragraph($"Rating: {order.Rating} Stars"));
+                document.Add(new Paragraph($"Total Amount: ${order.TotalAmount}"));
+
+                document.Close();
+                return File(ms.ToArray(), "application/pdf", $"Order_{order.Id}.pdf");
+            }
+        }
+
+        // Export all orders to Excel
+        public IActionResult ExportToExcel()
+        {
+            using (var workbook = new XLWorkbook())
+            {
+                var worksheet = workbook.Worksheets.Add("Orders");
+                worksheet.Cell(1, 1).Value = "Order ID";
+                worksheet.Cell(1, 2).Value = "Date";
+                worksheet.Cell(1, 3).Value = "Customer";
+                worksheet.Cell(1, 4).Value = "Status";
+                worksheet.Cell(1, 5).Value = "Payment Mode";
+                worksheet.Cell(1, 6).Value = "Rating";
+                worksheet.Cell(1, 7).Value = "Total Amount";
+
+                for (int i = 0; i < orders.Count; i++)
+                {
+                    worksheet.Cell(i + 2, 1).Value = orders[i].Id;
+                    worksheet.Cell(i + 2, 2).Value = orders[i].Date.ToString("yyyy-MM-dd");
+                    worksheet.Cell(i + 2, 3).Value = orders[i].Customer;
+                    worksheet.Cell(i + 2, 4).Value = orders[i].Status;
+                    worksheet.Cell(i + 2, 5).Value = orders[i].PaymentMode;
+                    worksheet.Cell(i + 2, 6).Value = orders[i].Rating;
+                    worksheet.Cell(i + 2, 7).Value = orders[i].TotalAmount;
+                }
+
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    workbook.SaveAs(ms);
+                    return File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Orders.xlsx");
+                }
+            }
+        }
+    }
+}
+3️⃣ View (Views/Order/Index.cshtml)
 html
 Copy code
+@model List<YourNamespace.Models.Order>
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Gallery with Filters</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Order Management</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
+    <div class="container mt-4">
+        <h2>Order Management</h2>
+        
+        <button id="exportExcel" class="btn btn-success mb-3">Export to Excel</button>
 
-    <h1>Image Gallery</h1>
-
-    <!-- Filter Buttons -->
-    <div class="filter-buttons">
-        <button data-filter="all">All</button>
-        <button data-filter="nature">Nature</button>
-        <button data-filter="animals">Animals</button>
-        <button data-filter="architecture">Architecture</button>
+        <table class="table table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Order ID</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Payment Mode</th>
+                    <th>Rating</th>
+                    <th>Total Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var order in Model)
+                {
+                    <tr>
+                        <td>@order.Id</td>
+                        <td>@order.Date.ToString("yyyy-MM-dd")</td>
+                        <td>@order.Customer</td>
+                        <td>@order.Status</td>
+                        <td>@order.PaymentMode</td>
+                        <td>
+                            @for (int i = 0; i < order.Rating; i++)
+                            {
+                                <span style="color: gold;">★</span>
+                            }
+                        </td>
+                        <td>$@order.TotalAmount</td>
+                        <td>
+                            <button class="btn btn-primary download-pdf" data-id="@order.Id">Download PDF</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
 
-    <!-- Image Gallery -->
-    <div class="gallery">
-        <div class="image-item nature">
-            <img src="https://source.unsplash.com/300x200/?forest" alt="Forest">
-            <div class="title">Forest</div>
-        </div>
-        <div class="image-item nature">
-            <img src="https://source.unsplash.com/300x200/?river" alt="River">
-            <div class="title">River</div>
-        </div>
-        <div class="image-item animals">
-            <img src="https://source.unsplash.com/300x200/?dog" alt="Dog">
-            <div class="title">Dog</div>
-        </div>
-        <div class="image-item animals">
-            <img src="https://source.unsplash.com/300x200/?cat" alt="Cat">
-            <div class="title">Cat</div>
-        </div>
-        <div class="image-item architecture">
-            <img src="https://source.unsplash.com/300x200/?building" alt="Building">
-            <div class="title">Building</div>
-        </div>
-        <div class="image-item architecture">
-            <img src="https://source.unsplash.com/300x200/?city" alt="City">
-            <div class="title">City</div>
-        </div>
-    </div>
-
-    <script src="script.js"></script>
-
+    <script src="~/js/order.js"></script>
 </body>
 </html>
-2️⃣ styles.css (Styling & Responsive Design)
-css
-Copy code
-body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    background: #f4f4f4;
-    margin: 0;
-    padding: 0;
-}
-
-h1 {
-    margin-top: 20px;
-    color: #333;
-}
-
-/* Filter Buttons */
-.filter-buttons {
-    margin: 20px 0;
-}
-
-.filter-buttons button {
-    padding: 10px 20px;
-    margin: 5px;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    background: #007bff;
-    color: white;
-    border-radius: 5px;
-    transition: 0.3s;
-}
-
-.filter-buttons button:hover {
-    background: #0056b3;
-}
-
-/* Gallery Layout */
-.gallery {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 15px;
-    padding: 10px;
-}
-
-.image-item {
-    position: relative;
-    overflow: hidden;
-    width: 300px;
-    border-radius: 10px;
-    transition: 0.3s;
-}
-
-.image-item img {
-    width: 100%;
-    display: block;
-    border-radius: 10px;
-}
-
-/* Hover Effect for Image Titles */
-.title {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 10px;
-    text-align: center;
-    opacity: 0;
-    transition: 0.3s;
-}
-
-.image-item:hover .title {
-    opacity: 1;
-}
-
-/* Responsive Design */
-@media (max-width: 600px) {
-    .gallery {
-        flex-direction: column;
-        align-items: center;
-    }
-}
-3️⃣ script.js (jQuery Filtering Logic)
+4️⃣ JavaScript (wwwroot/js/order.js)
 js
 Copy code
 $(document).ready(function () {
-    $(".filter-buttons button").click(function () {
-        var filter = $(this).attr("data-filter");
+    // Download PDF for a specific order
+    $(".download-pdf").click(function () {
+        var orderId = $(this).data("id");
+        window.location.href = "/Order/DownloadPDF?id=" + orderId;
+    });
 
-        if (filter === "all") {
-            $(".image-item").fadeIn();
-        } else {
-            $(".image-item").fadeOut();
-            setTimeout(function () {
-                $("." + filter).fadeIn();
-            }, 300);
-        }
+    // Export all orders to Excel
+    $("#exportExcel").click(function () {
+        window.location.href = "/Order/ExportToExcel";
     });
 });
+🔥 Features 
