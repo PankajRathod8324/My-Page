@@ -1,119 +1,169 @@
-#include <iostream>
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
+1. View (Userpage.cshtml)
+This view contains:
 
-using namespace std;
+Sorting (Order ID, Date, Order Status)
 
-// 1. Find the Missing Number in an Array
-int findMissingNumber(vector<int>& nums, int N) {
-    int total = N * (N + 1) / 2; // Sum of first N natural numbers
-    int sum = 0;
-    for (int num : nums) sum += num;
-    return total - sum;
+Filtering (Date Range, Order Status)
+
+Pagination (with filters retained)
+
+html
+Copy
+Edit
+@model PagedList.IPagedList<Order>
+@using PagedList.Mvc
+
+@{
+    ViewBag.Title = "Orders";
 }
 
-// 2. String Compression
-string compressString(const string& s) {
-    string compressed = "";
-    int count = 1;
+<h2 class="mb-4">Orders</h2>
 
-    for (size_t i = 1; i <= s.length(); i++) {
-        if (i < s.length() && s[i] == s[i - 1]) {
-            count++;
-        } else {
-            compressed += s[i - 1] + to_string(count);
-            count = 1;
+<!-- Filtering Form -->
+<form method="get" class="d-flex align-items-center mb-3">
+    <div class="me-3">
+        <label for="startDate" class="form-label">Start Date:</label>
+        <input type="date" id="startDate" name="startDate" value="@ViewBag.StartDate" class="form-control">
+    </div>
+
+    <div class="me-3">
+        <label for="endDate" class="form-label">End Date:</label>
+        <input type="date" id="endDate" name="endDate" value="@ViewBag.EndDate" class="form-control">
+    </div>
+
+    <div class="me-3">
+        <label for="orderStatus" class="form-label">Order Status:</label>
+        <select id="orderStatus" name="orderStatus" class="form-select">
+            <option value="">All</option>
+            <option value="Pending" selected="@(ViewBag.OrderStatus == "Pending")">Pending</option>
+            <option value="Completed" selected="@(ViewBag.OrderStatus == "Completed")">Completed</option>
+            <option value="Cancelled" selected="@(ViewBag.OrderStatus == "Cancelled")">Cancelled</option>
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Filter</button>
+</form>
+
+<!-- Orders Table -->
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>
+                <a asp-action="Userpage" asp-route-sortBy="OrderId" asp-route-isAsc="@(ViewBag.SortBy == "OrderId" ? !ViewBag.IsAsc : true)"
+                   asp-route-startDate="@ViewBag.StartDate" asp-route-endDate="@ViewBag.EndDate" asp-route-orderStatus="@ViewBag.OrderStatus">
+                    #Order
+                </a>
+            </th>
+            <th>
+                <a asp-action="Userpage" asp-route-sortBy="Date" asp-route-isAsc="@(ViewBag.SortBy == "Date" ? !ViewBag.IsAsc : true)"
+                   asp-route-startDate="@ViewBag.StartDate" asp-route-endDate="@ViewBag.EndDate" asp-route-orderStatus="@ViewBag.OrderStatus">
+                    Date
+                </a>
+            </th>
+            <th>
+                <a asp-action="Userpage" asp-route-sortBy="OrderStatus" asp-route-isAsc="@(ViewBag.SortBy == "OrderStatus" ? !ViewBag.IsAsc : true)"
+                   asp-route-startDate="@ViewBag.StartDate" asp-route-endDate="@ViewBag.EndDate" asp-route-orderStatus="@ViewBag.OrderStatus">
+                    Status
+                </a>
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var order in Model)
+        {
+            <tr>
+                <td>@order.OrderId</td>
+                <td>@order.Date.ToString("yyyy-MM-dd")</td>
+                <td>@order.OrderStatus</td>
+            </tr>
         }
+    </tbody>
+</table>
+
+<!-- Pagination -->
+<div class="pagination-container">
+    @Html.PagedListPager(Model, page => Url.Action("Userpage", new {
+        page,
+        pageSize = ViewBag.PageSize,
+        sortBy = ViewBag.SortBy,
+        isAsc = ViewBag.IsAsc,
+        startDate = ViewBag.StartDate,
+        endDate = ViewBag.EndDate,
+        orderStatus = ViewBag.OrderStatus
+    }), new PagedListRenderOptions { Display = PagedListDisplayMode.IfNeeded })
+</div>
+2. Controller (OrderController.cs)
+Handles:
+
+Sorting
+
+Filtering (Date Range, Order Status)
+
+Pagination
+
+csharp
+Copy
+Edit
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc;
+using PagedList;
+using YourNamespace.Models;
+using YourNamespace.Services;
+
+public class OrderController : Controller
+{
+    private readonly IOrderService _orderService;
+
+    public OrderController(IOrderService orderService)
+    {
+        _orderService = orderService;
     }
-    return compressed.length() < s.length() ? compressed : s;
-}
 
-// 3. Find Pairs with Given Sum in an Array
-vector<pair<int, int>> findPairsWithSum(vector<int>& arr, int target) {
-    unordered_set<int> seen;
-    vector<pair<int, int>> result;
+    public IActionResult Userpage(string sortBy, bool isAsc = true, string startDate = null, string endDate = null, string orderStatus = null, int? page = 1, int? pageSize = 10)
+    {
+        var orders = _orderService.GetOrders(); // Fetch orders from service/repository
 
-    for (int num : arr) {
-        int complement = target - num;
-        if (seen.find(complement) != seen.end()) {
-            result.push_back({complement, num});
+        // Filtering by date range
+        if (!string.IsNullOrEmpty(startDate) && DateTime.TryParse(startDate, out DateTime start))
+        {
+            orders = orders.Where(o => o.Date >= start);
         }
-        seen.insert(num);
-    }
-    return result;
-}
-
-// 4. Check if a String is a Valid Anagram
-bool isAnagram(string s1, string s2) {
-    if (s1.length() != s2.length()) return false;
-
-    unordered_map<char, int> freq;
-    for (char c : s1) freq[c]++;
-    for (char c : s2) {
-        if (--freq[c] < 0) return false;
-    }
-    return true;
-}
-
-// 5. Find First Non-Repeating Character in a String
-char firstNonRepeatingChar(const string& s) {
-    unordered_map<char, int> freq;
-    for (char c : s) freq[c]++;
-    
-    for (char c : s) {
-        if (freq[c] == 1) return c;
-    }
-    return '\0'; // Return null character if no non-repeating character exists
-}
-
-// 6. Find Majority Element in an Array (Boyer-Moore Voting Algorithm)
-int findMajorityElement(vector<int>& nums) {
-    int candidate = 0, count = 0;
-
-    for (int num : nums) {
-        if (count == 0) {
-            candidate = num;
+        if (!string.IsNullOrEmpty(endDate) && DateTime.TryParse(endDate, out DateTime end))
+        {
+            orders = orders.Where(o => o.Date <= end);
         }
-        count += (num == candidate) ? 1 : -1;
+
+        // Filtering by status
+        if (!string.IsNullOrEmpty(orderStatus))
+        {
+            orders = orders.Where(o => o.OrderStatus == orderStatus);
+        }
+
+        // Sorting
+        orders = sortBy switch
+        {
+            "OrderId" => isAsc ? orders.OrderBy(o => o.OrderId) : orders.OrderByDescending(o => o.OrderId),
+            "Date" => isAsc ? orders.OrderBy(o => o.Date) : orders.OrderByDescending(o => o.Date),
+            "OrderStatus" => isAsc ? orders.OrderBy(o => o.OrderStatus) : orders.OrderByDescending(o => o.OrderStatus),
+            _ => orders.OrderBy(o => o.Date) // Default sorting
+        };
+
+        // Pagination
+        int pageNumber = page ?? 1;
+        int itemsPerPage = pageSize ?? 10;
+        var pagedOrders = orders.ToPagedList(pageNumber, itemsPerPage);
+
+        // Pass sorting & filtering values to ViewBag
+        ViewBag.SortBy = sortBy;
+        ViewBag.IsAsc = isAsc;
+        ViewBag.StartDate = startDate;
+        ViewBag.EndDate = endDate;
+        ViewBag.OrderStatus = orderStatus;
+        ViewBag.PageSize = itemsPerPage;
+
+        return View(pagedOrders);
     }
-
-    // Verify if candidate is actually the majority element
-    count = 0;
-    for (int num : nums) {
-        if (num == candidate) count++;
-    }
-
-    return (count > nums.size() / 2) ? candidate : -1; // Return -1 if no majority element exists
 }
-
-int main() {
-    // Test case 1: Find Missing Number
-    vector<int> nums1 = {1, 2, 4, 5, 6};
-    cout << "Missing Number: " << findMissingNumber(nums1, 6) << endl;
-
-    // Test case 2: String Compression
-    string s = "aaabbcddddd";
-    cout << "Compressed String: " << compressString(s) << endl;
-
-    // Test case 3: Find Pairs with Given Sum
-    vector<int> arr = {2, 7, 11, 15, -2, 4};
-    int target = 9;
-    vector<pair<int, int>> pairs = findPairsWithSum(arr, target);
-    cout << "Pairs with Sum " << target << ": ";
-    for (auto p : pairs) cout << "(" << p.first << ", " << p.second << ") ";
-    cout << endl;
-
-    // Test case 4: Check if Strings are Anagrams
-    cout << "Are 'listen' and 'silent' anagrams? " << (isAnagram("listen", "silent") ? "Yes" : "No") << endl;
-
-    // Test case 5: Find First Non-Repeating Character
-    string str = "aabbcdeff";
-    cout << "First Non-Repeating Character: " << firstNonRepeatingChar(str) << endl;
-
-    // Test case 6: Find Majority Element
-    vector<int> nums2 = {3, 3, 4, 2, 3, 3, 3, 1};
-    cout << "Majority Element: " << findMajorityElement(nums2) << endl;
-
-    return 0;
-}
+3. Service (OrderService.cs)
