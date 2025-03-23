@@ -1,199 +1,244 @@
-Here’s how you can create an Order Management Page in ASP.NET MVC with the following features:
-✅ Display order details (Order ID, Date, Customer, Status, Payment Mode, Rating as Stars, Total Amount, Action).
-✅ Action Button: Generates & downloads a PDF with order details.
-✅ Export Button: Exports order data to an Excel file & downloads it.
+1️⃣ Install Required NuGet Packages
+Run these in Package Manager Console:
 
-📂 Folder Structure
-pgsql
-Copy code
-/OrderManagement
-    ├── Controllers
-    │   ├── OrderController.cs
-    ├── Views
-    │   ├── Order
-    │   │   ├── Index.cshtml
-    ├── Models
-    │   ├── Order.cs
-    ├── wwwroot
-    │   ├── js
-    │   │   ├── order.js
-1️⃣ Order Model (Models/Order.cs)
+mathematica
+Copy
+Edit
+Install-Package ClosedXML
+Install-Package iText7
+ClosedXML → Helps generate Excel files.
+
+iText7 → Helps generate PDF files.
+
+2️⃣ Modify View (Userpage.cshtml)
+Export Excel Button → Downloads all orders as an Excel file.
+
+Download PDF Button → Downloads a specific order as a PDF.
+
+html
+Copy
+Edit
+@model PagedList.IPagedList<Order>
+@using PagedList.Mvc
+
+@{
+    ViewBag.Title = "Orders";
+}
+
+<h2 class="mb-4">Orders</h2>
+
+<!-- Export Excel Button -->
+<a href="@Url.Action("ExportToExcel", "Order")" class="btn btn-success mb-3">
+    <i class="fas fa-file-excel"></i> Export Orders (Excel)
+</a>
+
+<!-- Orders Table -->
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>#Order</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var order in Model)
+        {
+            <tr>
+                <td>@order.OrderId</td>
+                <td>@order.Date.ToString("yyyy-MM-dd")</td>
+                <td>@order.OrderStatus</td>
+                <td>
+                    <!-- Download PDF Button -->
+                    <a href="@Url.Action("ExportToPDF", "Order", new { orderId = order.OrderId })" class="btn btn-danger">
+                        <i class="fas fa-file-pdf"></i> Download PDF
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Pagination -->
+<div class="pagination-container">
+    @Html.PagedListPager(Model, page => Url.Action("Userpage", new {
+        page,
+        pageSize = ViewBag.PageSize,
+        sortBy = ViewBag.SortBy,
+        isAsc = ViewBag.IsAsc,
+        startDate = ViewBag.StartDate,
+        endDate = ViewBag.EndDate,
+        orderStatus = ViewBag.OrderStatus
+    }), new PagedListRenderOptions { Display = PagedListDisplayMode.IfNeeded })
+</div>
+3️⃣ Modify Controller (OrderController.cs)
+Add Excel and PDF export functions.
+
 csharp
-Copy code
+Copy
+Edit
 using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc;
+using ClosedXML.Excel;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using Microsoft.AspNetCore.Hosting;
 
-namespace YourNamespace.Models
+public class OrderController : Controller
 {
-    public class Order
+    private readonly IOrderService _orderService;
+    private readonly IWebHostEnvironment _env;
+
+    public OrderController(IOrderService orderService, IWebHostEnvironment env)
     {
-        public int Id { get; set; }
-        public DateTime Date { get; set; }
-        public string Customer { get; set; }
-        public string Status { get; set; }
-        public string PaymentMode { get; set; }
-        public int Rating { get; set; } // Integer stored, converted to stars
-        public decimal TotalAmount { get; set; }
+        _orderService = orderService;
+        _env = env;
+    }
+
+    // ✅ Export All Orders to Excel
+    public IActionResult ExportToExcel()
+    {
+        var orders = _orderService.GetOrders().ToList();
+
+        using (var workbook = new XLWorkbook())
+        {
+            var worksheet = workbook.Worksheets.Add("Orders");
+
+            // Add Logo
+            var logoPath = Path.Combine(_env.WebRootPath, "images", "logo.png");
+            if (System.IO.File.Exists(logoPath))
+            {
+                var picture = worksheet.AddPicture(logoPath).MoveTo(worksheet.Cell("A1")).Scale(0.5);
+            }
+
+            // Column Headers
+            worksheet.Cell(3, 1).Value = "Order ID";
+            worksheet.Cell(3, 2).Value = "Date";
+            worksheet.Cell(3, 3).Value = "Status";
+
+            int row = 4; // Start writing data from row 4
+            foreach (var order in orders)
+            {
+                worksheet.Cell(row, 1).Value = order.OrderId;
+                worksheet.Cell(row, 2).Value = order.Date.ToString("yyyy-MM-dd");
+                worksheet.Cell(row, 3).Value = order.OrderStatus;
+                row++;
+            }
+
+            // Set column widths
+            worksheet.Columns().AdjustToContents();
+
+            // Save to memory stream
+            using (var stream = new MemoryStream())
+            {
+                workbook.SaveAs(stream);
+                var content = stream.ToArray();
+                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Orders.xlsx");
+            }
+        }
+    }
+
+    // ✅ Export Specific Order to PDF
+    public IActionResult ExportToPDF(int orderId)
+    {
+        var order = _orderService.GetOrders().FirstOrDefault(o => o.OrderId == orderId);
+        if (order == null)
+        {
+            return NotFound();
+        }
+
+        using (var memoryStream = new MemoryStream())
+        {
+            var writer = new PdfWriter(memoryStream);
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf);
+
+            // Add Logo
+            var logoPath = Path.Combine(_env.WebRootPath, "images", "logo.png");
+            if (System.IO.File.Exists(logoPath))
+            {
+                var image = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(logoPath))
+                    .SetWidth(100)
+                    .SetHeight(50);
+                document.Add(image);
+            }
+
+            // Add Title
+            document.Add(new Paragraph("Order Details").SetBold().SetFontSize(18));
+            document.Add(new Paragraph($"Order ID: {order.OrderId}"));
+            document.Add(new Paragraph($"Date: {order.Date.ToString("yyyy-MM-dd")}"));
+            document.Add(new Paragraph($"Status: {order.OrderStatus}"));
+
+            document.Close();
+            return File(memoryStream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
+        }
     }
 }
-2️⃣ Controller (Controllers/OrderController.cs)
+4️⃣ Model (Order.cs)
+Ensure you have the Order model.
+
 csharp
-Copy code
-using iTextSharp.text;
-using iTextSharp.text.pdf;
-using ClosedXML.Excel;
-using Microsoft.AspNetCore.Mvc;
+Copy
+Edit
+using System;
+
+public class Order
+{
+    public int OrderId { get; set; }
+    public DateTime Date { get; set; }
+    public string OrderStatus { get; set; }
+}
+5️⃣ Service (OrderService.cs)
+Ensure orders are fetched from a service.
+
+csharp
+Copy
+Edit
 using System;
 using System.Collections.Generic;
-using System.IO;
-using YourNamespace.Models;
+using System.Linq;
 
-namespace YourNamespace.Controllers
+public interface IOrderService
 {
-    public class OrderController : Controller
+    IQueryable<Order> GetOrders();
+}
+
+public class OrderService : IOrderService
+{
+    private List<Order> _orders = new()
     {
-        // Sample data
-        private static readonly List<Order> orders = new List<Order>
-        {
-            new Order { Id = 1, Date = DateTime.Now, Customer = "John Doe", Status = "Completed", PaymentMode = "Credit Card", Rating = 4, TotalAmount = 150.75M },
-            new Order { Id = 2, Date = DateTime.Now, Customer = "Jane Smith", Status = "Pending", PaymentMode = "PayPal", Rating = 5, TotalAmount = 220.00M },
-        };
+        new Order { OrderId = 1, Date = DateTime.Parse("2025-03-10"), OrderStatus = "Pending" },
+        new Order { OrderId = 2, Date = DateTime.Parse("2025-03-15"), OrderStatus = "Completed" },
+        new Order { OrderId = 3, Date = DateTime.Parse("2025-03-20"), OrderStatus = "Cancelled" },
+        new Order { OrderId = 4, Date = DateTime.Parse("2025-03-22"), OrderStatus = "Pending" },
+    };
 
-        public IActionResult Index()
-        {
-            return View(orders);
-        }
-
-        // Generate PDF for specific order
-        public IActionResult DownloadPDF(int id)
-        {
-            var order = orders.Find(o => o.Id == id);
-            if (order == null) return NotFound();
-
-            using (MemoryStream ms = new MemoryStream())
-            {
-                Document document = new Document();
-                PdfWriter.GetInstance(document, ms);
-                document.Open();
-
-                document.Add(new Paragraph($"Order ID: {order.Id}"));
-                document.Add(new Paragraph($"Date: {order.Date.ToString("yyyy-MM-dd")}"));
-                document.Add(new Paragraph($"Customer: {order.Customer}"));
-                document.Add(new Paragraph($"Status: {order.Status}"));
-                document.Add(new Paragraph($"Payment Mode: {order.PaymentMode}"));
-                document.Add(new Paragraph($"Rating: {order.Rating} Stars"));
-                document.Add(new Paragraph($"Total Amount: ${order.TotalAmount}"));
-
-                document.Close();
-                return File(ms.ToArray(), "application/pdf", $"Order_{order.Id}.pdf");
-            }
-        }
-
-        // Export all orders to Excel
-        public IActionResult ExportToExcel()
-        {
-            using (var workbook = new XLWorkbook())
-            {
-                var worksheet = workbook.Worksheets.Add("Orders");
-                worksheet.Cell(1, 1).Value = "Order ID";
-                worksheet.Cell(1, 2).Value = "Date";
-                worksheet.Cell(1, 3).Value = "Customer";
-                worksheet.Cell(1, 4).Value = "Status";
-                worksheet.Cell(1, 5).Value = "Payment Mode";
-                worksheet.Cell(1, 6).Value = "Rating";
-                worksheet.Cell(1, 7).Value = "Total Amount";
-
-                for (int i = 0; i < orders.Count; i++)
-                {
-                    worksheet.Cell(i + 2, 1).Value = orders[i].Id;
-                    worksheet.Cell(i + 2, 2).Value = orders[i].Date.ToString("yyyy-MM-dd");
-                    worksheet.Cell(i + 2, 3).Value = orders[i].Customer;
-                    worksheet.Cell(i + 2, 4).Value = orders[i].Status;
-                    worksheet.Cell(i + 2, 5).Value = orders[i].PaymentMode;
-                    worksheet.Cell(i + 2, 6).Value = orders[i].Rating;
-                    worksheet.Cell(i + 2, 7).Value = orders[i].TotalAmount;
-                }
-
-                using (MemoryStream ms = new MemoryStream())
-                {
-                    workbook.SaveAs(ms);
-                    return File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Orders.xlsx");
-                }
-            }
-        }
+    public IQueryable<Order> GetOrders()
+    {
+        return _orders.AsQueryable();
     }
 }
-3️⃣ View (Views/Order/Index.cshtml)
-html
-Copy code
-@model List<YourNamespace.Models.Order>
+6️⃣ Place Your Logo
+Store your logo inside the wwwroot/images/ folder.
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Order Management</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-</head>
-<body>
-    <div class="container mt-4">
-        <h2>Order Management</h2>
-        
-        <button id="exportExcel" class="btn btn-success mb-3">Export to Excel</button>
+Name it logo.png.
 
-        <table class="table table-bordered">
-            <thead class="thead-dark">
-                <tr>
-                    <th>Order ID</th>
-                    <th>Date</th>
-                    <th>Customer</th>
-                    <th>Status</th>
-                    <th>Payment Mode</th>
-                    <th>Rating</th>
-                    <th>Total Amount</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var order in Model)
-                {
-                    <tr>
-                        <td>@order.Id</td>
-                        <td>@order.Date.ToString("yyyy-MM-dd")</td>
-                        <td>@order.Customer</td>
-                        <td>@order.Status</td>
-                        <td>@order.PaymentMode</td>
-                        <td>
-                            @for (int i = 0; i < order.Rating; i++)
-                            {
-                                <span style="color: gold;">★</span>
-                            }
-                        </td>
-                        <td>$@order.TotalAmount</td>
-                        <td>
-                            <button class="btn btn-primary download-pdf" data-id="@order.Id">Download PDF</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+🎯 Final Features
+✅ Export All Orders to Excel (.xlsx) with Logo
+✅ Download a Specific Order as a PDF with Logo
+✅ Fully Integrated with ASP.NET MVC
 
-    <script src="~/js/order.js"></script>
-</body>
-</html>
-4️⃣ JavaScript (wwwroot/js/order.js)
-js
-Copy code
-$(document).ready(function () {
-    // Download PDF for a specific order
-    $(".download-pdf").click(function () {
-        var orderId = $(this).data("id");
-        window.location.href = "/Order/DownloadPDF?id=" + orderId;
-    });
+Now, your orders table supports sorting, filtering, pagination, and exporting in Excel & PDF. 🚀
+Let me know if you need further enhancements!
 
-    // Export all orders to Excel
-    $("#exportExcel").click(function () {
-        window.location.href = "/Order/ExportToExcel";
-    });
-});
-🔥 Features 
+
+
+
+
+
+
