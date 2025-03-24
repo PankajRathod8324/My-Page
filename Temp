@@ -1,31 +1,34 @@
-public IActionResult FilterOrders(string filterBy)
-{
-    var orders = _dbContext.Orders.AsQueryable();
-
-    if (!string.IsNullOrEmpty(filterBy))
+ public IActionResult ExportToPDF(int orderId)
     {
-        DateTime now = DateTime.Now;
-
-        switch (filterBy)
+        var order = _orderService.GetOrderById(orderId);
+        if (order == null)
         {
-            case "Recent":
-                orders = orders.OrderByDescending(o => o.OrderDate).Take(10);
-                break;
-            case "Last 7 days":
-                orders = orders.Where(o => o.OrderDate >= now.AddDays(-7));
-                break;
-            case "Last 30 days":
-                orders = orders.Where(o => o.OrderDate >= now.AddDays(-30));
-                break;
-            case "Current Month":
-                orders = orders.Where(o => o.OrderDate.Month == now.Month && o.OrderDate.Year == now.Year);
-                break;
-            case "All time":
-            default:
-                // No filter needed, return all orders
-                break;
+            return NotFound();
+        }
+
+        using (var memoryStream = new MemoryStream())
+        {
+            var writer = new PdfWriter(memoryStream);
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf);
+
+            // Add Logo
+            var logoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "assest", "logos", "pizzashop_logo.png");
+            if (System.IO.File.Exists(logoPath))
+            {
+                var image = new Image(iText.IO.Image.ImageDataFactory.Create(logoPath))
+                    .SetWidth(100)
+                    .SetHeight(50);
+                document.Add(image);
+            }
+
+            // Add Title
+            document.Add(new Paragraph("Order Details").SetFontSize(18));
+            document.Add(new Paragraph($"Order ID: {order.OrderId}"));
+            document.Add(new Paragraph($"Date: {order.Date.ToString("yyyy-MM-dd")}"));
+            document.Add(new Paragraph($"Status: {order.OrderStatus}"));
+
+            document.Close();
+            return File(memoryStream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
         }
     }
-
-    return PartialView("_OrderListPartial", orders.ToList());
-}
