@@ -1,8 +1,44 @@
-  worksheet.Cell(2, 2).Value = "All Status";
-            worksheet.Range("A2:B3").Merge().Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-            // worksheet.Range("1:2").Merge().Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-            worksheet.Cell(2, 3).Style.Font.Bold = true;
-            worksheet.Cell(2, 3).Style.Font.FontSize = 20;
-            worksheet.Cell(2, 3).Style.Fill.BackgroundColor = XLColor.LightBlue;
+using ClosedXML.Excel;
+using System.IO;
 
-here i want that the vertical (2,3) and horizontal(a,b) will merge and in side written Status: and the backgroung of cell filled with blue coleo and inside text will be white color and the next (horizontal(c,d,e,f) cell merge and there wiil be all status writtten here adn and i wan the logo which is inside image folder
+public void GenerateExcelReport()
+{
+    using (var workbook = new XLWorkbook())
+    {
+        var worksheet = workbook.Worksheets.Add("Orders");
+
+        // 📌 Merge & Style "Status:" Cell (Vertical B2:B3)
+        var statusLabelCell = worksheet.Range("B2:B3").Merge();
+        statusLabelCell.Value = "Status:";
+        statusLabelCell.Style.Font.Bold = true;
+        statusLabelCell.Style.Font.FontSize = 12;
+        statusLabelCell.Style.Fill.BackgroundColor = XLColor.Blue;
+        statusLabelCell.Style.Font.FontColor = XLColor.White; // White text
+        statusLabelCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        statusLabelCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        statusLabelCell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+        // 📌 Merge & Style "All Status" Cell (Horizontal C2:F2)
+        var allStatusCell = worksheet.Range("C2:F2").Merge();
+        allStatusCell.Value = "All Status";
+        allStatusCell.Style.Font.Bold = true;
+        allStatusCell.Style.Font.FontSize = 12;
+        allStatusCell.Style.Fill.BackgroundColor = XLColor.LightBlue;
+        allStatusCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        allStatusCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        allStatusCell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+        // 📌 Insert Logo from wwwroot/images/logo.png
+        string logoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logo.png");
+        if (File.Exists(logoPath))
+        {
+            var picture = worksheet.AddPicture(logoPath)
+                .MoveTo(worksheet.Cell("A1"))
+                .Scale(0.5); // Adjust the size
+        }
+
+        // 📌 Save the Excel file
+        string filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "exports", "OrdersReport.xlsx");
+        workbook.SaveAs(filePath);
+    }
+}
