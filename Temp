@@ -1,38 +1,42 @@
-  $('.exportBtn').click(function () {
-                var page = 1;
-                var orderStatus = $("#orderStatus").val();
-                var search = $("#searchInput").val();
-                var orderStatus = $("#orderStatus").val();
-                @* var sortOrder = $("#sortOrder").val(); *@
-                var pageSize = $("#pageSizeDropdown").val();
-                console.log(search);
-                console.log("Page:", page, "PageSize:", pageSize);
+$('.exportBtn').click(function () {
+    var page = 1;
+    var orderStatus = $("#orderStatus").val();
+    var search = $("#searchInput").val();
+    var pageSize = $("#pageSizeDropdown").val();
 
-                $.ajax({
-                    url: '/Order/ExportToExcel',  // Ensure this route matches your controller
-                    type: 'GET',
-                    data: {
-                        search: search,
-                        page: page,
-                        pageSize: pageSize,
-                        orderStatus: orderStatus
-                    },
-                    success: function (data) {
-                        
-                        toastr.success('Exported Successfully', "Success");
+    console.log("Search:", search);
+    console.log("Page:", page, "PageSize:", pageSize);
 
-                    },
-                    error: function (xhr, status, error) {
-                        console.error('Error fetching items:', error);
-                    }
-                });
+    $.ajax({
+        url: '/Order/ExportToExcel',
+        type: 'GET',
+        data: {
+            search: search,
+            page: page,
+            pageSize: pageSize,
+            orderStatus: orderStatus
+        },
+        xhrFields: {
+            responseType: 'blob'  // Important for downloading files
+        },
+        success: function (data, status, xhr) {
+            var filename = xhr.getResponseHeader('Content-Disposition')
+                .split('filename=')[1]
+                .replace(/['"]/g, '');
 
-            });her in succes i want to downloda the xl sheet  worksheet.Columns().AdjustToContents();
+            var blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            var link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = filename || "Orders.xlsx";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
 
-            // Save to memory stream
-            using (var stream = new MemoryStream())
-            {
-                workbook.SaveAs(stream);
-                var content = stream.ToArray();
-                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Orders.xlsx");
-            } accordnig to this write response and ajax acording to tthat
+            toastr.success('Exported Successfully', "Success");
+        },
+        error: function (xhr, status, error) {
+            console.error('Error exporting file:', error);
+            toastr.error('Export Failed', "Error");
+        }
+    });
+});
