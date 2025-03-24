@@ -1,4 +1,4 @@
-public IActionResult ExportToPDF(int orderId)
+public async Task<IActionResult> ExportToPDF(int orderId)
 {
     var order = _orderService.GetOrderById(orderId);
     if (order == null)
@@ -8,29 +8,30 @@ public IActionResult ExportToPDF(int orderId)
 
     try
     {
-        // Create a new MemoryStream without a using statement
-        var memoryStream = new MemoryStream();
+        // Set the response content type to PDF
+        Response.ContentType = "application/pdf";
+        // Suggest a file name for the downloaded PDF
+        Response.Headers.Add("Content-Disposition", $"attachment; filename=Order_{orderId}.pdf");
 
-        // Initialize the PdfWriter and PdfDocument
-        var writer = new PdfWriter(memoryStream);
-        var pdf = new PdfDocument(writer);
-        var document = new Document(pdf);
+        // Initialize the PdfWriter with the response body stream
+        using (var writer = new PdfWriter(Response.Body))
+        {
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf);
 
-        // Add content to the PDF
-        document.Add(new Paragraph("Order Details").SetFontSize(18));
-        document.Add(new Paragraph($"Order ID: {order.OrderId}"));
-        document.Add(new Paragraph($"Date: {order.Date:yyyy-MM-dd}"));
-        document.Add(new Paragraph($"Status: {order.OrderStatus}"));
-        document.Add(new Paragraph($"Total Amount: {order.TotalAmount:C}"));
+            // Add content to the PDF
+            document.Add(new Paragraph("Order Details").SetFontSize(18));
+            document.Add(new Paragraph($"Order ID: {order.OrderId}"));
+            document.Add(new Paragraph($"Date: {order.Date:yyyy-MM-dd}"));
+            document.Add(new Paragraph($"Status: {order.OrderStatus}"));
+            document.Add(new Paragraph($"Total Amount: {order.TotalAmount:C}"));
 
-        // Close the document to finalize the PDF
-        document.Close();
+            // Close the document to finalize the PDF
+            document.Close();
+        }
 
-        // Reset the memory stream position to the beginning
-        memoryStream.Position = 0;
-
-        // Return the PDF file; the framework will handle the stream disposal
-        return File(memoryStream, "application/pdf", $"Order_{orderId}.pdf");
+        // Since we're writing directly to the response stream, return an empty result
+        return new EmptyResult();
     }
     catch (Exception ex)
     {
