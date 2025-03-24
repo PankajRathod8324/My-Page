@@ -1,42 +1,8 @@
-$('.exportBtn').click(function () {
-    var page = 1;
-    var orderStatus = $("#orderStatus").val();
-    var search = $("#searchInput").val();
-    var pageSize = $("#pageSizeDropdown").val();
-
-    console.log("Search:", search);
-    console.log("Page:", page, "PageSize:", pageSize);
-
-    $.ajax({
-        url: '/Order/ExportToExcel',
-        type: 'GET',
-        data: {
-            search: search,
-            page: page,
-            pageSize: pageSize,
-            orderStatus: orderStatus
-        },
-        xhrFields: {
-            responseType: 'blob'  // Important for downloading files
-        },
-        success: function (data, status, xhr) {
-            var filename = xhr.getResponseHeader('Content-Disposition')
-                .split('filename=')[1]
-                .replace(/['"]/g, '');
-
-            var blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            var link = document.createElement('a');
-            link.href = window.URL.createObjectURL(blob);
-            link.download = filename || "Orders.xlsx";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            toastr.success('Exported Successfully', "Success");
-        },
-        error: function (xhr, status, error) {
-            console.error('Error exporting file:', error);
-            toastr.error('Export Failed', "Error");
-        }
-    });
-});
+<select name="filterBy" class="form-select" style="height: 60px;">
+                            <option value="">All Time</option>
+                            <option value="Active">Recent</option>
+                            <option value="Last 7 days"> Last 7 days</option>
+                            <option value="Last 30 days"> Last 30 days</option>
+                            <option value="Current Month"> Current Month</option>
+                            <option value="All time"> All time</option>
+                        </select>
