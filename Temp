@@ -1,8 +1,31 @@
-<select name="filterBy" class="form-select" style="height: 60px;">
-                            <option value="">All Time</option>
-                            <option value="Active">Recent</option>
-                            <option value="Last 7 days"> Last 7 days</option>
-                            <option value="Last 30 days"> Last 30 days</option>
-                            <option value="Current Month"> Current Month</option>
-                            <option value="All time"> All time</option>
-                        </select>
+public IActionResult FilterOrders(string filterBy)
+{
+    var orders = _dbContext.Orders.AsQueryable();
+
+    if (!string.IsNullOrEmpty(filterBy))
+    {
+        DateTime now = DateTime.Now;
+
+        switch (filterBy)
+        {
+            case "Recent":
+                orders = orders.OrderByDescending(o => o.OrderDate).Take(10);
+                break;
+            case "Last 7 days":
+                orders = orders.Where(o => o.OrderDate >= now.AddDays(-7));
+                break;
+            case "Last 30 days":
+                orders = orders.Where(o => o.OrderDate >= now.AddDays(-30));
+                break;
+            case "Current Month":
+                orders = orders.Where(o => o.OrderDate.Month == now.Month && o.OrderDate.Year == now.Year);
+                break;
+            case "All time":
+            default:
+                // No filter needed, return all orders
+                break;
+        }
+    }
+
+    return PartialView("_OrderListPartial", orders.ToList());
+}
