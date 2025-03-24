@@ -1,3 +1,21 @@
+ <select id="orderStatus" name="orderStatus" class="form-select"  style="height: 60px;">
+                            <option value="">All Status</option>
+                            <option value="Pending" selected="@(ViewBag.OrderStatus == "Pending")">Pending</option>
+                            <option value="Completed" selected="@(ViewBag.OrderStatus == "Completed")">Completed
+                            </option>
+                            <option value="Cancelled" selected="@(ViewBag.OrderStatus == "Cancelled")">Cancelled
+                            </option>
+                             <div class="form-floating"> <select class="form-select" asp-for="OrderStatus" asp-items="ViewBag.OrderStatas" id="floatingSelect" aria-label="Floating label select example"> <option selected>Select a unit</option> </select> <label for="floatingSelect">Unit*</label> <span asp-validation-for="UnitId" class="text-danger"></span> </div> </select>
+                    </div>
+                                                asp-items="ViewBag.OrderStatas" id="floatingSelect"
+                                                aria-label="Floating label select example">
+                                                <option selected>Select a unit</option>
+                                            </select>
+                                            <label for="floatingSelect">Unit*</label>
+                                            <span asp-validation-for="UnitId" class="text-danger"></span>
+                                        </div>
+                        </select>
+
 1. View (Userpage.cshtml)
 This view contains:
 
