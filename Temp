@@ -1,44 +1,38 @@
-using ClosedXML.Excel;
-using System.IO;
+  $('.exportBtn').click(function () {
+                var page = 1;
+                var orderStatus = $("#orderStatus").val();
+                var search = $("#searchInput").val();
+                var orderStatus = $("#orderStatus").val();
+                @* var sortOrder = $("#sortOrder").val(); *@
+                var pageSize = $("#pageSizeDropdown").val();
+                console.log(search);
+                console.log("Page:", page, "PageSize:", pageSize);
 
-public void GenerateExcelReport()
-{
-    using (var workbook = new XLWorkbook())
-    {
-        var worksheet = workbook.Worksheets.Add("Orders");
+                $.ajax({
+                    url: '/Order/ExportToExcel',  // Ensure this route matches your controller
+                    type: 'GET',
+                    data: {
+                        search: search,
+                        page: page,
+                        pageSize: pageSize,
+                        orderStatus: orderStatus
+                    },
+                    success: function (data) {
+                        
+                        toastr.success('Exported Successfully', "Success");
 
-        // 📌 Merge & Style "Status:" Cell (Vertical B2:B3)
-        var statusLabelCell = worksheet.Range("B2:B3").Merge();
-        statusLabelCell.Value = "Status:";
-        statusLabelCell.Style.Font.Bold = true;
-        statusLabelCell.Style.Font.FontSize = 12;
-        statusLabelCell.Style.Fill.BackgroundColor = XLColor.Blue;
-        statusLabelCell.Style.Font.FontColor = XLColor.White; // White text
-        statusLabelCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-        statusLabelCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        statusLabelCell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Error fetching items:', error);
+                    }
+                });
 
-        // 📌 Merge & Style "All Status" Cell (Horizontal C2:F2)
-        var allStatusCell = worksheet.Range("C2:F2").Merge();
-        allStatusCell.Value = "All Status";
-        allStatusCell.Style.Font.Bold = true;
-        allStatusCell.Style.Font.FontSize = 12;
-        allStatusCell.Style.Fill.BackgroundColor = XLColor.LightBlue;
-        allStatusCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-        allStatusCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        allStatusCell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            });her in succes i want to downloda the xl sheet  worksheet.Columns().AdjustToContents();
 
-        // 📌 Insert Logo from wwwroot/images/logo.png
-        string logoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logo.png");
-        if (File.Exists(logoPath))
-        {
-            var picture = worksheet.AddPicture(logoPath)
-                .MoveTo(worksheet.Cell("A1"))
-                .Scale(0.5); // Adjust the size
-        }
-
-        // 📌 Save the Excel file
-        string filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "exports", "OrdersReport.xlsx");
-        workbook.SaveAs(filePath);
-    }
-}
+            // Save to memory stream
+            using (var stream = new MemoryStream())
+            {
+                workbook.SaveAs(stream);
+                var content = stream.ToArray();
+                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Orders.xlsx");
+            } accordnig to this write response and ajax acording to tthat
