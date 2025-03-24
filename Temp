@@ -8,28 +8,29 @@ public IActionResult ExportToPDF(int orderId)
 
     try
     {
-        using (var memoryStream = new MemoryStream())
-        {
-            PdfWriter writer = new(memoryStream);
-            PdfDocument pdf = new(writer);
-            Document document = new(pdf);
+        // Create a new MemoryStream without a using statement
+        var memoryStream = new MemoryStream();
 
-            // Add Title
-            document.Add(new Paragraph("Order Details").SetFontSize(18));
-            document.Add(new Paragraph($"Order ID: {order.OrderId}"));
-            document.Add(new Paragraph($"Date: {order.Date:yyyy-MM-dd}"));
-            document.Add(new Paragraph($"Status: {order.OrderStatus}"));
-            document.Add(new Paragraph($"Total Amount: {order.TotalAmount:C}"));
+        // Initialize the PdfWriter and PdfDocument
+        var writer = new PdfWriter(memoryStream);
+        var pdf = new PdfDocument(writer);
+        var document = new Document(pdf);
 
-            // Close document properly
-            document.Close();
+        // Add content to the PDF
+        document.Add(new Paragraph("Order Details").SetFontSize(18));
+        document.Add(new Paragraph($"Order ID: {order.OrderId}"));
+        document.Add(new Paragraph($"Date: {order.Date:yyyy-MM-dd}"));
+        document.Add(new Paragraph($"Status: {order.OrderStatus}"));
+        document.Add(new Paragraph($"Total Amount: {order.TotalAmount:C}"));
 
-            // Reset stream position to the beginning
-            memoryStream.Position = 0;
+        // Close the document to finalize the PDF
+        document.Close();
 
-            // Return PDF file
-            return File(memoryStream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
-        }
+        // Reset the memory stream position to the beginning
+        memoryStream.Position = 0;
+
+        // Return the PDF file; the framework will handle the stream disposal
+        return File(memoryStream, "application/pdf", $"Order_{orderId}.pdf");
     }
     catch (Exception ex)
     {
