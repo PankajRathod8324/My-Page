@@ -1,35 +1,38 @@
- var order = _orderService.GetOrderById(orderId);
-        if (order == null)
-        {
-            return NotFound("Order not found");
-        }
-
-        try
-        {
-            using (var memoryStream = new MemoryStream())
-            {
-                PdfWriter writer = new(memoryStream);
-                PdfDocument pdf = new(writer);
-                Document document = new(pdf);
-
-               
-                // Add Title
-                document.Add(new Paragraph("Order Details").SetFontSize(18));
-                document.Add(new Paragraph($"Order ID: {order.OrderId}"));
-                document.Add(new Paragraph($"Date: {order.Date:yyyy-MM-dd}"));
-                document.Add(new Paragraph($"Status: {order.OrderStatus}"));
-                Console.WriteLine(order.TotalAmount);
-
-                // Close document properly
-                document.Close();
-
-                // Return PDF file
-                return File(memoryStream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
-            }
-        }
-        catch (Exception ex)
-        {
-            return BadRequest($"Error generating PDF: {ex.Message}");
-        }
-
+public IActionResult ExportToPDF(int orderId)
+{
+    var order = _orderService.GetOrderById(orderId);
+    if (order == null)
+    {
+        return NotFound("Order not found");
     }
+
+    try
+    {
+        using (var memoryStream = new MemoryStream())
+        {
+            PdfWriter writer = new(memoryStream);
+            PdfDocument pdf = new(writer);
+            Document document = new(pdf);
+
+            // Add Title
+            document.Add(new Paragraph("Order Details").SetFontSize(18));
+            document.Add(new Paragraph($"Order ID: {order.OrderId}"));
+            document.Add(new Paragraph($"Date: {order.Date:yyyy-MM-dd}"));
+            document.Add(new Paragraph($"Status: {order.OrderStatus}"));
+            document.Add(new Paragraph($"Total Amount: {order.TotalAmount:C}"));
+
+            // Close document properly
+            document.Close();
+
+            // Reset stream position to the beginning
+            memoryStream.Position = 0;
+
+            // Return PDF file
+            return File(memoryStream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
+        }
+    }
+    catch (Exception ex)
+    {
+        return BadRequest($"Error generating PDF: {ex.Message}");
+    }
+}
