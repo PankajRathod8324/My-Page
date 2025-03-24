@@ -1,39 +1,27 @@
- public IActionResult ExportToPDF(int orderId)
-    {
-        var order = _orderService.GetOrderById(orderId);
-        if (order == null)
+  var orderVM = new OrderVM
         {
-            return NotFound("Order not found");
-        }
-
-        try
-        {
-            // Create a new MemoryStream without a using statement
-            var memoryStream = new MemoryStream();
-
-            // Initialize the PdfWriter and PdfDocument
-            var writer = new PdfWriter(memoryStream);
-            var pdf = new PdfDocument(writer);
-            var document = new Document(pdf);
-
-            // Add content to the PDF
-            document.Add(new Paragraph("Order Details").SetFontSize(18));
-            document.Add(new Paragraph($"Order ID: {order.OrderId}"));
-            document.Add(new Paragraph($"Date: {order.Date:yyyy-MM-dd}"));
-            document.Add(new Paragraph($"Status: {order.OrderStatus}"));
-            document.Add(new Paragraph($"Total Amount: {order.TotalAmount:C}"));
-
-            // Close the document to finalize the PDF
-            document.Close();
-
-            // Reset the memory stream position to the beginning
-            memoryStream.Position = 0;
-
-            // Return the PDF file; the framework will handle the stream disposal
-            return File(memoryStream, "application/pdf", $"Order_{orderId}.pdf");
-        }
-        catch (Exception ex)
-        {
-            return BadRequest($"Error generating PDF: {ex.Message}");
-        }
-    }
+            OrderId = selectedorder.OrderId,
+            CustomerId = selectedorder.CustomerId,
+            Date = selectedorder.Date,
+            ReviewId = selectedorder.ReviewId,
+            PaymentModeId = selectedorder.PaymentModeId,
+            OrderStatusId = selectedorder.OrderStatusId,
+            TotalAmount = selectedorder.TotalAmount,
+            CustomerName = selectedorder.CustomerId.HasValue ? _orderRepository.GetCustomerById(selectedorder.CustomerId.Value) : "No Customer",
+            ReviewRating = selectedorder.ReviewId.HasValue ? _orderRepository.GetReviewById(selectedorder.ReviewId.Value) : 0,
+            PaymentMode = selectedorder.PaymentModeId.HasValue ? _orderRepository.GetPaymentModeById(selectedorder.PaymentModeId.Value) : "No Payment Mode",
+            OrderStatus = selectedorder.OrderStatusId.HasValue ? _orderRepository.GetOrderStatusById(selectedorder.OrderStatusId.Value) : "No Order Status",
+            OrderItems = selectedorder.OrderItems.Select(oi => new OrderItemVM
+            {
+                ItemId = (int)oi.ItemId,
+                ItemName = oi.ItemId.HasValue ? _menuRepository.GetItemById(oi.ItemId.Value).ItemName : "No Item",
+                Price = oi.Rate,
+                Quantity = oi.Quantity,
+                Modifiers = oi..Select(m => new ModifierVM
+                {
+                    ModifierId = m.ModifierId,
+                    ModifierName = m.ModifierName,
+                    Price = m.Price
+                }).ToList()
+            }).ToList()
+        };
