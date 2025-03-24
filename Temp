@@ -1,34 +1,51 @@
- public IActionResult ExportToPDF(int orderId)
-    {
-        var order = _orderService.GetOrderById(orderId);
-        if (order == null)
-        {
-            return NotFound();
-        }
+using System.IO;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.IO.Image;
+using Microsoft.AspNetCore.Mvc;
 
+public IActionResult ExportToPDF(int orderId)
+{
+    var order = _orderService.GetOrderById(orderId);
+    if (order == null)
+    {
+        return NotFound("Order not found");
+    }
+
+    try
+    {
         using (var memoryStream = new MemoryStream())
         {
-            var writer = new PdfWriter(memoryStream);
-            var pdf = new PdfDocument(writer);
-            var document = new Document(pdf);
+            PdfWriter writer = new PdfWriter(memoryStream);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
 
-            // Add Logo
-            var logoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "assest", "logos", "pizzashop_logo.png");
+            // Add Logo (Check if the file exists)
+            var logoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "assets", "logos", "pizzashop_logo.png");
             if (System.IO.File.Exists(logoPath))
             {
-                var image = new Image(iText.IO.Image.ImageDataFactory.Create(logoPath))
+                Image image = new Image(ImageDataFactory.Create(logoPath))
                     .SetWidth(100)
                     .SetHeight(50);
                 document.Add(image);
             }
 
             // Add Title
-            document.Add(new Paragraph("Order Details").SetFontSize(18));
+            document.Add(new Paragraph("Order Details").SetFontSize(18).SetBold());
             document.Add(new Paragraph($"Order ID: {order.OrderId}"));
-            document.Add(new Paragraph($"Date: {order.Date.ToString("yyyy-MM-dd")}"));
+            document.Add(new Paragraph($"Date: {order.Date:yyyy-MM-dd}"));
             document.Add(new Paragraph($"Status: {order.OrderStatus}"));
 
+            // Close document properly
             document.Close();
+
+            // Return PDF file
             return File(memoryStream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
         }
     }
+    catch (Exception ex)
+    {
+        return BadRequest($"Error generating PDF: {ex.Message}");
+    }
+}
