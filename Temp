@@ -1,192 +1,29 @@
-Step 1: Install Rotativa
-Run the following command in the NuGet Package Manager Console:
+ An unhandled exception has occurred while executing the request.
+      System.ComponentModel.Win32Exception (740): An error occurred trying to start process 'wwwroot/Rotativa\wkhtmltopdf.exe' with working directory 'wwwroot/Rotativa'. The requested operation requires elevation.
+         at System.Diagnostics.Process.StartWithCreateProcess(ProcessStartInfo startInfo)
+         at Rotativa.AspNetCore.WkhtmlDriver.Convert(String wkhtmlPath, String switches, String html, String wkhtmlExe)
+         at Rotativa.AspNetCore.WkhtmltopdfDriver.ConvertHtml(String wkhtmltopdfPath, String switches, String html)
+         at Rotativa.AspNetCore.ViewAsPdf.CallTheDriver(ActionContext context)
+         at Rotativa.AspNetCore.AsResultBase.BuildFile(ActionContext context)
+         at Rotativa.AspNetCore.AsResultBase.ExecuteResultAsync(ActionContext context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextResultFilterAsync>g__Awaited|30_0[TFilter,TFilterAsync](ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.Rethrow(ResultExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.ResultNext[TFilter,TFilterAsync](State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.InvokeResultFilters()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextResourceFilter>g__Awaited|25_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.Rethrow(ResourceExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.InvokeFilterPipelineAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Microsoft.AspNetCore.Routing.EndpointMiddleware.<Invoke>g__AwaitRequestTask|6_0(Endpoint endpoint, Task requestTask, ILogger logger)
+         at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+         at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+         at Microsoft.AspNetCore.Session.SessionMiddleware.Invoke(HttpContext context)
+         at Microsoft.AspNetCore.Session.SessionMiddleware.Invoke(HttpContext context)
+         at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
 
-powershell
-Copy code
-Install-Package Rotativa.AspNetCore
-Step 2: Configure Rotativa in Startup.cs (For .NET Core)
-If you're using ASP.NET Core, add this in Program.cs:
 
-csharp
-Copy code
-var builder = WebApplication.CreateBuilder(args);
-var app = builder.Build();
-RotativaConfiguration.Setup("wwwroot"); // Path for wkhtmltopdf binaries
-For ASP.NET MVC (Non-Core), add this in Global.asax.cs:
 
-csharp
-Copy code
-RotativaConfiguration.Setup(Server.MapPath("~/Rotativa"));
-Step 3: Modify Your Controller (OrderController.cs)
-Add an action method to generate a PDF for a specific order:
-
-csharp
-Copy code
-using Microsoft.AspNetCore.Mvc;
-using Rotativa.AspNetCore;
-using DAL.ViewModel;
-using System.Threading.Tasks;
-
-public class OrderController : Controller
-{
-    private readonly IOrderService _orderService; // Assuming you have a service for fetching orders
-
-    public OrderController(IOrderService orderService)
-    {
-        _orderService = orderService;
-    }
-
-    public async Task<IActionResult> GeneratePDF(int orderId)
-    {
-        var order = await _orderService.GetOrderById(orderId);
-        
-        if (order == null)
-        {
-            TempData["Message"] = "Order not found!";
-            return RedirectToAction("Dashboard");
-        }
-
-        return new ViewAsPdf("OrderPDF", order)
-        {
-            FileName = $"Order_{orderId}.pdf",
-            PageSize = Rotativa.AspNetCore.Options.Size.A4
-        };
-    }
-}
-This action fetches the order, renders the OrderPDF.cshtml view, and returns it as a PDF.
-
-Step 4: Create a View (OrderPDF.cshtml)
-Create a new Razor view inside Views/Order/OrderPDF.cshtml and copy your existing order details into it:
-
-html
-Copy code
-@model DAL.ViewModel.OrderVM
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Order Invoice</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { width: 100%; padding: 20px; border: 1px solid #ddd; }
-        h2 { text-align: center; color: #305059; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        table, th, td { border: 1px solid black; padding: 10px; text-align: left; }
-        th { background-color: #88c3d3; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>Order Details - Invoice #@Model.InvoiceNo</h2>
-        <p><strong>Status:</strong> @Model.OrderStatus</p>
-        <p><strong>Paid on:</strong> @Model.PaidOn | <strong>Placed on:</strong> @Model.PlacedOn</p>
-        <p><strong>Modified on:</strong> @Model.ModifiedOn | <strong>Order Duration:</strong> @Model.Duration.Hours hrs @Model.Duration.Minutes mins</p>
-
-        <h3>Customer Details</h3>
-        <p><strong>Name:</strong> @Model.CustomerName</p>
-        <p><strong>Phone:</strong> @Model.CustomerPhone</p>
-        <p><strong>Email:</strong> @Model.CustomerEmail</p>
-        <p><strong>No of Persons:</strong> @Model.NoOfPerson</p>
-
-        <h3>Table Information</h3>
-        @foreach (var table in Model.OrderTables)
-        {
-            <p>Table No: @table.TableName | Section: @table.SectionName</p>
-        }
-
-        <h3>Order Items</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Sr.No</th>
-                    <th>Item</th>
-                    <th>Quantity</th>
-                    <th>Price</th>
-                    <th>Total Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (int i = 0; i < Model.OrderItems.Count; i++)
-                {
-                    <tr>
-                        <td>@(i + 1)</td>
-                        <td>
-                            @Model.OrderItems[i].ItemName
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p class="ms-4">- @modifier.ModifierName</p>
-                            }
-                        </td>
-                        <td>
-                            @Model.OrderItems[i].Quantity
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p>@modifier.Quantity</p>
-                            }
-                        </td>
-                        <td>
-                            @Model.OrderItems[i].Price
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p>@modifier.ModifierRate</p>
-                            }
-                        </td>
-                        <td>
-                            @(Model.OrderItems[i].Quantity * Model.OrderItems[i].Price)
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p>@(modifier.Quantity * modifier.ModifierRate)</p>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-
-        <h3 class="text-right">Summary</h3>
-        <p class="text-right"><strong>SubTotal:</strong> @Model.SubTotal</p>
-        @foreach (var tax in Model.OrderTax)
-        {
-            <p class="text-right"><strong>@tax.TaxName:</strong> @(tax.TaxTypeId == 1 ? tax.TaxAmount : (tax.TaxAmount * Model.SubTotal) / 100)</p>
-        }
-        <p class="text-right"><strong>Total Amount:</strong> @Model.TotalAmount</p>
-    </div>
-</body>
-</html>
-This layout is optimized for PDF export.
-
-It removes unnecessary scripts/styles (like Bootstrap) since Rotativa does not render them correctly in PDFs.
-
-Step 5: Add AJAX Call to Download the PDF
-Modify your existing export button to call an AJAX function:
-
-html
-Copy code
-<button class="btn btn-primary px-3 fw-bold" onclick="downloadOrderPDF(@Model.InvoiceNo)" type="button">
-    <i class="fa-solid fa-file-pdf me-2"></i>Download PDF
-</button>
-JavaScript AJAX Function
-javascript
-Copy code
-function downloadOrderPDF(orderId) {
-    $.ajax({
-        url: `/Order/GeneratePDF?orderId=${orderId}`,
-        type: 'GET',
-        xhrFields: { responseType: 'blob' }, // Ensures binary data handling
-        success: function (data, status, xhr) {
-            var blob = new Blob([data], { type: 'application/pdf' });
-            var link = document.createElement('a');
-            link.href = window.URL.createObjectURL(blob);
-            link.download = `Order_${orderId}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        },
-        error: function () {
-            alert("Failed to download PDF.");
-        }
-    });
-}
