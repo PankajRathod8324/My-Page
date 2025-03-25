@@ -1,61 +1,202 @@
-using ClosedXML.Excel;
+@model DAL.ViewModel.OrderVM
 
-// Create workbook and worksheet
-var workbook = new XLWorkbook();
-var worksheet = workbook.Worksheets.Add("Orders");
-
-// Header Styling
-var headerRow = worksheet.Range("A11:P11");
-headerRow.Style.Font.Bold = true;
-headerRow.Style.Fill.BackgroundColor = XLColor.Blue;
-headerRow.Style.Font.FontColor = XLColor.White;
-headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-headerRow.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-
-// Column Headers
-worksheet.Cell(11, 1).Value = "Order ID";
-worksheet.Range("B11:D11").Merge().Value = "Date";
-worksheet.Range("E11:G11").Merge().Value = "Customer";
-worksheet.Range("H11:J11").Merge().Value = "Status";
-worksheet.Range("K11:L11").Merge().Value = "Payment Mode";
-worksheet.Range("M11:N11").Merge().Value = "Rating";
-worksheet.Range("O11:P11").Merge().Value = "Total Amount";
-
-// Apply Borders to Headers
-headerRow.Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
-headerRow.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
-
-int row = 12; // Start writing data from row 12
-foreach (var order in orders)
-{
-    worksheet.Cell(row, 1).Value = order.OrderId;
-    worksheet.Range("B" + row + ":D" + row).Merge().Value = order.Date.ToString("yyyy-MM-dd");
-    worksheet.Range("E" + row + ":G" + row).Merge().Value = order.CustomerId.HasValue ? _orderService.GetCustomerById(order.CustomerId.Value) : "No Customer";
-    worksheet.Range("H" + row + ":J" + row).Merge().Value = order.OrderStatusId.HasValue ? _orderService.GetOrderStatusById(order.OrderStatusId.Value) : "No Order Status";
-    worksheet.Range("K" + row + ":L" + row).Merge().Value = order.PaymentModeId.HasValue ? _orderService.GetPaymentModeById(order.PaymentModeId.Value) : "No Payment Mode";
-    worksheet.Range("M" + row + ":N" + row).Merge().Value = order.ReviewId.HasValue ? _orderService.GetReviewById(order.ReviewId.Value) : 0;
-    worksheet.Range("O" + row + ":P" + row).Merge().Value = order.TotalAmount;
-
-    // Apply styles to data rows
-    var dataRow = worksheet.Range("A" + row + ":P" + row);
-    dataRow.Style.Font.FontName = "Arial";
-    dataRow.Style.Font.FontSize = 12;
-    dataRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-    dataRow.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-    dataRow.Style.Fill.BackgroundColor = XLColor.LightGray;
-    dataRow.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-    dataRow.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
-
-    row++;
+@{
+    ViewData["Title"] = "Dashboard Page";
+    @if (TempData["Message"] != null)
+    {
+        @TempData["Message"]
+    }
 }
 
-// Adjust column widths
-worksheet.Columns().AdjustToContents();
 
-// Save to memory stream
-using (var stream = new MemoryStream())
-{
-    workbook.SaveAs(stream);
-    var content = stream.ToArray();
-    return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Orders.xlsx");
-}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Page</title>
+    <link rel="stylesheet" href="~/css/style.css">
+    <link rel="stylesheet" href="~/css/media.css">
+    <link rel='stylesheet' href='https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css'>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+    
+</head>
+
+<body class="bg-body-tertiary">
+
+    <!-- Overlay for small screens -->
+    <div class="overlay" id="overlay"></div>
+
+    <div class="content mt-2" id="content">
+        <!-- Main content goes here -->
+        <div class="col ms-4">
+            <h1 class="webybtn">Order Details </h1>
+        </div>
+
+
+        <div class="container">
+            <!-- First Row: Summary Cards -->
+            <!-- Summary Cards -->
+            <div class="bg-white ">
+
+                <div class="row mt-3 ">
+                    <div class="shadow bg-white ms-2 p-3">
+                        <div class="d-flex flex-col justify-content-between align-items-center">
+                            <div class="d-flex flex-col">
+                                <h4>Order Summary</h4>
+                                <p class="m-1 badge justify-content-center" style="background-color: #88c3d3; color: #305059;">
+                                    @Model.OrderStatus</p>
+                            </div>
+                            <div>
+                                <a class="col-lg my-1 pe-0" id="exportExcel">
+                                    <button class="btn btn-primary btn-bg bgCustom px-3 fw-bold" onclick="window.print()" type="button">
+                                        <i class="fa-solid fa-file-export me-2"></i>Export</button>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="d-flex ">
+                            <div class="col-md d-flex flex-row">
+                                <p class="fw-bold">Invoice No. :&nbsp;</p>
+                                <p>@Model.InvoiceNo</p>
+                            </div>
+                           
+                        </div>
+                        <div class="d-flex">
+                            <div class="col-md d-flex flex-row">
+                                <p class="fw-bold">Paid on :&nbsp;</p>
+                                <p>@Model.PaidOn &nbsp;</p>
+                            </div>
+                            <div class="col-md d-flex flex-row">
+                                <p class="fw-bold">&nbsp;Placed on :&nbsp;</p>
+                                <p>@Model.PlacedOn &nbsp;</p>
+                            </div>
+                            <div class="col-md d-flex flex-row">
+                                <p class="fw-bold">&nbsp;Modified on :&nbsp;</p>
+                                <p>@Model.ModifiedOn &nbsp;</p>
+                            </div>
+                            <div class="col-md d-flex flex-row">
+                                <p class="fw-bold">&nbsp;Order Duration :&nbsp;</p>
+                                <p>@Model.Duration.Hours hours @Model.Duration.Minutes minutes &nbsp;</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="bg-white shadow p-3">
+                        <h5 class="text-start">Customer Details</h5>
+                        <p>Name: @Model.CustomerName</p>
+                        <p>Phone: @Model.CustomerPhone</p>
+                        <p>No Of Person: @Model.NoOfPerson</p>
+                        <p>Email: @Model.CustomerEmail</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="bg-white shadow p-3">
+                        <h5 class="text-center">Table</h5>
+                        @foreach (var table in Model.OrderTables)
+                        {
+                            <p>Table No: @table.TableName</p>
+                            <p>Table Section: @table.SectionName</p>
+                        }
+
+                    </div>
+                </div>
+            </div>
+            <!-- Last Row: Additional Stats -->
+            <div class="bg-white shadow g-4 mt-3">
+
+                <div class="row text-start p-3">
+                    <h5 class="col text-start">Order Items</h5>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col text-secondary">Sr.No</th>
+                                <th scope="col text-secondary">Item</th>
+                                <th scope="col text-secondary">Quantity</th>
+                                <th scope="col text-secondary">Price</th>
+                                <th scope="col text-secondary">Total Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < Model.OrderItems.Count; i++)
+                            {
+                                <tr>
+                                    <th scope="row">@(i + 1)</th>
+                                    <td>@Model.OrderItems[i].ItemName
+                                        @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                                        {
+                                            <p class="ms-4">-@modifier.ModifierName</p>
+                                        }
+                                    </td>
+                                    <td>@Model.OrderItems[i].Quantity
+                                        @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                                        {
+                                            <p>@modifier.Quantity</p>
+                                        }
+                                    </td>
+                                    <td>@Model.OrderItems[i].Price
+                                        @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                                        {
+                                            <p>@modifier.ModifierRate</p>
+                                        }
+                                    </td>
+                                    <td>@(Model.OrderItems[i].Quantity * Model.OrderItems[i].Price)
+                                        @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                                        {
+                                            <p>@(modifier.Quantity* modifier.ModifierRate)</p>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+
+                        </tbody>
+                    </table>
+                    <div class="col text-end">
+                        <div class="row">
+                                <div class="row">
+                                    <span class="col-11">SubTotal:</span>
+                                    <span class="col">@Model.SubTotal</span>
+                                </div>
+                            @foreach (var tax in @Model.OrderTax)
+                            {
+                                <div class="row">
+                                    <span class="col-11">@tax.TaxName </span>
+                                    <span class="col">@(tax.TaxTypeId == 1 ? @tax.TaxAmount : (tax.TaxAmount * Model.SubTotal) / 100)</span>
+                                </div>
+                            }
+                            <div class="row">
+                                    <span class="col-11">Total:</span>
+                                    <span class="col">@Model.TotalAmount</span>
+                                </div>
+                        </div>
+
+
+                    </div>
+
+
+                </div>
+
+            </div>
+        </div>
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+
+</body>
+
+</html>
