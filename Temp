@@ -1,202 +1,192 @@
-@model DAL.ViewModel.OrderVM
+Step 1: Install Rotativa
+Run the following command in the NuGet Package Manager Console:
 
-@{
-    ViewData["Title"] = "Dashboard Page";
-    @if (TempData["Message"] != null)
+powershell
+Copy code
+Install-Package Rotativa.AspNetCore
+Step 2: Configure Rotativa in Startup.cs (For .NET Core)
+If you're using ASP.NET Core, add this in Program.cs:
+
+csharp
+Copy code
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+RotativaConfiguration.Setup("wwwroot"); // Path for wkhtmltopdf binaries
+For ASP.NET MVC (Non-Core), add this in Global.asax.cs:
+
+csharp
+Copy code
+RotativaConfiguration.Setup(Server.MapPath("~/Rotativa"));
+Step 3: Modify Your Controller (OrderController.cs)
+Add an action method to generate a PDF for a specific order:
+
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using Rotativa.AspNetCore;
+using DAL.ViewModel;
+using System.Threading.Tasks;
+
+public class OrderController : Controller
+{
+    private readonly IOrderService _orderService; // Assuming you have a service for fetching orders
+
+    public OrderController(IOrderService orderService)
     {
-        @TempData["Message"]
+        _orderService = orderService;
+    }
+
+    public async Task<IActionResult> GeneratePDF(int orderId)
+    {
+        var order = await _orderService.GetOrderById(orderId);
+        
+        if (order == null)
+        {
+            TempData["Message"] = "Order not found!";
+            return RedirectToAction("Dashboard");
+        }
+
+        return new ViewAsPdf("OrderPDF", order)
+        {
+            FileName = $"Order_{orderId}.pdf",
+            PageSize = Rotativa.AspNetCore.Options.Size.A4
+        };
     }
 }
+This action fetches the order, renders the OrderPDF.cshtml view, and returns it as a PDF.
 
+Step 4: Create a View (OrderPDF.cshtml)
+Create a new Razor view inside Views/Order/OrderPDF.cshtml and copy your existing order details into it:
+
+html
+Copy code
+@model DAL.ViewModel.OrderVM
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Page</title>
-    <link rel="stylesheet" href="~/css/style.css">
-    <link rel="stylesheet" href="~/css/media.css">
-    <link rel='stylesheet' href='https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css'>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-
-    
+    <title>Order Invoice</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { width: 100%; padding: 20px; border: 1px solid #ddd; }
+        h2 { text-align: center; color: #305059; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table, th, td { border: 1px solid black; padding: 10px; text-align: left; }
+        th { background-color: #88c3d3; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+    </style>
 </head>
+<body>
+    <div class="container">
+        <h2>Order Details - Invoice #@Model.InvoiceNo</h2>
+        <p><strong>Status:</strong> @Model.OrderStatus</p>
+        <p><strong>Paid on:</strong> @Model.PaidOn | <strong>Placed on:</strong> @Model.PlacedOn</p>
+        <p><strong>Modified on:</strong> @Model.ModifiedOn | <strong>Order Duration:</strong> @Model.Duration.Hours hrs @Model.Duration.Minutes mins</p>
 
-<body class="bg-body-tertiary">
+        <h3>Customer Details</h3>
+        <p><strong>Name:</strong> @Model.CustomerName</p>
+        <p><strong>Phone:</strong> @Model.CustomerPhone</p>
+        <p><strong>Email:</strong> @Model.CustomerEmail</p>
+        <p><strong>No of Persons:</strong> @Model.NoOfPerson</p>
 
-    <!-- Overlay for small screens -->
-    <div class="overlay" id="overlay"></div>
+        <h3>Table Information</h3>
+        @foreach (var table in Model.OrderTables)
+        {
+            <p>Table No: @table.TableName | Section: @table.SectionName</p>
+        }
 
-    <div class="content mt-2" id="content">
-        <!-- Main content goes here -->
-        <div class="col ms-4">
-            <h1 class="webybtn">Order Details </h1>
-        </div>
-
-
-        <div class="container">
-            <!-- First Row: Summary Cards -->
-            <!-- Summary Cards -->
-            <div class="bg-white ">
-
-                <div class="row mt-3 ">
-                    <div class="shadow bg-white ms-2 p-3">
-                        <div class="d-flex flex-col justify-content-between align-items-center">
-                            <div class="d-flex flex-col">
-                                <h4>Order Summary</h4>
-                                <p class="m-1 badge justify-content-center" style="background-color: #88c3d3; color: #305059;">
-                                    @Model.OrderStatus</p>
-                            </div>
-                            <div>
-                                <a class="col-lg my-1 pe-0" id="exportExcel">
-                                    <button class="btn btn-primary btn-bg bgCustom px-3 fw-bold" onclick="window.print()" type="button">
-                                        <i class="fa-solid fa-file-export me-2"></i>Export</button>
-                                </a>
-                            </div>
-                        </div>
-
-                        <div class="d-flex ">
-                            <div class="col-md d-flex flex-row">
-                                <p class="fw-bold">Invoice No. :&nbsp;</p>
-                                <p>@Model.InvoiceNo</p>
-                            </div>
-                           
-                        </div>
-                        <div class="d-flex">
-                            <div class="col-md d-flex flex-row">
-                                <p class="fw-bold">Paid on :&nbsp;</p>
-                                <p>@Model.PaidOn &nbsp;</p>
-                            </div>
-                            <div class="col-md d-flex flex-row">
-                                <p class="fw-bold">&nbsp;Placed on :&nbsp;</p>
-                                <p>@Model.PlacedOn &nbsp;</p>
-                            </div>
-                            <div class="col-md d-flex flex-row">
-                                <p class="fw-bold">&nbsp;Modified on :&nbsp;</p>
-                                <p>@Model.ModifiedOn &nbsp;</p>
-                            </div>
-                            <div class="col-md d-flex flex-row">
-                                <p class="fw-bold">&nbsp;Order Duration :&nbsp;</p>
-                                <p>@Model.Duration.Hours hours @Model.Duration.Minutes minutes &nbsp;</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts Section -->
-            <div class="row mt-4">
-                <div class="col-md-6">
-                    <div class="bg-white shadow p-3">
-                        <h5 class="text-start">Customer Details</h5>
-                        <p>Name: @Model.CustomerName</p>
-                        <p>Phone: @Model.CustomerPhone</p>
-                        <p>No Of Person: @Model.NoOfPerson</p>
-                        <p>Email: @Model.CustomerEmail</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="bg-white shadow p-3">
-                        <h5 class="text-center">Table</h5>
-                        @foreach (var table in Model.OrderTables)
-                        {
-                            <p>Table No: @table.TableName</p>
-                            <p>Table Section: @table.SectionName</p>
-                        }
-
-                    </div>
-                </div>
-            </div>
-            <!-- Last Row: Additional Stats -->
-            <div class="bg-white shadow g-4 mt-3">
-
-                <div class="row text-start p-3">
-                    <h5 class="col text-start">Order Items</h5>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th scope="col text-secondary">Sr.No</th>
-                                <th scope="col text-secondary">Item</th>
-                                <th scope="col text-secondary">Quantity</th>
-                                <th scope="col text-secondary">Price</th>
-                                <th scope="col text-secondary">Total Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @for (int i = 0; i < Model.OrderItems.Count; i++)
+        <h3>Order Items</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Sr.No</th>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Total Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.OrderItems.Count; i++)
+                {
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td>
+                            @Model.OrderItems[i].ItemName
+                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
                             {
-                                <tr>
-                                    <th scope="row">@(i + 1)</th>
-                                    <td>@Model.OrderItems[i].ItemName
-                                        @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                                        {
-                                            <p class="ms-4">-@modifier.ModifierName</p>
-                                        }
-                                    </td>
-                                    <td>@Model.OrderItems[i].Quantity
-                                        @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                                        {
-                                            <p>@modifier.Quantity</p>
-                                        }
-                                    </td>
-                                    <td>@Model.OrderItems[i].Price
-                                        @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                                        {
-                                            <p>@modifier.ModifierRate</p>
-                                        }
-                                    </td>
-                                    <td>@(Model.OrderItems[i].Quantity * Model.OrderItems[i].Price)
-                                        @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                                        {
-                                            <p>@(modifier.Quantity* modifier.ModifierRate)</p>
-                                        }
-                                    </td>
-                                </tr>
+                                <p class="ms-4">- @modifier.ModifierName</p>
                             }
-
-                        </tbody>
-                    </table>
-                    <div class="col text-end">
-                        <div class="row">
-                                <div class="row">
-                                    <span class="col-11">SubTotal:</span>
-                                    <span class="col">@Model.SubTotal</span>
-                                </div>
-                            @foreach (var tax in @Model.OrderTax)
+                        </td>
+                        <td>
+                            @Model.OrderItems[i].Quantity
+                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
                             {
-                                <div class="row">
-                                    <span class="col-11">@tax.TaxName </span>
-                                    <span class="col">@(tax.TaxTypeId == 1 ? @tax.TaxAmount : (tax.TaxAmount * Model.SubTotal) / 100)</span>
-                                </div>
+                                <p>@modifier.Quantity</p>
                             }
-                            <div class="row">
-                                    <span class="col-11">Total:</span>
-                                    <span class="col">@Model.TotalAmount</span>
-                                </div>
-                        </div>
+                        </td>
+                        <td>
+                            @Model.OrderItems[i].Price
+                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                            {
+                                <p>@modifier.ModifierRate</p>
+                            }
+                        </td>
+                        <td>
+                            @(Model.OrderItems[i].Quantity * Model.OrderItems[i].Price)
+                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                            {
+                                <p>@(modifier.Quantity * modifier.ModifierRate)</p>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
 
-
-                    </div>
-
-
-                </div>
-
-            </div>
-        </div>
-        <!-- Bootstrap JS -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-
+        <h3 class="text-right">Summary</h3>
+        <p class="text-right"><strong>SubTotal:</strong> @Model.SubTotal</p>
+        @foreach (var tax in Model.OrderTax)
+        {
+            <p class="text-right"><strong>@tax.TaxName:</strong> @(tax.TaxTypeId == 1 ? tax.TaxAmount : (tax.TaxAmount * Model.SubTotal) / 100)</p>
+        }
+        <p class="text-right"><strong>Total Amount:</strong> @Model.TotalAmount</p>
+    </div>
 </body>
-
 </html>
+This layout is optimized for PDF export.
+
+It removes unnecessary scripts/styles (like Bootstrap) since Rotativa does not render them correctly in PDFs.
+
+Step 5: Add AJAX Call to Download the PDF
+Modify your existing export button to call an AJAX function:
+
+html
+Copy code
+<button class="btn btn-primary px-3 fw-bold" onclick="downloadOrderPDF(@Model.InvoiceNo)" type="button">
+    <i class="fa-solid fa-file-pdf me-2"></i>Download PDF
+</button>
+JavaScript AJAX Function
+javascript
+Copy code
+function downloadOrderPDF(orderId) {
+    $.ajax({
+        url: `/Order/GeneratePDF?orderId=${orderId}`,
+        type: 'GET',
+        xhrFields: { responseType: 'blob' }, // Ensures binary data handling
+        success: function (data, status, xhr) {
+            var blob = new Blob([data], { type: 'application/pdf' });
+            var link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = `Order_${orderId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        },
+        error: function () {
+            alert("Failed to download PDF.");
+        }
+    });
+}
