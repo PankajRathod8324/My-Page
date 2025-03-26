@@ -1,2 +1,4 @@
-Exception has occurred: CLR/System.ApplicationException
-An unhandled exception of type 'System.ApplicationException' occurred in Rotativa.AspNetCore.dll: 'Folder containing wkhtmltopdf.exe not found, searched for C:\Rotativa\wkhtmltopdf.exe\Rotativa'
+  An unhandled exception has occurred while executing the request.
+      System.ComponentModel.Win32Exception (740): An error occurred trying to start process 'D:\Training\Assignment\Pizza_Shop\PizzaShop\wwwroot\Rotativa\wkhtmltopdf.exe' with working directory 'D:\Training\Assignment\Pizza_Shop\PizzaShop\wwwroot\Rotativa'. The requested operation requires elevation.
+         at System.Diagnostics.Process.StartWithCreateProcess(ProcessStartInfo startInfo)
+         at Rotativa.AspNetCore.WkhtmlDriver.Convert(String wkhtmlPath, String switches, String html, String wkhtmlEx
