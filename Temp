@@ -1,36 +1,48 @@
-<div id="table-container">
-    @foreach (var table in Model.OrderTables)
-    {
-        <span class="table-data" data-section="@table.SectionName" data-table="@table.TableName"></span>
-    }
-</div>
 
-<!-- Placeholder for displaying grouped data -->
-<div id="grouped-tables"></div>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        let tables = document.querySelectorAll(".table-data");
-        let sectionMap = {};
-
-        // Loop through all table elements
-        tables.forEach(table => {
-            let section = table.dataset.section;
-            let tableNo = table.dataset.table;
-
-            // Group tables by section
-            if (!sectionMap[section]) {
-                sectionMap[section] = [];
-            }
-            sectionMap[section].push(tableNo);
-        });
-
-        let outputHtml = "";
-        for (let section in sectionMap) {
-            outputHtml += `<p><strong>Section:</strong> ${section}</p>`;
-            outputHtml += `<p><strong>Table No:</strong> ${sectionMap[section].join(", ")}</p><br>`;
-        }
-
-        document.getElementById("grouped-tables").innerHTML = outputHtml;
-    });
-</script>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Sr.No</th>
+                    <th scope="col">Item</th>
+                    <th scope="col">Quantity</th>
+                    <th scope="col">Price</th>
+                    <th scope="col">Total Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.OrderItems.Count; i++)
+                {
+                    <tr>
+                        <th scope="row">@(i + 1)</th>
+                        <td>
+                            @Model.OrderItems[i].ItemName
+                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                            {
+                                <p class="ms-4">- @modifier.ModifierName</p>
+                            }
+                        </td>
+                        <td>
+                            @Model.OrderItems[i].Quantity
+                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                            {
+                                <p>@modifier.Quantity</p>
+                            }
+                        </td>
+                        <td>
+                            @Model.OrderItems[i].Price
+                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                            {
+                                <p>@modifier.ModifierRate</p>
+                            }
+                        </td>
+                        <td>
+                            @(Model.OrderItems[i].Quantity * Model.OrderItems[i].Price)
+                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                            {
+                                <p>@(modifier.Quantity * modifier.ModifierRate)</p>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
