@@ -1,4 +1,219 @@
-  An unhandled exception has occurred while executing the request.
-      System.ComponentModel.Win32Exception (740): An error occurred trying to start process 'D:\Training\Assignment\Pizza_Shop\PizzaShop\wwwroot\Rotativa\wkhtmltopdf.exe' with working directory 'D:\Training\Assignment\Pizza_Shop\PizzaShop\wwwroot\Rotativa'. The requested operation requires elevation.
-         at System.Diagnostics.Process.StartWithCreateProcess(ProcessStartInfo startInfo)
-         at Rotativa.AspNetCore.WkhtmlDriver.Convert(String wkhtmlPath, String switches, String html, String wkhtmlEx
+Yes! Instead of Rotativa, you can use iTextSharp or DinkToPdf to generate and print PDFs from a Razor view (.cshtml).
+
+✅ Using DinkToPdf (Recommended)
+DinkToPdf is a good alternative because it doesn't require elevation and works well with ASP.NET Core.
+
+📌 Step 1: Install Required Packages
+Run the following command in the NuGet Package Manager Console:
+
+shell
+Copy code
+Install-Package DinkToPdf
+Install-Package DinkToPdf.Native.v0.12.5
+Or, in .NET CLI:
+
+shell
+Copy code
+dotnet add package DinkToPdf
+dotnet add package DinkToPdf.Native.v0.12.5
+📌 Step 2: Configure DinkToPdf in Program.cs
+Add this code inside Program.cs:
+
+csharp
+Copy code
+using DinkToPdf;
+using DinkToPdf.Contracts;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ✅ Register the PDF converter as a service
+builder.Services.AddSingleton(typeof(IConverter), new SynchronizedConverter(new PdfTools()));
+
+var app = builder.Build();
+app.UseStaticFiles();
+
+app.MapControllers();
+
+app.Run();
+📌 Step 3: Create a PDF Controller
+Create a PdfController.cs inside the Controllers folder:
+
+csharp
+Copy code
+using DinkToPdf;
+using DinkToPdf.Contracts;
+using Microsoft.AspNetCore.Mvc;
+using System.IO;
+
+public class PdfController : Controller
+{
+    private readonly IConverter _pdfConverter;
+
+    public PdfController(IConverter pdfConverter)
+    {
+        _pdfConverter = pdfConverter;
+    }
+
+    public IActionResult GeneratePdf()
+    {
+        // ✅ Load the Razor View as HTML
+        string htmlContent = "<h1>Order Invoice</h1><p>This is a sample PDF from Razor View.</p>";
+
+        var pdfDoc = new HtmlToPdfDocument()
+        {
+            GlobalSettings = new GlobalSettings
+            {
+                ColorMode = ColorMode.Color,
+                Orientation = Orientation.Portrait,
+                PaperSize = PaperKind.A4
+            },
+            Objects = new List<ObjectSettings>
+            {
+                new ObjectSettings
+                {
+                    PagesCount = true,
+                    HtmlContent = htmlContent, // ✅ HTML content
+                    WebSettings = { DefaultEncoding = "utf-8" }
+                }
+            }
+        };
+
+        // Convert HTML to PDF
+        byte[] pdf = _pdfConverter.Convert(pdfDoc);
+
+        return File(pdf, "application/pdf", "Order_Invoice.pdf");
+    }
+}
+📌 Step 4: Create a Razor View (OrderInvoice.cshtml)
+Instead of using hardcoded HTML, you can generate the PDF from a Razor view.
+
+Create Views/Pdf/OrderInvoice.cshtml:
+
+html
+Copy code
+@model DAL.ViewModel.OrderVM
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Order Invoice</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+    </style>
+</head>
+<body>
+    <h1>Order Invoice</h1>
+    <p>Invoice No: @Model.InvoiceNo</p>
+    <p>Customer Name: @Model.CustomerName</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.OrderItems)
+            {
+                <tr>
+                    <td>@item.ItemName</td>
+                    <td>@item.Quantity</td>
+                    <td>@item.Price</td>
+                    <td>@(item.Quantity * item.Price)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <h3>Total: @Model.TotalAmount</h3>
+</body>
+</html>
+📌 Step 5: Modify PdfController.cs to Render View
+Now modify the GeneratePdf() function to load Razor HTML dynamically.
+
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using DinkToPdf;
+using DinkToPdf.Contracts;
+using System.IO;
+
+public class PdfController : Controller
+{
+    private readonly IConverter _pdfConverter;
+
+    public PdfController(IConverter pdfConverter)
+    {
+        _pdfConverter = pdfConverter;
+    }
+
+    public IActionResult GeneratePdf()
+    {
+        // ✅ Render Razor View to string
+        string htmlContent = RenderRazorViewToString("OrderInvoice", new OrderVM 
+        { 
+            InvoiceNo = "INV12345",
+            CustomerName = "John Doe",
+            TotalAmount = 500,
+            OrderItems = new List<OrderItem>
+            {
+                new OrderItem { ItemName = "Pizza", Quantity = 2, Price = 200 },
+                new OrderItem { ItemName = "Burger", Quantity = 1, Price = 100 }
+            }
+        });
+
+        var pdfDoc = new HtmlToPdfDocument()
+        {
+            GlobalSettings = new GlobalSettings
+            {
+                ColorMode = ColorMode.Color,
+                Orientation = Orientation.Portrait,
+                PaperSize = PaperKind.A4
+            },
+            Objects = new List<ObjectSettings>
+            {
+                new ObjectSettings
+                {
+                    PagesCount = true,
+                    HtmlContent = htmlContent, // ✅ Use dynamic Razor View content
+                    WebSettings = { DefaultEncoding = "utf-8" }
+                }
+            }
+        };
+
+        byte[] pdf = _pdfConverter.Convert(pdfDoc);
+
+        return File(pdf, "application/pdf", "Order_Invoice.pdf");
+    }
+
+    private string RenderRazorViewToString<TModel>(string viewName, TModel model)
+    {
+        var viewEngine = HttpContext.RequestServices.GetService(typeof(IRazorViewEngine)) as IRazorViewEngine;
+        var view = viewEngine.GetView("", $"Views/Pdf/{viewName}.cshtml", false);
+        var writer = new StringWriter();
+        var viewContext = new ViewContext { Writer = writer, ViewData = new ViewDataDictionary<TModel>(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model } };
+        view.View.RenderAsync(viewContext).Wait();
+        return writer.ToString();
+    }
+}
+📌 Step 6: Call the PDF Generation in JavaScript (AJAX)
+Now, you can trigger PDF generation via AJAX.
+
+Add this inside your .cshtml file:
+
+html
+Copy code
+<button id="downloadPdf" class="btn btn-primary">Download PDF</button>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $("#downloadPdf").click(function () {
+            window.open("/Pdf/GeneratePdf", "_blank");
+        });
+    });
+</script>
