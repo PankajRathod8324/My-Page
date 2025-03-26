@@ -1,49 +1,44 @@
-public IActionResult GeneratePDF(int orderId)
+using Microsoft.AspNetCore.Mvc;
+using Muonroi.HtmlToPdf;
+using System.IO;
+using System.Text;
+
+public class OrderController : Controller
 {
-    var order = _orderService.GetOrderByOrderId(orderId);
-
-    if (order == null)
+    public IActionResult GeneratePDF(int orderId)
     {
-        TempData["Message"] = "Order not found!";
-        return RedirectToAction("Dashboard");
-    }
+        // ✅ Load the Razor View as HTML (you need a method to do this)
+        string htmlContent = RenderRazorViewToString("OrderPDF", orderId);
 
-    // ✅ Render Razor View as HTML string
-    string htmlContent = RenderRazorViewToString("OrderPDF", order);
-
-    if (string.IsNullOrEmpty(htmlContent))
-    {
-        return Content("Error: Razor view rendering returned null.");
-    }
-
-    var pdfDoc = new HtmlToPdfDocument()
-    {
-        GlobalSettings = new GlobalSettings
+        if (string.IsNullOrEmpty(htmlContent))
         {
-            ColorMode = ColorMode.Color,
-            Orientation = Orientation.Portrait,
-            PaperSize = PaperKind.A4
-        },
-        Objects = new List<ObjectSettings>
-        {
-            new ObjectSettings
-            {
-                PagesCount = true,
-                HtmlContent = htmlContent,
-                WebSettings = { DefaultEncoding = "utf-8" }
-            }
+            return Content("Error: Razor view rendering returned null.");
         }
-    };
 
-    // ✅ Convert HTML to PDF using DinkToPdf
-    byte[] pdf = _pdfConverter.Convert(pdfDoc);
+        // ✅ Convert HTML to PDF using Muonroi.HtmlToPdf
+        var pdfBytes = PdfGenerator.ConvertHtmlToPdf(htmlContent);
 
-    // ✅ Save PDF to disk
-    string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "GeneratedPDFs");
-    Directory.CreateDirectory(folderPath); // Ensure directory exists
-    string filePath = Path.Combine(folderPath, $"Order_{orderId}.pdf");
+        // ✅ Save PDF file in wwwroot/GeneratedPDFs
+        string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "GeneratedPDFs");
+        Directory.CreateDirectory(folderPath); // Ensure directory exists
+        string filePath = Path.Combine(folderPath, $"Order_{orderId}.pdf");
 
-    System.IO.File.WriteAllBytes(filePath, pdf);
+        System.IO.File.WriteAllBytes(filePath, pdfBytes);
 
-    return File(pdf, "application/pdf", $"Order_{orderId}.pdf"); // Return as downloadable file
+        // ✅ Return PDF file for download
+        return File(pdfBytes, "application/pdf", $"Order_{orderId}.pdf");
+    }
+
+    // ✅ Helper method to render Razor view as HTML string
+    private string RenderRazorViewToString(string viewName, object model)
+    {
+        ViewData.Model = model;
+        using (var writer = new StringWriter())
+        {
+            var viewResult = ViewEngine.FindView(ControllerContext, viewName, false);
+            var viewContext = new ViewContext(ControllerContext, viewResult.View, ViewData, TempData, writer, new HtmlHelperOptions());
+            viewResult.View.RenderAsync(viewContext);
+            return writer.ToString();
+        }
+    }
 }
