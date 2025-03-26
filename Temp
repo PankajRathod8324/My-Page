@@ -1,8 +1,8 @@
-HtmlToPdf converter = new HtmlToPdf();
-converter.Options.PdfPageSize = PdfPageSize.A4;
-converter.Options.PdfPageOrientation = PdfPageOrientation.Portrait;
-converter.Options.WebPageWidth = 1200;  // Increase width
-converter.Options.MarginLeft = 20;
-converter.Options.MarginRight = 20;
-
-PdfDocument pdfDoc = converter.ConvertHtmlString(htmlContent);
+ @foreach (var table in Model.OrderTables)
+                 {
+                    <span>Section: @table.SectionName</span>
+                 }
+@foreach (var table in Model.OrderTables)
+                 {
+                    <span>Table No: @table.TableName </span>
+                 }
