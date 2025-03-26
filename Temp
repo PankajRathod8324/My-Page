@@ -1,4 +1,20 @@
-    public  IActionResult GeneratePDF(int orderId)
+using DinkToPdf;
+using DinkToPdf.Contracts;
+using Microsoft.AspNetCore.Mvc;
+using System.IO;
+
+public class PdfController : Controller
+{
+    private readonly IConverter _pdfConverter;
+    private readonly IOrderService _orderService; // Inject your order service
+
+    public PdfController(IConverter pdfConverter, IOrderService orderService)
+    {
+        _pdfConverter = pdfConverter;
+        _orderService = orderService;
+    }
+
+    public IActionResult GeneratePDF(int orderId)
     {
         var order = _orderService.GetOrderByOrderId(orderId);
 
@@ -8,9 +24,47 @@
             return RedirectToAction("Dashboard");
         }
 
-        return new ViewAsPdf("OrderPDF", order)
+        // ✅ Render the Razor View to a string
+        string htmlContent = RenderRazorViewToString("OrderPDF", order);
+
+        var pdfDoc = new HtmlToPdfDocument()
         {
-            FileName = $"Order_{orderId}.pdf",
-            PageSize = Rotativa.AspNetCore.Options.Size.A4
+            GlobalSettings = new GlobalSettings
+            {
+                ColorMode = ColorMode.Color,
+                Orientation = Orientation.Portrait,
+                PaperSize = PaperKind.A4,
+                Out = null // This allows it to return as a file
+            },
+            Objects = new List<ObjectSettings>
+            {
+                new ObjectSettings
+                {
+                    PagesCount = true,
+                    HtmlContent = htmlContent, // ✅ Convert .cshtml to PDF
+                    WebSettings = { DefaultEncoding = "utf-8" }
+                }
+            }
         };
+
+        byte[] pdf = _pdfConverter.Convert(pdfDoc);
+
+        return File(pdf, "application/pdf", $"Order_{orderId}.pdf");
     }
+
+    private string RenderRazorViewToString<TModel>(string viewName, TModel model)
+    {
+        var viewEngine = HttpContext.RequestServices.GetService(typeof(IRazorViewEngine)) as IRazorViewEngine;
+        var writer = new StringWriter();
+        var viewContext = new ViewContext
+        {
+            Writer = writer,
+            ViewData = new ViewDataDictionary<TModel>(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model }
+        };
+
+        var view = viewEngine.GetView("", $"Views/Pdf/{viewName}.cshtml", false);
+        view.View.RenderAsync(viewContext).Wait();
+
+        return writer.ToString();
+    }
+}
