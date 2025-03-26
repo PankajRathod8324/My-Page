@@ -1,83 +1,48 @@
-need to render the Razor view as an HTML string before passing it to DinkToPdf. Add this helper method in your controller:
-
-csharp
-Copy code
-private string RenderRazorViewToString(string viewName, object model)
-{
-    ViewData.Model = model;
-
-    using (var sw = new StringWriter())
+  public IActionResult GeneratePDF(int orderId)
     {
-        var viewResult = _viewEngine.FindView(ControllerContext, viewName, false);
+        var order = _orderService.GetOrderByOrderId(orderId);
 
-        if (viewResult.View == null)
+        if (order == null)
         {
-            throw new ArgumentNullException($"View '{viewName}' not found.");
+            TempData["Message"] = "Order not found!";
+            return RedirectToAction("Dashboard");
         }
 
-        var viewContext = new ViewContext(
-            ControllerContext,
-            viewResult.View,
-            ViewData,
-            TempData,
-            sw,
-            new HtmlHelperOptions()
-        );
+        // ✅ Render Razor View as HTML string
+        string htmlContent = RenderRazorViewToString("OrderPDF", order);
 
-        viewResult.View.RenderAsync(viewContext).Wait();
-        return sw.ToString();
-    }
-}
-✅ 2. Modify Your GeneratePDF Method
-Now, modify your GeneratePDF method like this:
-
-csharp
-Copy code
-public IActionResult GeneratePDF(int orderId)
-{
-    var order = _orderService.GetOrderByOrderId(orderId);
-
-    if (order == null)
-    {
-        TempData["Message"] = "Order not found!";
-        return RedirectToAction("Dashboard");
-    }
-
-    // ✅ Render Razor View as HTML string
-    string htmlContent = RenderRazorViewToString("OrderPDF", order);
-
-    if (string.IsNullOrEmpty(htmlContent))
-    {
-        return Content("Error: Razor view rendering returned null.");
-    }
-
-    var pdfDoc = new HtmlToPdfDocument()
-    {
-        GlobalSettings = new GlobalSettings
+        if (string.IsNullOrEmpty(htmlContent))
         {
-            ColorMode = ColorMode.Color,
-            Orientation = Orientation.Portrait,
-            PaperSize = PaperKind.A4
-        },
-        Objects = new List<ObjectSettings>
+            return Content("Error: Razor view rendering returned null.");
+        }
+
+        var pdfDoc = new HtmlToPdfDocument()
         {
-            new ObjectSettings
+            GlobalSettings = new GlobalSettings
             {
-                PagesCount = true,
-                HtmlContent = htmlContent,
-                WebSettings = { DefaultEncoding = "utf-8" }
+                ColorMode = ColorMode.Color,
+                Orientation = Orientation.Portrait,
+                PaperSize = PaperKind.A4
+            },
+            Objects =
+            {
+                new ObjectSettings
+                {
+                    PagesCount = true,
+                    HtmlContent = htmlContent,
+                    WebSettings = { DefaultEncoding = "utf-8" }
+                }
             }
-        }
-    };
+        };
 
-    byte[] pdf = _pdfConverter.Convert(pdfDoc);
+        byte[] pdf = Encoding.UTF8.GetBytes(htmlContent);
 
-    // ✅ Save PDF to disk
-    string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "GeneratedPDFs");
-    Directory.CreateDirectory(folderPath); // Ensure directory exists
-    string filePath = Path.Combine(folderPath, $"Order_{orderId}.pdf");
+        // ✅ Save PDF to disk
+        string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "GeneratedPDFs");
+        Directory.CreateDirectory(folderPath); // Ensure directory exists
+        string filePath = Path.Combine(folderPath, $"Order_{orderId}.pdf");
 
-    System.IO.File.WriteAllBytes(filePath, pdf);
+        System.IO.File.WriteAllBytes(filePath, pdf);
 
-    return File(pdf, "application/pdf", $"Order_{orderId}.pdf"); // Return as downloadable file
-}
+        return File(pdf, "application/pdf", $"Order_{orderId}.pdf"); // Return as downloadable file
+    }
