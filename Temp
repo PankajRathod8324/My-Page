@@ -1,19 +1,163 @@
-<div class="col">
-    <span class="mt-4 fw-bold">Order Details</span><br>
-    <span>Invoice Number: @Model.InvoiceNo</span><br>
-    <span>Date: @Model.Date</span><br>
+(DashboardController)
+This controller fetches data from PostgreSQL and returns it as JSON for rendering in the view.
 
-    <!-- ✅ Razor Code to Group and Display Tables by Section -->
-    @if (Model.OrderTables.Any())
+Using Entity Framework
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+public class DashboardController : Controller
+{
+    private readonly ApplicationDbContext _context; // DbContext for EF Core
+
+    public DashboardController(ApplicationDbContext context)
     {
-        var groupedTables = Model.OrderTables
-            .GroupBy(t => t.SectionName)
-            .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(t => t.TableName)));
-
-        @foreach (var section in groupedTables)
-        {
-            <span>Section: @section.Key</span><br>
-            <span>Table No: @section.Value</span><br>
-        }
+        _context = context;
     }
-</div>
+
+    public IActionResult Index()
+    {
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<JsonResult> GetSalesData()
+    {
+        var salesData = await _context.Sales
+            .GroupBy(s => new { Year = s.SaleDate.Year, Month = s.SaleDate.Month })
+            .Select(g => new { 
+                Year = g.Key.Year, 
+                Month = g.Key.Month, 
+                TotalSales = g.Sum(s => s.Amount) 
+            })
+            .OrderBy(g => g.Year).ThenBy(g => g.Month)
+            .ToListAsync();
+
+        return Json(salesData);
+    }
+}
+Using ADO.NET with Npgsql (Alternative)
+If you’re not using Entity Framework:
+
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using Npgsql;
+using System;
+using System.Collections.Generic;
+using System.Data;
+
+public class DashboardController : Controller
+{
+    private readonly string _connectionString = "Host=localhost;Port=5432;Username=youruser;Password=yourpassword;Database=yourdb";
+
+    public IActionResult Index()
+    {
+        return View();
+    }
+
+    [HttpGet]
+    public JsonResult GetSalesData()
+    {
+        List<object> salesData = new List<object>();
+
+        using (var conn = new NpgsqlConnection(_connectionString))
+        {
+            conn.Open();
+            string query = @"
+                SELECT 
+                    EXTRACT(YEAR FROM sale_date) AS year, 
+                    EXTRACT(MONTH FROM sale_date) AS month, 
+                    SUM(amount) AS total_sales 
+                FROM sales
+                GROUP BY year, month
+                ORDER BY year, month;";
+
+            using (var cmd = new NpgsqlCommand(query, conn))
+            using (var reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    salesData.Add(new
+                    {
+                        Year = reader["year"],
+                        Month = reader["month"],
+                        TotalSales = reader["total_sales"]
+                    });
+                }
+            }
+        }
+        return Json(salesData);
+    }
+}
+Step 3: View (Index.cshtml)
+This view will display the chart using Chart.js.
+
+html
+Copy code
+@{
+    ViewData["Title"] = "Sales Dashboard";
+}
+
+<h2>Sales Data Chart</h2>
+<canvas id="salesChart"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        fetch('/Dashboard/GetSalesData')
+            .then(response => response.json())
+            .then(data => {
+                let labels = [];
+                let salesValues = [];
+
+                data.forEach(item => {
+                    labels.push(`${item.year}-${item.month}`);
+                    salesValues.push(item.totalSales);
+                });
+
+                var ctx = document.getElementById('salesChart').getContext('2d');
+                var salesChart = new Chart(ctx, {
+                    type: 'line', // Change to 'bar', 'pie', etc. based on requirement
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Monthly Sales',
+                            data: salesValues,
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            });
+    });
+</script>
+How It Works
+Controller (DashboardController)
+
+Fetches sales data from PostgreSQL.
+
+Returns JSON response (/Dashboard/GetSalesData).
+
+View (Index.cshtml)
+
+Uses Chart.js to visualize sales data.
+
+Fetches JSON data from the controller.
+
+
+
