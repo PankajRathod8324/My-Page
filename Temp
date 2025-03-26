@@ -1,14 +1,90 @@
-Exception has occurred: CLR/System.AggregateException
-An exception of type 'System.AggregateException' occurred in DinkToPdf.dll but was not handled in user code: 'One or more errors occurred.'
- Inner exceptions found, see $exception in variables window for more details.
- Innermost exception 	 System.DllNotFoundException : Unable to load DLL 'libwkhtmltox' or one of its dependencies: The specified module could not be found. (0x8007007E)
-   at DinkToPdf.WkHtmlToXBindings.wkhtmltopdf_init(Int32 useGraphics)
-   at DinkToPdf.PdfTools.Load()
-   at DinkToPdf.BasicConverter.Convert(IDocument document)
-   at DinkToPdf.SynchronizedConverter.<>n__0(IDocument document)
-   at DinkToPdf.SynchronizedConverter.<>c__DisplayClass5_0.<Convert>b__0()
-   at System.Threading.Tasks.Task`1.InnerInvoke()
-   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
---- End of stack trace from previous location ---
-   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
-   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+NuGet Package
+bash
+Copy code
+dotnet add package Select.HtmlToPdf.NetCore
+✅ Convert HTML to PDF in Controller
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using SelectPdf;
+using System.IO;
+
+public class OrderController : Controller
+{
+    public IActionResult GeneratePDF(int orderId)
+    {
+        string htmlContent = "<h1>Order #" + orderId + "</h1><p>Thank you for your order!</p>";
+
+        HtmlToPdf converter = new HtmlToPdf();
+        PdfDocument pdfDoc = converter.ConvertHtmlString(htmlContent);
+
+        using (MemoryStream stream = new MemoryStream())
+        {
+            pdfDoc.Save(stream);
+            pdfDoc.Close();
+            return File(stream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
+        }
+    }
+}
+2️⃣ Using IronPdf (Easy, but Paid)
+IronPdf is powerful but requires a license (free trial available).
+
+✅ Install NuGet Package
+bash
+Copy code
+dotnet add package IronPdf
+✅ Convert HTML to PDF in Controller
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using IronPdf;
+using System.IO;
+
+public class OrderController : Controller
+{
+    public IActionResult GeneratePDF(int orderId)
+    {
+        string htmlContent = "<h1>Order #" + orderId + "</h1><p>Thank you for your order!</p>";
+
+        var Renderer = new ChromePdfRenderer();
+        var pdfDoc = Renderer.RenderHtmlAsPdf(htmlContent);
+
+        return File(pdfDoc.BinaryData, "application/pdf", $"Order_{orderId}.pdf");
+    }
+}
+3️⃣ Using PuppeteerSharp (Headless Chrome)
+Puppeteer uses Google Chrome to render HTML and save it as PDF.
+
+✅ Install NuGet Package
+bash
+Copy code
+dotnet add package PuppeteerSharp
+✅ Convert HTML to PDF in Controller
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using PuppeteerSharp;
+using System.IO;
+using System.Threading.Tasks;
+
+public class OrderController : Controller
+{
+    public async Task<IActionResult> GeneratePDF(int orderId)
+    {
+        string htmlContent = "<h1>Order #" + orderId + "</h1><p>Thank you for your order!</p>";
+
+        await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultRevision);
+        using var browser = await Puppeteer.LaunchAsync(new LaunchOptions { Headless = true });
+        using var page = await browser.NewPageAsync();
+        await page.SetContentAsync(htmlContent);
+        byte[] pdf = await page.PdfDataAsync();
+
+        return File(pdf, "application/pdf", $"Order_{orderId}.pdf");
+    }
+}
+🔹 Which One Should You Choose?
+Method	Pros	Cons
+SelectPdf ✅	Simple & lightweight	Free version has watermark
+IronPdf 🚀	High-quality rendering	Paid after trial
+PuppeteerSharp 🌍	Uses real Chrome rendering	Requires downloading Chrome
+Final Recommendati
