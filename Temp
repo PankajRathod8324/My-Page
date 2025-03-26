@@ -1,12 +1,2 @@
-using Rotativa.AspNetCore;
-
-var builder = WebApplication.CreateBuilder(args);
-var app = builder.Build();
-
-// Configure Rotativa to use a custom path
-string wkhtmlPath = @"C:\Rotativa\wkhtmltopdf.exe"; 
-RotativaConfiguration.Setup(wkhtmlPath);
-
-app.UseRotativa();
-
-app.Run();
+Exception has occurred: CLR/System.ApplicationException
+An unhandled exception of type 'System.ApplicationException' occurred in Rotativa.AspNetCore.dll: 'Folder containing wkhtmltopdf.exe not found, searched for C:\Rotativa\wkhtmltopdf.exe\Rotativa'
