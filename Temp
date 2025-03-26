@@ -1,174 +1,19 @@
-public IActionResult GeneratePDF(int orderId)
-{
-    var order = _orderService.GetOrderByOrderId(orderId);
-    if (order == null)
+<div class="col">
+    <span class="mt-4 fw-bold">Order Details</span><br>
+    <span>Invoice Number: @Model.InvoiceNo</span><br>
+    <span>Date: @Model.Date</span><br>
+
+    <!-- ✅ Razor Code to Group and Display Tables by Section -->
+    @if (Model.OrderTables.Any())
     {
-        TempData["Message"] = "Order not found!";
-        return RedirectToAction("Dashboard");
+        var groupedTables = Model.OrderTables
+            .GroupBy(t => t.SectionName)
+            .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(t => t.TableName)));
+
+        @foreach (var section in groupedTables)
+        {
+            <span>Section: @section.Key</span><br>
+            <span>Table No: @section.Value</span><br>
+        }
     }
-
-    // ✅ Get absolute URL for Bootstrap & images
-    string baseUrl = $"{Request.Scheme}://{Request.Host}";
-    
-    // ✅ Render Razor View as HTML string
-    string htmlContent = RenderRazorViewToString("OrderPDF", order);
-    htmlContent = htmlContent.Replace("~/", baseUrl + "/");  // Convert relative paths to absolute
-
-    if (string.IsNullOrEmpty(htmlContent))
-    {
-        return Content("Error: Razor view rendering returned null.");
-    }
-
-    // ✅ Configure PDF settings
-    HtmlToPdf converter = new HtmlToPdf();
-    converter.Options.PdfPageSize = PdfPageSize.A4;
-    converter.Options.PdfPageOrientation = PdfPageOrientation.Portrait;
-    converter.Options.WebPageWidth = 1200;
-    converter.Options.WebPageHeight = 0; // Auto height
-    converter.Options.MarginLeft = 20;
-    converter.Options.MarginRight = 20;
-
-    // ✅ Convert HTML to PDF
-    SelectPdf.PdfDocument pdf = converter.ConvertHtmlString(htmlContent, baseUrl);
-
-    // ✅ Save & return PDF
-    using (var memoryStream = new MemoryStream())
-    {
-        pdf.Save(memoryStream);
-        pdf.Close();
-        return File(memoryStream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
-    }
-}
-@model DAL.ViewModel.OrderVM
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Order Invoice</title>
-
-    <!-- ✅ Load Bootstrap from CDN -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { width: 100%; padding: 20px; }
-        h2 { text-align: center; color: #305059; }
-        
-        /* ✅ Style table properly */
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background-color: #0066A7; color: white; padding: 10px; }
-        td { padding: 10px; }
-        .border-bottom-blue { border-bottom: 2px solid #9FCCF7; }
-
-        /* ✅ Ensure images load in PDF */
-        .logo { width: 80px; display: block; margin: 0 auto; }
-    </style>
-</head>
-<body>
-
-    <div class="container mt-4">
-        <!-- ✅ Fix logo display -->
-        <div class="text-center mb-4">
-            <img class="logo" src="@Url.Action("GetImage", "Home", new { filename = "pizzashop_logo.png" }, Context.Request.Scheme)" alt="Pizzashop Logo">
-            <h3 class="fw-bold">PIZZASHOP</h3>
-        </div>
-
-        <!-- ✅ Customer & Order Details -->
-        <div class="row">
-            <div class="col">
-                <strong>Customer Details</strong><br>
-                <span>Name: @Model.CustomerName</span><br>
-                <span>Mob: @Model.CustomerPhone</span>
-            </div>
-            <div class="col">
-                <strong>Order Details</strong><br>
-                <span>Invoice Number: @Model.InvoiceNo</span><br>
-                <span>Date: @Model.Date</span><br>
-                <div id="grouped-tables">
-                    @foreach (var table in Model.OrderTables)
-                    {
-                        <span>Section: @table.SectionName, Table No: @table.TableName</span><br>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- ✅ Order Items Table -->
-        <table class="table table-borderless custom-table">
-            <thead>
-                <tr>
-                    <th scope="col">Sr.No</th>
-                    <th scope="col">Item</th>
-                    <th scope="col">Quantity</th>
-                    <th scope="col">Price</th>
-                    <th scope="col">Total Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (int i = 0; i < Model.OrderItems.Count; i++)
-                {
-                    <tr class="border-bottom-blue">
-                        <th>@(i + 1)</th>
-                        <td>
-                            @Model.OrderItems[i].ItemName
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p>- @modifier.ModifierName</p>
-                            }
-                        </td>
-                        <td>@Model.OrderItems[i].Quantity</td>
-                        <td>@Model.OrderItems[i].Price</td>
-                        <td>@(Model.OrderItems[i].Quantity * Model.OrderItems[i].Price)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-
-        <!-- ✅ Summary Section -->
-        <div class="row total-amount mt-4">
-            <div class="col">
-                <strong>SubTotal:</strong><br>
-                @foreach (var tax in Model.OrderTax)
-                {
-                    <strong>@tax.TaxName:</strong><br>
-                }
-            </div>
-            <div class="col text-right">
-                <span>@Model.SubTotal</span><br>
-                @foreach(var tax in Model.OrderTax)
-                {
-                    <span>@(tax.TaxTypeId == 1 ? tax.TaxAmount : (tax.TaxAmount * Model.SubTotal) / 100)</span><br>
-                }
-            </div>
-        </div>
-
-        <div class="row mt-4">
-            <div class="col">
-                <strong>Total Amount Due:</strong>
-            </div>
-            <div class="col text-right">
-                <strong>@Model.TotalAmount</strong>
-            </div>
-        </div>
-
-        <div class="row mt-4">
-            <div class="col">
-                <strong>Payment Method:</strong> @Model.PaymentMode
-            </div>
-        </div>
-
-        <div class="row text-center mt-4">
-            <strong>THANK YOU!!</strong>
-        </div>
-    </div>
-</body>
-</html>
-public IActionResult GetImage(string filename)
-{
-    var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/assest/logos", filename);
-    if (!System.IO.File.Exists(path))
-    {
-        return NotFound(); // Return 404 if image not found
-    }
-    return PhysicalFile(path, "image/png");
-}
+</div>
