@@ -1,8 +1,36 @@
- @foreach (var table in Model.OrderTables)
-                 {
-                    <span>Section: @table.SectionName</span>
-                 }
-@foreach (var table in Model.OrderTables)
-                 {
-                    <span>Table No: @table.TableName </span>
-                 }
+<div id="table-container">
+    @foreach (var table in Model.OrderTables)
+    {
+        <span class="table-data" data-section="@table.SectionName" data-table="@table.TableName"></span>
+    }
+</div>
+
+<!-- Placeholder for displaying grouped data -->
+<div id="grouped-tables"></div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        let tables = document.querySelectorAll(".table-data");
+        let sectionMap = {};
+
+        // Loop through all table elements
+        tables.forEach(table => {
+            let section = table.dataset.section;
+            let tableNo = table.dataset.table;
+
+            // Group tables by section
+            if (!sectionMap[section]) {
+                sectionMap[section] = [];
+            }
+            sectionMap[section].push(tableNo);
+        });
+
+        let outputHtml = "";
+        for (let section in sectionMap) {
+            outputHtml += `<p><strong>Section:</strong> ${section}</p>`;
+            outputHtml += `<p><strong>Table No:</strong> ${sectionMap[section].join(", ")}</p><br>`;
+        }
+
+        document.getElementById("grouped-tables").innerHTML = outputHtml;
+    });
+</script>
