@@ -1,48 +1,49 @@
-  public IActionResult GeneratePDF(int orderId)
+public IActionResult GeneratePDF(int orderId)
+{
+    var order = _orderService.GetOrderByOrderId(orderId);
+
+    if (order == null)
     {
-        var order = _orderService.GetOrderByOrderId(orderId);
-
-        if (order == null)
-        {
-            TempData["Message"] = "Order not found!";
-            return RedirectToAction("Dashboard");
-        }
-
-        // ✅ Render Razor View as HTML string
-        string htmlContent = RenderRazorViewToString("OrderPDF", order);
-
-        if (string.IsNullOrEmpty(htmlContent))
-        {
-            return Content("Error: Razor view rendering returned null.");
-        }
-
-        var pdfDoc = new HtmlToPdfDocument()
-        {
-            GlobalSettings = new GlobalSettings
-            {
-                ColorMode = ColorMode.Color,
-                Orientation = Orientation.Portrait,
-                PaperSize = PaperKind.A4
-            },
-            Objects =
-            {
-                new ObjectSettings
-                {
-                    PagesCount = true,
-                    HtmlContent = htmlContent,
-                    WebSettings = { DefaultEncoding = "utf-8" }
-                }
-            }
-        };
-
-        byte[] pdf = Encoding.UTF8.GetBytes(htmlContent);
-
-        // ✅ Save PDF to disk
-        string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "GeneratedPDFs");
-        Directory.CreateDirectory(folderPath); // Ensure directory exists
-        string filePath = Path.Combine(folderPath, $"Order_{orderId}.pdf");
-
-        System.IO.File.WriteAllBytes(filePath, pdf);
-
-        return File(pdf, "application/pdf", $"Order_{orderId}.pdf"); // Return as downloadable file
+        TempData["Message"] = "Order not found!";
+        return RedirectToAction("Dashboard");
     }
+
+    // ✅ Render Razor View as HTML string
+    string htmlContent = RenderRazorViewToString("OrderPDF", order);
+
+    if (string.IsNullOrEmpty(htmlContent))
+    {
+        return Content("Error: Razor view rendering returned null.");
+    }
+
+    var pdfDoc = new HtmlToPdfDocument()
+    {
+        GlobalSettings = new GlobalSettings
+        {
+            ColorMode = ColorMode.Color,
+            Orientation = Orientation.Portrait,
+            PaperSize = PaperKind.A4
+        },
+        Objects = new List<ObjectSettings>
+        {
+            new ObjectSettings
+            {
+                PagesCount = true,
+                HtmlContent = htmlContent,
+                WebSettings = { DefaultEncoding = "utf-8" }
+            }
+        }
+    };
+
+    // ✅ Convert HTML to PDF using DinkToPdf
+    byte[] pdf = _pdfConverter.Convert(pdfDoc);
+
+    // ✅ Save PDF to disk
+    string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "GeneratedPDFs");
+    Directory.CreateDirectory(folderPath); // Ensure directory exists
+    string filePath = Path.Combine(folderPath, $"Order_{orderId}.pdf");
+
+    System.IO.File.WriteAllBytes(filePath, pdf);
+
+    return File(pdf, "application/pdf", $"Order_{orderId}.pdf"); // Return as downloadable file
+}
