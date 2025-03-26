@@ -1,48 +1,61 @@
+<table class="table table-borderless custom-table">
+    <thead class="table-dark">
+        <tr>
+            <th scope="col">Sr.No</th>
+            <th scope="col">Item</th>
+            <th scope="col">Quantity</th>
+            <th scope="col">Price</th>
+            <th scope="col">Total Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        @for (int i = 0; i < Model.OrderItems.Count; i++)
+        {
+            <tr class="table-row">
+                <th scope="row">@(i + 1)</th>
+                <td>
+                    @Model.OrderItems[i].ItemName
+                    @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                    {
+                        <p class="ms-4">- @modifier.ModifierName</p>
+                    }
+                </td>
+                <td>
+                    @Model.OrderItems[i].Quantity
+                    @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                    {
+                        <p>@modifier.Quantity</p>
+                    }
+                </td>
+                <td>
+                    @Model.OrderItems[i].Price
+                    @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                    {
+                        <p>@modifier.ModifierRate</p>
+                    }
+                </td>
+                <td>
+                    @(Model.OrderItems[i].Quantity * Model.OrderItems[i].Price)
+                    @foreach (var modifier in Model.OrderItems[i].Modifiers)
+                    {
+                        <p>@(modifier.Quantity * modifier.ModifierRate)</p>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+.custom-table thead {
+    background-color: #343a40; /* Dark background for header */
+    color: white; /* White text */
+}
 
-        <table class="table">
-            <thead>
-                <tr>
-                    <th scope="col">Sr.No</th>
-                    <th scope="col">Item</th>
-                    <th scope="col">Quantity</th>
-                    <th scope="col">Price</th>
-                    <th scope="col">Total Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (int i = 0; i < Model.OrderItems.Count; i++)
-                {
-                    <tr>
-                        <th scope="row">@(i + 1)</th>
-                        <td>
-                            @Model.OrderItems[i].ItemName
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p class="ms-4">- @modifier.ModifierName</p>
-                            }
-                        </td>
-                        <td>
-                            @Model.OrderItems[i].Quantity
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p>@modifier.Quantity</p>
-                            }
-                        </td>
-                        <td>
-                            @Model.OrderItems[i].Price
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p>@modifier.ModifierRate</p>
-                            }
-                        </td>
-                        <td>
-                            @(Model.OrderItems[i].Quantity * Model.OrderItems[i].Price)
-                            @foreach (var modifier in Model.OrderItems[i].Modifiers)
-                            {
-                                <p>@(modifier.Quantity * modifier.ModifierRate)</p>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+.custom-table tbody tr {
+    border-bottom: 2px solid blue; /* Blue line after each row */
+}
+
+.custom-table th,
+.custom-table td {
+    border: none !important; /* Remove all box borders */
+    padding: 10px; /* Add padding for better spacing */
+}
