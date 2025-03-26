@@ -1,44 +1,14 @@
-using Microsoft.AspNetCore.Mvc;
-using Muonroi.HtmlToPdf;
-using System.IO;
-using System.Text;
-
-public class OrderController : Controller
-{
-    public IActionResult GeneratePDF(int orderId)
-    {
-        // ✅ Load the Razor View as HTML (you need a method to do this)
-        string htmlContent = RenderRazorViewToString("OrderPDF", orderId);
-
-        if (string.IsNullOrEmpty(htmlContent))
-        {
-            return Content("Error: Razor view rendering returned null.");
-        }
-
-        // ✅ Convert HTML to PDF using Muonroi.HtmlToPdf
-        var pdfBytes = PdfGenerator.ConvertHtmlToPdf(htmlContent);
-
-        // ✅ Save PDF file in wwwroot/GeneratedPDFs
-        string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "GeneratedPDFs");
-        Directory.CreateDirectory(folderPath); // Ensure directory exists
-        string filePath = Path.Combine(folderPath, $"Order_{orderId}.pdf");
-
-        System.IO.File.WriteAllBytes(filePath, pdfBytes);
-
-        // ✅ Return PDF file for download
-        return File(pdfBytes, "application/pdf", $"Order_{orderId}.pdf");
-    }
-
-    // ✅ Helper method to render Razor view as HTML string
-    private string RenderRazorViewToString(string viewName, object model)
-    {
-        ViewData.Model = model;
-        using (var writer = new StringWriter())
-        {
-            var viewResult = ViewEngine.FindView(ControllerContext, viewName, false);
-            var viewContext = new ViewContext(ControllerContext, viewResult.View, ViewData, TempData, writer, new HtmlHelperOptions());
-            viewResult.View.RenderAsync(viewContext);
-            return writer.ToString();
-        }
-    }
-}
+Exception has occurred: CLR/System.AggregateException
+An exception of type 'System.AggregateException' occurred in DinkToPdf.dll but was not handled in user code: 'One or more errors occurred.'
+ Inner exceptions found, see $exception in variables window for more details.
+ Innermost exception 	 System.DllNotFoundException : Unable to load DLL 'libwkhtmltox' or one of its dependencies: The specified module could not be found. (0x8007007E)
+   at DinkToPdf.WkHtmlToXBindings.wkhtmltopdf_init(Int32 useGraphics)
+   at DinkToPdf.PdfTools.Load()
+   at DinkToPdf.BasicConverter.Convert(IDocument document)
+   at DinkToPdf.SynchronizedConverter.<>n__0(IDocument document)
+   at DinkToPdf.SynchronizedConverter.<>c__DisplayClass5_0.<Convert>b__0()
+   at System.Threading.Tasks.Task`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
