@@ -29,11 +29,11 @@
 
         <!-- Ground Floor Section -->
         <div class="accordion bg-white p-4">
-            <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseGround">
+            <div class="d-flex align-items-center toggle-header">
                 <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
                 <h5 class="mb-0">Ground Floor</h5>
             </div>
-            <div id="collapseGround" class="collapse">
+            <div class="collapse section-content">
                 <div class="mt-3 row">
                     <!-- Card 1 (Grey - Selectable) -->
                     <div class="col-md-3">
@@ -68,33 +68,33 @@
 
         <!-- First Floor Section -->
         <div class="accordion bg-white p-4">
-            <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+            <div class="d-flex align-items-center toggle-header">
                 <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
                 <h5 class="mb-0">First Floor</h5>
             </div>
-            <div id="collapseOne" class="collapse">
+            <div class="collapse section-content">
                 <div class="card-body">First floor details...</div>
             </div>
         </div>
 
         <!-- Second Floor Section -->
         <div class="accordion bg-white p-4">
-            <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+            <div class="d-flex align-items-center toggle-header">
                 <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
                 <h5 class="mb-0">Second Floor</h5>
             </div>
-            <div id="collapseTwo" class="collapse">
+            <div class="collapse section-content">
                 <div class="card-body">Second floor details...</div>
             </div>
         </div>
 
         <!-- Third Floor Section -->
         <div class="accordion bg-white p-4">
-            <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+            <div class="d-flex align-items-center toggle-header">
                 <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
                 <h5 class="mb-0">Third Floor</h5>
             </div>
-            <div id="collapseThree" class="collapse">
+            <div class="collapse section-content">
                 <div class="card-body">Third floor details...</div>
             </div>
         </div>
@@ -103,16 +103,19 @@
 
     <script>
         $(document).ready(function () {
-            // Toggle icons on accordion click
-            $(".d-flex.align-items-center").click(function () {
+            // Toggle icons and sections when clicking the header
+            $(".toggle-header").click(function () {
                 let icon = $(this).find(".toggle-icon");
+                let section = $(this).next(".section-content");
 
-                // Reset all icons to right arrow
-                $(".toggle-icon").removeClass("bi-arrow-down-circle").addClass("bi-arrow-right-circle");
+                // Toggle only clicked section
+                section.toggleClass("show");
 
-                // If current section is opening, change icon to down arrow
-                if (!$(this).next(".collapse").hasClass("show")) {
+                // Toggle icon
+                if (section.hasClass("show")) {
                     icon.removeClass("bi-arrow-right-circle").addClass("bi-arrow-down-circle");
+                } else {
+                    icon.removeClass("bi-arrow-down-circle").addClass("bi-arrow-right-circle");
                 }
             });
 
