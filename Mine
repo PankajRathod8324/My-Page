@@ -1,4 +1,4 @@
- <span class="badge rounded-pill border border-white me-3 d-flex align-item-center" >
-                                <i class="fa-solid fa-clipboard-list" style="color: #ffffff;"></i>
-                                <p>KOT</p>
-                            </span> make it align properly the icon and the KOT alos should see perfectlky in rounded pill
+<span class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2" style="color: #ffffff; background-color: transparent;">
+    <i class="fa-solid fa-clipboard-list"></i>
+    <span>KOT</span>
+</span>
