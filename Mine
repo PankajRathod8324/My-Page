@@ -1,141 +1,128 @@
-@model DAL.ViewModel.LoginVM
-
-@{
-    Layout = "_LayoutOrder";
-    ViewData["Title"] = "Login Page";
-}
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pizza Shop</title>
-    <link rel="stylesheet" href="~/css/style.css">
-    <link rel="stylesheet" href="~/css/media.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Toastr CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
-
-    <!-- jQuery (Required for Toastr) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-
-    <!-- Toastr JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <style>
         .selected {
             border-color: green !important;
         }
+        .card.border-secondary { background-color: #f8f9fa; } /* Light Grey Shade */
+        .card.border-primary { background-color: rgba(0, 123, 255, 0.1); } /* Light Blue */
+        .card.border-danger { background-color: rgba(220, 53, 69, 0.1); } /* Light Red */
+        .card.border-warning { background-color: rgba(255, 193, 7, 0.1); } /* Light Yellow */
     </style>
-
 </head>
 
-<body>
+<body class="bg-body-tertiary">
 
-    <body class="bg-body-tertiary">
+    <div class="container-fluid" style="padding-top: 100px; padding-left: 50px;">
+        <div class="fs-2 fw-bold">Table View</div>
 
-
-        <div class="container-fluid " style="padding-top: 100px; padding-left: 50px;">
-            <!-- Main content goes here -->
-            <div class="fs-2 fw-bold webybtn">Table View</div>
-            
-            <div class="accordion bg-white p-4">
-                <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseGround">
-                    <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
-                    <h5 class="mb-0 webybtn">Ground Floor</h5>
-                </div>
-                <div id="collapseGround" class="collapse" data-bs-parent="#accordionExample">
-                        <div class="card-body">
-                            Lorem ipsum dolor sit amet, consectetur adipisicing elit. Sed do eiusmod tempor incididunt
-                            ut labore et dolore magna aliqua.
+        <!-- Ground Floor Section -->
+        <div class="accordion bg-white p-4">
+            <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseGround">
+                <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
+                <h5 class="mb-0">Ground Floor</h5>
+            </div>
+            <div id="collapseGround" class="collapse">
+                <div class="mt-3 row">
+                    <!-- Card 1 (Grey - Selectable) -->
+                    <div class="col-md-3">
+                        <div class="card border-secondary p-3 selectable" data-border="border-secondary">
+                            <div class="card-body">Table 1 - 4 People</div>
                         </div>
                     </div>
 
-            </div>
-             <div class="accordion bg-white p-4">
-                <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseOne">
-                    <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
-                    <h5 class="mb-0 webybtn">First Floor</h5>
-                </div>
-                <div id="collapseOne" class="collapse" data-bs-parent="#accordionExample">
-                        <div class="card-body">
-                            Lorem ipsum dolor sit amet, consectetur adipisicing elit. Sed do eiusmod tempor incididunt
-                            ut labore et dolore magna aliqua.
+                    <!-- Card 2 (Blue) -->
+                    <div class="col-md-3">
+                        <div class="card border-primary p-3">
+                            <div class="card-body">Table 2 - 6 People</div>
                         </div>
                     </div>
 
-            </div>
-             <div class="accordion bg-white p-4">
-                <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
-                    <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
-                    <h5 class="mb-0 webybtn">Second Floor</h5>
-                </div>
-                <div id="collapseTwo" class="collapse" data-bs-parent="#accordionExample">
-                        <div class="card-body">
-                            Lorem ipsum dolor sit amet, consectetur adipisicing elit. Sed do eiusmod tempor incididunt
-                            ut labore et dolore magna aliqua.
+                    <!-- Card 3 (Red) -->
+                    <div class="col-md-3">
+                        <div class="card border-danger p-3">
+                            <div class="card-body">Table 3 - 2 People</div>
                         </div>
                     </div>
 
-            </div>
-             <div class="accordion bg-white p-4">
-                <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseThree">
-                    <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
-                    <h5 class="mb-0 webybtn">Third Floor</h5>
-                </div>
-                <div id="collapseThree" class="collapse" data-bs-parent="#accordionExample">
-                        <div class="card-body">
-                            Lorem ipsum dolor sit amet, consectetur adipisicing elit. Sed do eiusmod tempor incididunt
-                            ut labore et dolore magna aliqua.
+                    <!-- Card 4 (Yellow) -->
+                    <div class="col-md-3">
+                        <div class="card border-warning p-3">
+                            <div class="card-body">Table 4 - 8 People</div>
                         </div>
                     </div>
-
+                </div>
             </div>
-
-
-
         </div>
 
+        <!-- First Floor Section -->
+        <div class="accordion bg-white p-4">
+            <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
+                <h5 class="mb-0">First Floor</h5>
+            </div>
+            <div id="collapseOne" class="collapse">
+                <div class="card-body">First floor details...</div>
+            </div>
+        </div>
 
+        <!-- Second Floor Section -->
+        <div class="accordion bg-white p-4">
+            <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
+                <h5 class="mb-0">Second Floor</h5>
+            </div>
+            <div id="collapseTwo" class="collapse">
+                <div class="card-body">Second floor details...</div>
+            </div>
+        </div>
 
+        <!-- Third Floor Section -->
+        <div class="accordion bg-white p-4">
+            <div class="d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
+                <h5 class="mb-0">Third Floor</h5>
+            </div>
+            <div id="collapseThree" class="collapse">
+                <div class="card-body">Third floor details...</div>
+            </div>
+        </div>
 
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-            crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
-        <script
-            src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.11/jquery.validate.unobtrusive.min.js"></script>
+    </div>
 
-        <script>
-            $(document).ready(function () {
-                $(".card-header").click(function () {
-                    let icon = $(this).find(".toggle-icon");
-                    let card = $(this).closest(".card");
+    <script>
+        $(document).ready(function () {
+            // Toggle icons on accordion click
+            $(".d-flex.align-items-center").click(function () {
+                let icon = $(this).find(".toggle-icon");
 
-                    // Toggle icon class
-                    $(".toggle-icon").removeClass("bi-arrow-down-circle").addClass("bi-arrow-right-circle");
-                    if (!$(this).next(".collapse").hasClass("show")) {
-                        icon.removeClass("bi-arrow-right-circle").addClass("bi-arrow-down-circle");
-                    }
+                // Reset all icons to right arrow
+                $(".toggle-icon").removeClass("bi-arrow-down-circle").addClass("bi-arrow-right-circle");
 
-                    // Reset all card borders
-                    $(".card").each(function () {
-                        $(this).removeClass("selected").addClass($(this).attr("data-border"));
-                    });
-
-                    // Change selected card border to green
-                    card.removeClass($(this).attr("data-border")).addClass("selected");
-                });
+                // If current section is opening, change icon to down arrow
+                if (!$(this).next(".collapse").hasClass("show")) {
+                    icon.removeClass("bi-arrow-right-circle").addClass("bi-arrow-down-circle");
+                }
             });
-        </script>
 
-    </body>
+            // Select only grey border cards
+            $(".selectable").click(function () {
+                $(".selectable").removeClass("selected"); // Remove green from all
+                $(this).addClass("selected"); // Add green border to selected one
+            });
+        });
+    </script>
 
-</html>here i want that when i click on the icon of arrow the details is comre the icon is not chging and i want that there perticuler in the ground floor there is multiple card that r appering give me four card which in the card the details is there and there border is anything color but the inside will be some shade there and when i select any card that the color is chging only border color will be chging to green adn i can only select the grey color card soo
+</body>
+</html>
