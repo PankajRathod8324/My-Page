@@ -1,43 +1,4 @@
-<!-- User Profile Dropdown with Mobile Screen Icon -->
-<div class="d-flex align-items-center">
-    <!-- Mobile Screen Icon -->
-    <i class="fa-solid fa-mobile-screen-button text-white me-3" style="font-size: 22px; border: 2px solid white; padding: 5px; border-radius: 5px;"></i>
-
-    <!-- Profile Dropdown -->
-    <div class="dropdown">
-        <a class="nav-link d-flex align-items-center dropdown-toggle" href="#" id="userDropdown" role="button">
-            <img src="@userPhoto" alt="User Image" class="rounded-circle me-2" style="width: 45px; height: 45px;">
-        </a>
-        <ul class="dropdown-menu dropdown-menu-end shadow p-3" aria-labelledby="userDropdown" data-bs-auto-close="outside">
-            <!-- Profile Section -->
-            <li class="d-flex align-items-center p-2 border-bottom">
-                <img src="@userPhoto" alt="User Image" class="rounded-circle me-2" style="width: 40px; height: 40px;">
-                <div>
-                    <p class="mb-0 fw-bold">@userName</p>
-                    <small class="text-muted">@userEmail</small>
-                </div>
-            </li>
-
-            <!-- My Profile -->
-            <li>
-                <a class="dropdown-item d-flex align-items-center py-2" asp-area="" asp-controller="User" asp-action="Profile">
-                    <i class="fa-solid fa-user me-2"></i> My Profile
-                </a>
-            </li>
-
-            <!-- Change Password -->
-            <li>
-                <a class="dropdown-item d-flex align-items-center py-2" asp-area="" asp-controller="User" asp-action="Changepassword">
-                    <i class="fa-solid fa-lock me-2"></i> Change Password
-                </a>
-            </li>
-
-            <!-- Logout -->
-            <li>
-                <a class="dropdown-item d-flex align-items-center py-2 text-danger" href="#" data-bs-toggle="modal" data-bs-target="#LogoutModel">
-                    <i class="fa-solid fa-sign-out-alt me-2"></i> Logout
-                </a>
-            </li>
-        </ul>
-    </div>
-</div>
+ <span class="badge rounded-pill border border-white me-3 d-flex align-item-center" >
+                                <i class="fa-solid fa-clipboard-list" style="color: #ffffff;"></i>
+                                <p>KOT</p>
+                            </span> make it align properly the icon and the KOT alos should see perfectlky in rounded pill
