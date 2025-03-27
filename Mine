@@ -1,6 +1,64 @@
-join the order  with order_tables on order_id, join order_table with table on table_id with, join ntable with section on secton_id the linq query on repository and 
-find the detail like table_name, order_amount, no_of_person and status of table
-write in this  var sectionvm = sections.Select(section => new OrderSectionVM
-        {
-            
-        }).ToList();
+LINQ Query (Repository)
+csharp
+Copy code
+var sectionData = (from s in _context.Sections
+                   join t in _context.Tables on s.SectionId equals t.SectionId
+                   join ot in _context.OrderTables on t.TableId equals ot.TableId into otGroup
+                   from ot in otGroup.DefaultIfEmpty()
+                   join o in _context.Orders on ot.OrderId equals o.OrderId into orderGroup
+                   from o in orderGroup.DefaultIfEmpty()
+                   select new
+                   {
+                       SectionId = s.SectionId,
+                       SectionName = s.SectionName,
+                       TableId = t.TableId,
+                       TableName = t.TableName,
+                       Status = t.Status,
+                       NoOfPerson = t.NoOfPerson,
+                       OrderId = o != null ? o.OrderId : (int?)null,
+                       OrderAmount = o != null ? o.OrderAmount : (decimal?)null
+                   }).ToList();
+🔹 Mapping Query Result to ViewModel
+csharp
+Copy code
+var sectionvm = sectionData
+    .GroupBy(s => new { s.SectionId, s.SectionName })
+    .Select(sectionGroup => new OrderSectionVM
+    {
+        SectionName = sectionGroup.Key.SectionName,
+        Tables = sectionGroup.GroupBy(t => new { t.TableId, t.TableName, t.Status, t.NoOfPerson })
+            .Select(tableGroup => new TableVM
+            {
+                TableName = tableGroup.Key.TableName,
+                Status = tableGroup.Key.Status,
+                NoOfPerson = tableGroup.Key.NoOfPerson,
+                Orders = tableGroup.Where(o => o.OrderId.HasValue)
+                    .Select(o => new OrderVM
+                    {
+                        OrderId = o.OrderId.Value,
+                        OrderAmount = o.OrderAmount ?? 0
+                    }).ToList()
+            }).ToList()
+    }).ToList();
+🔹 ViewModels
+csharp
+Copy code
+public class OrderSectionVM
+{
+    public string SectionName { get; set; }
+    public List<TableVM> Tables { get; set; }
+}
+
+public class TableVM
+{
+    public string TableName { get; set; }
+    public string Status { get; set; }
+    public int NoOfPerson { get; set; }
+    public List<OrderVM> Orders { get; set; }
+}
+
+public class OrderVM
+{
+    public int OrderId { get; set; }
+    public decimal OrderAmount { get; set; }
+}
