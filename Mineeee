@@ -1,240 +1,42 @@
-1️⃣ Install Required NuGet Packages
-Run these in Package Manager Console:
-
-mathematica
-Copy
-Edit
-Install-Package ClosedXML
-Install-Package iText7
-ClosedXML → Helps generate Excel files.
-
-iText7 → Helps generate PDF files.
-
-2️⃣ Modify View (Userpage.cshtml)
-Export Excel Button → Downloads all orders as an Excel file.
-
-Download PDF Button → Downloads a specific order as a PDF.
-
+Datepicker (CDN)
 html
-Copy
-Edit
-@model PagedList.IPagedList<Order>
-@using PagedList.Mvc
+Copy code
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+🔹 Date Picker Inputs
+html
+Copy code
+<input type="text" id="startDate" class="form-control datepicker" placeholder="Select Start Date">
+<input type="text" id="endDate" class="form-control datepicker mt-2" placeholder="Select End Date">
+🔹 JavaScript:
+javascript
+Copy code
+$(document).ready(function () {
+    let today = new Date();
 
-@{
-    ViewBag.Title = "Orders";
-}
+    $("#startDate").datepicker({
+        format: "yyyy-mm-dd",
+        autoclose: true,
+        startDate: today // Disable past dates
+    }).on("changeDate", function (e) {
+        let startDate = e.format("yyyy-mm-dd");
+        $("#endDate").datepicker("setStartDate", startDate);
+    });
 
-<h2 class="mb-4">Orders</h2>
+    $("#endDate").datepicker({
+        format: "yyyy-mm-dd",
+        autoclose: true
+    }).on("changeDate", function (e) {
+        let endDate = e.format("yyyy-mm-dd");
+        $("#startDate").datepicker("setEndDate", endDate);
+    });
+});
+🎯 Final Outcome
+🔹 Solution 1 (HTML5 Date Input) → Simple, no extra libraries.
+🔹 Solution 2 (Bootstrap Datepicker) → More user-friendly UI.
 
-<!-- Export Excel Button -->
-<a href="@Url.Action("ExportToExcel", "Order")" class="btn btn-success mb-3">
-    <i class="fas fa-file-excel"></i> Export Orders (Excel)
-</a>
-
-<!-- Orders Table -->
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>#Order</th>
-            <th>Date</th>
-            <th>Status</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var order in Model)
-        {
-            <tr>
-                <td>@order.OrderId</td>
-                <td>@order.Date.ToString("yyyy-MM-dd")</td>
-                <td>@order.OrderStatus</td>
-                <td>
-                    <!-- Download PDF Button -->
-                    <a href="@Url.Action("ExportToPDF", "Order", new { orderId = order.OrderId })" class="btn btn-danger">
-                        <i class="fas fa-file-pdf"></i> Download PDF
-                    </a>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
-
-<!-- Pagination -->
-<div class="pagination-container">
-    @Html.PagedListPager(Model, page => Url.Action("Userpage", new {
-        page,
-        pageSize = ViewBag.PageSize,
-        sortBy = ViewBag.SortBy,
-        isAsc = ViewBag.IsAsc,
-        startDate = ViewBag.StartDate,
-        endDate = ViewBag.EndDate,
-        orderStatus = ViewBag.OrderStatus
-    }), new PagedListRenderOptions { Display = PagedListDisplayMode.IfNeeded })
-</div>
-3️⃣ Modify Controller (OrderController.cs)
-Add Excel and PDF export functions.
-
-csharp
-Copy
-Edit
-using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Mvc;
-using ClosedXML.Excel;
-using iText.Kernel.Pdf;
-using iText.Layout;
-using iText.Layout.Element;
-using Microsoft.AspNetCore.Hosting;
-
-public class OrderController : Controller
-{
-    private readonly IOrderService _orderService;
-    private readonly IWebHostEnvironment _env;
-
-    public OrderController(IOrderService orderService, IWebHostEnvironment env)
-    {
-        _orderService = orderService;
-        _env = env;
-    }
-
-    // ✅ Export All Orders to Excel
-    public IActionResult ExportToExcel()
-    {
-        var orders = _orderService.GetOrders().ToList();
-
-        using (var workbook = new XLWorkbook())
-        {
-            var worksheet = workbook.Worksheets.Add("Orders");
-
-            // Add Logo
-            var logoPath = Path.Combine(_env.WebRootPath, "images", "logo.png");
-            if (System.IO.File.Exists(logoPath))
-            {
-                var picture = worksheet.AddPicture(logoPath).MoveTo(worksheet.Cell("A1")).Scale(0.5);
-            }
-
-            // Column Headers
-            worksheet.Cell(3, 1).Value = "Order ID";
-            worksheet.Cell(3, 2).Value = "Date";
-            worksheet.Cell(3, 3).Value = "Status";
-
-            int row = 4; // Start writing data from row 4
-            foreach (var order in orders)
-            {
-                worksheet.Cell(row, 1).Value = order.OrderId;
-                worksheet.Cell(row, 2).Value = order.Date.ToString("yyyy-MM-dd");
-                worksheet.Cell(row, 3).Value = order.OrderStatus;
-                row++;
-            }
-
-            // Set column widths
-            worksheet.Columns().AdjustToContents();
-
-            // Save to memory stream
-            using (var stream = new MemoryStream())
-            {
-                workbook.SaveAs(stream);
-                var content = stream.ToArray();
-                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Orders.xlsx");
-            }
-        }
-    }
-
-    // ✅ Export Specific Order to PDF
-    public IActionResult ExportToPDF(int orderId)
-    {
-        var order = _orderService.GetOrders().FirstOrDefault(o => o.OrderId == orderId);
-        if (order == null)
-        {
-            return NotFound();
-        }
-
-        using (var memoryStream = new MemoryStream())
-        {
-            var writer = new PdfWriter(memoryStream);
-            var pdf = new PdfDocument(writer);
-            var document = new Document(pdf);
-
-            // Add Logo
-            var logoPath = Path.Combine(_env.WebRootPath, "images", "logo.png");
-            if (System.IO.File.Exists(logoPath))
-            {
-                var image = new iText.Layout.Element.Image(iText.IO.Image.ImageDataFactory.Create(logoPath))
-                    .SetWidth(100)
-                    .SetHeight(50);
-                document.Add(image);
-            }
-
-            // Add Title
-            document.Add(new Paragraph("Order Details").SetBold().SetFontSize(18));
-            document.Add(new Paragraph($"Order ID: {order.OrderId}"));
-            document.Add(new Paragraph($"Date: {order.Date.ToString("yyyy-MM-dd")}"));
-            document.Add(new Paragraph($"Status: {order.OrderStatus}"));
-
-            document.Close();
-            return File(memoryStream.ToArray(), "application/pdf", $"Order_{orderId}.pdf");
-        }
-    }
-}
-4️⃣ Model (Order.cs)
-Ensure you have the Order model.
-
-csharp
-Copy
-Edit
-using System;
-
-public class Order
-{
-    public int OrderId { get; set; }
-    public DateTime Date { get; set; }
-    public string OrderStatus { get; set; }
-}
-5️⃣ Service (OrderService.cs)
-Ensure orders are fetched from a service.
-
-csharp
-Copy
-Edit
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-public interface IOrderService
-{
-    IQueryable<Order> GetOrders();
-}
-
-public class OrderService : IOrderService
-{
-    private List<Order> _orders = new()
-    {
-        new Order { OrderId = 1, Date = DateTime.Parse("2025-03-10"), OrderStatus = "Pending" },
-        new Order { OrderId = 2, Date = DateTime.Parse("2025-03-15"), OrderStatus = "Completed" },
-        new Order { OrderId = 3, Date = DateTime.Parse("2025-03-20"), OrderStatus = "Cancelled" },
-        new Order { OrderId = 4, Date = DateTime.Parse("2025-03-22"), OrderStatus = "Pending" },
-    };
-
-    public IQueryable<Order> GetOrders()
-    {
-        return _orders.AsQueryable();
-    }
-}
-6️⃣ Place Your Logo
-Store your logo inside the wwwroot/images/ folder.
-
-Name it logo.png.
-
-🎯 Final Features
-✅ Export All Orders to Excel (.xlsx) with Logo
-✅ Download a Specific Order as a PDF with Logo
-✅ Fully Integrated with ASP.NET MVC
-
-Now, your orders table supports sorting, filtering, pagination, and exporting in Excel & PDF. 🚀
-Let me know if you need further enhancements!
+Now, when you select a start date, only valid future dates can be selected as the end date and vice versa. 🚀 Let me know if you need any modifications!
 
 
 
