@@ -1,3 +1,20 @@
-<div class="col ">
-                                                        <p class="">@table.OccuipiedTime.Days days @table.OccuipiedTime.Hours hours @table.OccuipiedTime.Minutes min @table.OccuipiedTime.Seconds sec</p>
-                                                    </div> like i want thata if there is days value then only print if there is hours valure then only print don't print 0 days or anything 
+<div class="col">
+    <p class="">
+        @if (table.OccupiedTime.Days > 0)
+        {
+            @($"{table.OccupiedTime.Days} days ")
+        }
+        @if (table.OccupiedTime.Hours > 0)
+        {
+            @($"{table.OccupiedTime.Hours} hours ")
+        }
+        @if (table.OccupiedTime.Minutes > 0)
+        {
+            @($"{table.OccupiedTime.Minutes} min ")
+        }
+        @if (table.OccupiedTime.Seconds > 0)
+        {
+            @($"{table.OccupiedTime.Seconds} sec")
+        }
+    </p>
+</div>
