@@ -1,14 +1,3 @@
-<div class="d-flex align-items-center toggle-header">
-    <i class="bi bi-arrow-right-circle me-2 fs-5 toggle-icon"></i>
-    <div class="d-flex w-100 justify-content-between">
-        <div>
-            <h5 class="mb-0">Ground Floor</h5>
-        </div>
-        <div class="d-flex ms-auto">
-            <i class="fa-solid fa-circle me-2" style="color: #d2cec6;"></i>Available
-            <i class="fa-regular fa-circle ms-4 me-2" style="color: #7fc83c;"></i>Selected
-            <i class="fa-solid fa-circle ms-4 me-2" style="color: #7fc83c;"></i>Assigned
-            <i class="fa-solid fa-circle ms-4 me-2" style="color: #77b4e0;"></i>Running
-        </div>
-    </div>
-</div>
+<div class="col ">
+                                                        <p class="">@table.OccuipiedTime.Days days @table.OccuipiedTime.Hours hours @table.OccuipiedTime.Minutes min @table.OccuipiedTime.Seconds sec</p>
+                                                    </div> like i want thata if there is days value then only print if there is hours valure then only print don't print 0 days or anything 
