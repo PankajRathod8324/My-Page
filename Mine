@@ -1,68 +1,38 @@
-$(document).ready(function () {
-    let selectedTables = [];
 
-    // Function to update Assign button state
-    function updateAssignButton() {
-        if (selectedTables.length > 0) {
-            $(".assignbtn").prop("disabled", false);
-        } else {
-            $(".assignbtn").prop("disabled", true);
+    public IActionResult AddCustomerDetail([FromBody] JsonObject customerdata)
+    {
+        //Sending data: {"email":"sarah@gmail.com","Name":"sarah","Phone":"8957463213","noOfPerson":"1","SectionId":3,"SelectedTable":[{"TableId":1,"Capacity":4},{"TableId":6,"Capacity":5}]}
+        string email = (string)customerdata["email"];
+        bool IsValid = false;
+        if (_accountmanagerorderapp.IsCustomer(email))
+        {
+            IsValid = true;
         }
+        string name = (string)customerdata["Name"];
+        string phone = (string)customerdata["Phone"];
+        int noOfPerson = (int)customerdata["noOfPerson"];
+        List<Table> table = new List<Table>();
+        if (customerdata.ContainsKey("SelectedTable") && customerdata["SelectedTable"] != null)
+        {
+            table = JsonConvert.DeserializeObject<List<Table>>(customerdata["ModifierGroupIds"].ToString());
+        }
+
+
+        if (!IsValid)
+        {
+            var data = new Customer
+            {
+                Email = email,
+                Name = name,
+                Phone = phone,
+                Noofperson = noOfPerson,
+
+            };
+        }
+        else
+        {
+
+        }
+        return Json(new { success = true, message = "Customer Added Successfully!" });
     }
-
-    // Toast function for warnings
-    function showToast(message) {
-        $("body").append(`
-            <div class="toast-container position-fixed top-0 end-0 p-3">
-                <div id="customToast" class="toast align-items-center text-white bg-danger border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="d-flex">
-                        <div class="toast-body">${message}</div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                </div>
-            </div>
-        `);
-        setTimeout(() => {
-            $("#customToast").remove();
-        }, 3000);
-    }
-
-    // Apply Bootstrap styles based on table status
-    $(".selectable").each(function () {
-        let status = $(this).data("status");
-
-        if (status === "Assigned") {
-            $(this).css({ "border-color": "#7fc83c", "background-color": "#e3ebdb" });
-            $(this).find('.tableName').css({ "color": "#7fc83c" });
-        } else if (status === "Running") {
-            $(this).addClass("border-primary bg-primary-subtle");
-            $(this).find('.tableName').addClass(" text-primary");
-        } else {
-            $(this).addClass("border-secondary bg-light"); // Default Available
-        }
-    });
-
-    // Handle table selection
-    $(".selectable").click(function () {
-        let status = $(this).data("status");
-
-        if (status === "Assigned" || status === "Running") {
-            showToast("You can't select an Assigned or Running table.");
-            return;
-        }
-
-        $(this).toggleClass("selected");
-
-        let tableId = $(this).data("id");
-        if ($(this).hasClass("selected")) {
-            selectedTables.push(tableId);
-        } else {
-            selectedTables = selectedTables.filter(id => id !== tableId);
-        }
-
-        updateAssignButton();
-    });
-
-    // Initially disable Assign button
-    $(".assignbtn").prop("disabled", true);
-});
+here i want that when i am here i hav eadd that dat but here one thing is that it is waiting list data so whne any data is coming we have to check first that is is a already customer then only chg the value of NoOfPerson in the Customer table and the relation Table CustomerTable in that also add the cutomerid and tableid adn if he is not then we have to add the data in customer table and also relation table of customertable
