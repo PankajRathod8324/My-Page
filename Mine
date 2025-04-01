@@ -1,64 +1,68 @@
-     @foreach (var table in sectionlist.Table)
-                        {
-                            @if(table.OrderTable != null && table.OrderTable.Any())
+@{
+    var groupedTables = sectionlist.Table
+        .Where(t => t.OrderTable != null && t.OrderTable.Any())
+        .SelectMany(t => t.OrderTable)
+        .GroupBy(t => t.OrderId)
+        .ToDictionary(g => g.Key, g => g.ToList());
+}
+
+@foreach (var orderGroup in groupedTables)
+{
+    var firstTable = orderGroup.Value.First(); // Get the first table in the group
+    var tableNames = string.Join(", ", orderGroup.Value.Select(t => t.TableName)); // Merge table names
+    var totalCapacity = orderGroup.Value.Sum(t => t.Capacity); // Sum capacities
+    var totalAmount = orderGroup.Value.FirstOrDefault()?.Order?.FirstOrDefault()?.OrderAmount ?? 0; // Get total order amount
+
+    <div class="col-md-2">
+        <div class="card d-flex flex-wrap selectable" data-status="@firstTable.Status"
+            data-tableid="@string.Join(",", orderGroup.Value.Select(t => t.TableId))"
+            data-capacity="@totalCapacity"
+            data-sectionid="@firstTable.SectionId">
+            <div class="card-body">
+                <div class="d-flex justify-content-between flex-col">
+                    <div>
+                        <p class="fs-3 fw-bold tableName">@tableNames</p> <!-- Merged table names -->
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <p class="fs-5">₹ @totalAmount</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <span class="col">
+                        <i class="bi bi-people"></i>
+                    </span>
+                    <span class="col text-end">
+                        <i class="bi bi-stopwatch"></i>
+                    </span>
+                </div>
+
+                <div class="row">
+                    <div class="col">
+                        <p class="">@totalCapacity</p> <!-- Merged capacity -->
+                    </div>
+                    <div class="col text-end">
+                        <p class="">
+                            @if (firstTable.OccuipiedTime.Days > 0)
                             {
-                                  var groupedTables = table.OrderTable
-                                .GroupBy(t => t.OrderId)
-                                .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(t => t.TableName)));
-                            <div class="col-md-2">
-                                <div class="card d-flex flex-wrap  selectable" data-status="@table.Status"
-                                    data-tableid="@table.TableId" data-capacity="@table.Capacity"
-                                    data-sectionid="@table.SectionId">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between flex-col">
-                                            <div class="">
-                                                <p class="fs-3 fw-bold tableName">@table.TableName</p>
-                                            </div>
-                                            <div class="d-flex align-items-center">
-                                                <p class="fs-5 ">₹
-                                                    @table.OrderTable?.FirstOrDefault()?.Order?.FirstOrDefault()?.OrderAmount
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div class="row ">
-                                            <span class="col">
-                                                <i class="bi bi-people"></i>
-                                            </span>
-                                            <span class="col text-end">
-                                                <i class="bi bi-stopwatch"></i>
-                                            </span>
-                                        </div>
-
-
-                                        <div class="row">
-                                            <div class="col">
-                                                <p class="">@table.Capacity</p>
-                                            </div>
-                                            <div class="col text-end">
-                                                <p class="">
-                                                    @if (table.OccuipiedTime.Days > 0)
-                                                    {
-                                                        @($"{table.OccuipiedTime.Days} days ")
-                                                    }
-                                                    @if (table.OccuipiedTime.Hours > 0)
-                                                    {
-                                                        @($"{table.OccuipiedTime.Hours} hours ")
-                                                    }
-                                                    @if (table.OccuipiedTime.Minutes > 0)
-                                                    {
-                                                        @($"{table.OccuipiedTime.Minutes} min ")
-                                                    }
-                                                    else
-                                                    {
-                                                        @("0 min")
-                                                    }
-                                                </p>
-                                            </div>
-                                        </div>
-
-
-                                    </div>
-                                </div>
-                            </div>
+                                @($"{firstTable.OccuipiedTime.Days} days ")
                             }
-                        }here i want that whichever table in that orderId is same then the card is merged
+                            @if (firstTable.OccuipiedTime.Hours > 0)
+                            {
+                                @($"{firstTable.OccuipiedTime.Hours} hours ")
+                            }
+                            @if (firstTable.OccuipiedTime.Minutes > 0)
+                            {
+                                @($"{firstTable.OccuipiedTime.Minutes} min ")
+                            }
+                            else
+                            {
+                                @("0 min")
+                            }
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
