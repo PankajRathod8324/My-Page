@@ -1,70 +1,184 @@
-public IActionResult AddCustomerDetail([FromBody] JsonObject customerdata)
+Repository Layer (ICustomerRepository and CustomerRepository)
+The repository will handle all database interactions.
+
+Interface:
+csharp
+Copy code
+public interface ICustomerRepository
 {
-    try
+    Customer GetCustomerByEmail(string email);
+    void AddCustomer(Customer customer);
+    void UpdateCustomer(Customer customer);
+    void AddCustomerTable(CustomerTable customerTable);
+    void SaveChanges();
+}
+Implementation:
+csharp
+Copy code
+public class CustomerRepository : ICustomerRepository
+{
+    private readonly ApplicationDbContext _context;
+
+    public CustomerRepository(ApplicationDbContext context)
     {
-        // Extract customer details from JSON
-        string email = (string)customerdata["email"];
-        string name = (string)customerdata["Name"];
-        string phone = (string)customerdata["Phone"];
-        int noOfPerson = (int)customerdata["noOfPerson"];
-        List<Table> selectedTables = new List<Table>();
+        _context = context;
+    }
 
-        if (customerdata.ContainsKey("SelectedTable") && customerdata["SelectedTable"] != null)
+    public Customer GetCustomerByEmail(string email)
+    {
+        return _context.Customers.FirstOrDefault(c => c.Email == email);
+    }
+
+    public void AddCustomer(Customer customer)
+    {
+        _context.Customers.Add(customer);
+    }
+
+    public void UpdateCustomer(Customer customer)
+    {
+        _context.Customers.Update(customer);
+    }
+
+    public void AddCustomerTable(CustomerTable customerTable)
+    {
+        _context.CustomerTables.Add(customerTable);
+    }
+
+    public void SaveChanges()
+    {
+        _context.SaveChanges();
+    }
+}
+2. Service Layer (ICustomerService and CustomerService)
+The service layer contains business logic.
+
+Interface:
+csharp
+Copy code
+public interface ICustomerService
+{
+    bool AddOrUpdateCustomer(JsonObject customerData);
+}
+Implementation:
+csharp
+Copy code
+public class CustomerService : ICustomerService
+{
+    private readonly ICustomerRepository _customerRepository;
+
+    public CustomerService(ICustomerRepository customerRepository)
+    {
+        _customerRepository = customerRepository;
+    }
+
+    public bool AddOrUpdateCustomer(JsonObject customerData)
+    {
+        try
         {
-            selectedTables = JsonConvert.DeserializeObject<List<Table>>(customerdata["SelectedTable"].ToString());
-        }
+            // Extract customer details from JSON
+            string email = (string)customerData["email"];
+            string name = (string)customerData["Name"];
+            string phone = (string)customerData["Phone"];
+            int noOfPerson = (int)customerData["noOfPerson"];
+            List<Table> selectedTables = new List<Table>();
 
-        // Check if the customer already exists
-        var existingCustomer = _context.Customers.FirstOrDefault(c => c.Email == email);
-
-        if (existingCustomer != null)
-        {
-            // Customer exists -> Update NoOfPerson
-            existingCustomer.Noofperson = noOfPerson;
-            _context.SaveChanges();
-
-            // Add selected tables to the CustomerTable relation
-            foreach (var table in selectedTables)
+            if (customerData.ContainsKey("SelectedTable") && customerData["SelectedTable"] != null)
             {
-                var customerTable = new CustomerTable
-                {
-                    CustomerId = existingCustomer.Id,
-                    TableId = table.TableId
-                };
-                _context.CustomerTables.Add(customerTable);
+                selectedTables = JsonConvert.DeserializeObject<List<Table>>(customerData["SelectedTable"].ToString());
             }
+
+            // Check if the customer exists
+            var existingCustomer = _customerRepository.GetCustomerByEmail(email);
+
+            if (existingCustomer != null)
+            {
+                // Update NoOfPerson
+                existingCustomer.Noofperson = noOfPerson;
+                _customerRepository.UpdateCustomer(existingCustomer);
+
+                // Add selected tables to the CustomerTable relation
+                foreach (var table in selectedTables)
+                {
+                    var customerTable = new CustomerTable
+                    {
+                        CustomerId = existingCustomer.Id,
+                        TableId = table.TableId
+                    };
+                    _customerRepository.AddCustomerTable(customerTable);
+                }
+            }
+            else
+            {
+                // Create new customer
+                var newCustomer = new Customer
+                {
+                    Email = email,
+                    Name = name,
+                    Phone = phone,
+                    Noofperson = noOfPerson
+                };
+                _customerRepository.AddCustomer(newCustomer);
+                _customerRepository.SaveChanges(); // Save to generate Customer ID
+
+                // Add selected tables to the CustomerTable relation
+                foreach (var table in selectedTables)
+                {
+                    var customerTable = new CustomerTable
+                    {
+                        CustomerId = newCustomer.Id,
+                        TableId = table.TableId
+                    };
+                    _customerRepository.AddCustomerTable(customerTable);
+                }
+            }
+
+            _customerRepository.SaveChanges();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}
+3. Controller Layer (CustomerController)
+Handles HTTP requests and interacts with the service.
+
+csharp
+Copy code
+[ApiController]
+[Route("api/[controller]")]
+public class CustomerController : ControllerBase
+{
+    private readonly ICustomerService _customerService;
+
+    public CustomerController(ICustomerService customerService)
+    {
+        _customerService = customerService;
+    }
+
+    [HttpPost("AddCustomerDetail")]
+    public IActionResult AddCustomerDetail([FromBody] JsonObject customerData)
+    {
+        bool success = _customerService.AddOrUpdateCustomer(customerData);
+        
+        if (success)
+        {
+            return Json(new { success = true, message = "Customer Added Successfully!" });
         }
         else
         {
-            // Customer does not exist -> Insert new customer
-            var newCustomer = new Customer
-            {
-                Email = email,
-                Name = name,
-                Phone = phone,
-                Noofperson = noOfPerson
-            };
-            _context.Customers.Add(newCustomer);
-            _context.SaveChanges(); // Save to generate Customer ID
-
-            // Add selected tables to the CustomerTable relation
-            foreach (var table in selectedTables)
-            {
-                var customerTable = new CustomerTable
-                {
-                    CustomerId = newCustomer.Id,
-                    TableId = table.TableId
-                };
-                _context.CustomerTables.Add(customerTable);
-            }
+            return Json(new { success = false, message = "An error occurred while processing the request." });
         }
-
-        _context.SaveChanges(); // Save all changes
-
-        return Json(new { success = true, message = "Customer Added Successfully!" });
-    }
-    catch (Exception ex)
-    {
-        return Json(new { success = false, message = "An error occurred: " + ex.Message });
     }
 }
+4. Register Dependencies in Startup.cs (Program.cs in .NET 6+)
+Add this to your Program.cs (or Startup.cs in older versions).
+
+csharp
+Copy code
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+How This Works:
+✅ Controller Layer: Handles API requests and responses.
+✅ Service Layer: Contains the busi
