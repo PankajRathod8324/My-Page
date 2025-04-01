@@ -1,184 +1,64 @@
-Repository Layer (ICustomerRepository and CustomerRepository)
-The repository will handle all database interactions.
+     @foreach (var table in sectionlist.Table)
+                        {
+                            @if(table.OrderTable != null && table.OrderTable.Any())
+                            {
+                                  var groupedTables = table.OrderTable
+                                .GroupBy(t => t.OrderId)
+                                .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(t => t.TableName)));
+                            <div class="col-md-2">
+                                <div class="card d-flex flex-wrap  selectable" data-status="@table.Status"
+                                    data-tableid="@table.TableId" data-capacity="@table.Capacity"
+                                    data-sectionid="@table.SectionId">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between flex-col">
+                                            <div class="">
+                                                <p class="fs-3 fw-bold tableName">@table.TableName</p>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <p class="fs-5 ">₹
+                                                    @table.OrderTable?.FirstOrDefault()?.Order?.FirstOrDefault()?.OrderAmount
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="row ">
+                                            <span class="col">
+                                                <i class="bi bi-people"></i>
+                                            </span>
+                                            <span class="col text-end">
+                                                <i class="bi bi-stopwatch"></i>
+                                            </span>
+                                        </div>
 
-Interface:
-csharp
-Copy code
-public interface ICustomerRepository
-{
-    Customer GetCustomerByEmail(string email);
-    void AddCustomer(Customer customer);
-    void UpdateCustomer(Customer customer);
-    void AddCustomerTable(CustomerTable customerTable);
-    void SaveChanges();
-}
-Implementation:
-csharp
-Copy code
-public class CustomerRepository : ICustomerRepository
-{
-    private readonly ApplicationDbContext _context;
 
-    public CustomerRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
+                                        <div class="row">
+                                            <div class="col">
+                                                <p class="">@table.Capacity</p>
+                                            </div>
+                                            <div class="col text-end">
+                                                <p class="">
+                                                    @if (table.OccuipiedTime.Days > 0)
+                                                    {
+                                                        @($"{table.OccuipiedTime.Days} days ")
+                                                    }
+                                                    @if (table.OccuipiedTime.Hours > 0)
+                                                    {
+                                                        @($"{table.OccuipiedTime.Hours} hours ")
+                                                    }
+                                                    @if (table.OccuipiedTime.Minutes > 0)
+                                                    {
+                                                        @($"{table.OccuipiedTime.Minutes} min ")
+                                                    }
+                                                    else
+                                                    {
+                                                        @("0 min")
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
 
-    public Customer GetCustomerByEmail(string email)
-    {
-        return _context.Customers.FirstOrDefault(c => c.Email == email);
-    }
 
-    public void AddCustomer(Customer customer)
-    {
-        _context.Customers.Add(customer);
-    }
-
-    public void UpdateCustomer(Customer customer)
-    {
-        _context.Customers.Update(customer);
-    }
-
-    public void AddCustomerTable(CustomerTable customerTable)
-    {
-        _context.CustomerTables.Add(customerTable);
-    }
-
-    public void SaveChanges()
-    {
-        _context.SaveChanges();
-    }
-}
-2. Service Layer (ICustomerService and CustomerService)
-The service layer contains business logic.
-
-Interface:
-csharp
-Copy code
-public interface ICustomerService
-{
-    bool AddOrUpdateCustomer(JsonObject customerData);
-}
-Implementation:
-csharp
-Copy code
-public class CustomerService : ICustomerService
-{
-    private readonly ICustomerRepository _customerRepository;
-
-    public CustomerService(ICustomerRepository customerRepository)
-    {
-        _customerRepository = customerRepository;
-    }
-
-    public bool AddOrUpdateCustomer(JsonObject customerData)
-    {
-        try
-        {
-            // Extract customer details from JSON
-            string email = (string)customerData["email"];
-            string name = (string)customerData["Name"];
-            string phone = (string)customerData["Phone"];
-            int noOfPerson = (int)customerData["noOfPerson"];
-            List<Table> selectedTables = new List<Table>();
-
-            if (customerData.ContainsKey("SelectedTable") && customerData["SelectedTable"] != null)
-            {
-                selectedTables = JsonConvert.DeserializeObject<List<Table>>(customerData["SelectedTable"].ToString());
-            }
-
-            // Check if the customer exists
-            var existingCustomer = _customerRepository.GetCustomerByEmail(email);
-
-            if (existingCustomer != null)
-            {
-                // Update NoOfPerson
-                existingCustomer.Noofperson = noOfPerson;
-                _customerRepository.UpdateCustomer(existingCustomer);
-
-                // Add selected tables to the CustomerTable relation
-                foreach (var table in selectedTables)
-                {
-                    var customerTable = new CustomerTable
-                    {
-                        CustomerId = existingCustomer.Id,
-                        TableId = table.TableId
-                    };
-                    _customerRepository.AddCustomerTable(customerTable);
-                }
-            }
-            else
-            {
-                // Create new customer
-                var newCustomer = new Customer
-                {
-                    Email = email,
-                    Name = name,
-                    Phone = phone,
-                    Noofperson = noOfPerson
-                };
-                _customerRepository.AddCustomer(newCustomer);
-                _customerRepository.SaveChanges(); // Save to generate Customer ID
-
-                // Add selected tables to the CustomerTable relation
-                foreach (var table in selectedTables)
-                {
-                    var customerTable = new CustomerTable
-                    {
-                        CustomerId = newCustomer.Id,
-                        TableId = table.TableId
-                    };
-                    _customerRepository.AddCustomerTable(customerTable);
-                }
-            }
-
-            _customerRepository.SaveChanges();
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-}
-3. Controller Layer (CustomerController)
-Handles HTTP requests and interacts with the service.
-
-csharp
-Copy code
-[ApiController]
-[Route("api/[controller]")]
-public class CustomerController : ControllerBase
-{
-    private readonly ICustomerService _customerService;
-
-    public CustomerController(ICustomerService customerService)
-    {
-        _customerService = customerService;
-    }
-
-    [HttpPost("AddCustomerDetail")]
-    public IActionResult AddCustomerDetail([FromBody] JsonObject customerData)
-    {
-        bool success = _customerService.AddOrUpdateCustomer(customerData);
-        
-        if (success)
-        {
-            return Json(new { success = true, message = "Customer Added Successfully!" });
-        }
-        else
-        {
-            return Json(new { success = false, message = "An error occurred while processing the request." });
-        }
-    }
-}
-4. Register Dependencies in Startup.cs (Program.cs in .NET 6+)
-Add this to your Program.cs (or Startup.cs in older versions).
-
-csharp
-Copy code
-builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
-builder.Services.AddScoped<ICustomerService, CustomerService>();
-How This Works:
-✅ Controller Layer: Handles API requests and responses.
-✅ Service Layer: Contains the busi
+                                    </div>
+                                </div>
+                            </div>
+                            }
+                        }here i want that whichever table in that orderId is same then the card is merged
