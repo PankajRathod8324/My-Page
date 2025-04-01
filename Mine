@@ -1,38 +1,70 @@
-
-    public IActionResult AddCustomerDetail([FromBody] JsonObject customerdata)
+public IActionResult AddCustomerDetail([FromBody] JsonObject customerdata)
+{
+    try
     {
-        //Sending data: {"email":"sarah@gmail.com","Name":"sarah","Phone":"8957463213","noOfPerson":"1","SectionId":3,"SelectedTable":[{"TableId":1,"Capacity":4},{"TableId":6,"Capacity":5}]}
+        // Extract customer details from JSON
         string email = (string)customerdata["email"];
-        bool IsValid = false;
-        if (_accountmanagerorderapp.IsCustomer(email))
-        {
-            IsValid = true;
-        }
         string name = (string)customerdata["Name"];
         string phone = (string)customerdata["Phone"];
         int noOfPerson = (int)customerdata["noOfPerson"];
-        List<Table> table = new List<Table>();
+        List<Table> selectedTables = new List<Table>();
+
         if (customerdata.ContainsKey("SelectedTable") && customerdata["SelectedTable"] != null)
         {
-            table = JsonConvert.DeserializeObject<List<Table>>(customerdata["ModifierGroupIds"].ToString());
+            selectedTables = JsonConvert.DeserializeObject<List<Table>>(customerdata["SelectedTable"].ToString());
         }
 
+        // Check if the customer already exists
+        var existingCustomer = _context.Customers.FirstOrDefault(c => c.Email == email);
 
-        if (!IsValid)
+        if (existingCustomer != null)
         {
-            var data = new Customer
+            // Customer exists -> Update NoOfPerson
+            existingCustomer.Noofperson = noOfPerson;
+            _context.SaveChanges();
+
+            // Add selected tables to the CustomerTable relation
+            foreach (var table in selectedTables)
+            {
+                var customerTable = new CustomerTable
+                {
+                    CustomerId = existingCustomer.Id,
+                    TableId = table.TableId
+                };
+                _context.CustomerTables.Add(customerTable);
+            }
+        }
+        else
+        {
+            // Customer does not exist -> Insert new customer
+            var newCustomer = new Customer
             {
                 Email = email,
                 Name = name,
                 Phone = phone,
-                Noofperson = noOfPerson,
-
+                Noofperson = noOfPerson
             };
-        }
-        else
-        {
+            _context.Customers.Add(newCustomer);
+            _context.SaveChanges(); // Save to generate Customer ID
 
+            // Add selected tables to the CustomerTable relation
+            foreach (var table in selectedTables)
+            {
+                var customerTable = new CustomerTable
+                {
+                    CustomerId = newCustomer.Id,
+                    TableId = table.TableId
+                };
+                _context.CustomerTables.Add(customerTable);
+            }
         }
+
+        _context.SaveChanges(); // Save all changes
+
         return Json(new { success = true, message = "Customer Added Successfully!" });
     }
-here i want that when i am here i hav eadd that dat but here one thing is that it is waiting list data so whne any data is coming we have to check first that is is a already customer then only chg the value of NoOfPerson in the Customer table and the relation Table CustomerTable in that also add the cutomerid and tableid adn if he is not then we have to add the data in customer table and also relation table of customertable
+    catch (Exception ex)
+    {
+        return Json(new { success = false, message = "An error occurred: " + ex.Message });
+    }
+}
