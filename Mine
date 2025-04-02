@@ -1,75 +1,23 @@
-<div id="waitinglistmodal" class="modal fade" data-backdrop="true">
-            <div class="modal-dialog modal-right w-xl">
-                <div class="modal-content h-100 no-radius">
-                    <div class="modal-header">
-                        <div class="modal-title fw-bold webybtn text-md">Waiting List</div>
-                        <button class="close" data-dismiss="modal">&times;</button>
-                    </div>
-                    <form id="savecustomerdetails">
-                        <div class="modal-body" id="waitinglist">
+$(document).ready(function () {
+    function checkFields() {
+        let isValid = true;
 
-                        </div>
-                        <div class="modal-footer">
-                            <button type="submit" class="btn btn-light" data-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-primary assignBtn" data-dismiss="modal"
-                                disabled>Assign</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-this is in parent then i return partial view and apppend in chid tere is @model DAL.ViewModel.WaitingListVM
+        // Check if all fields have values
+        $("#waitinglistmodal input, #waitinglistmodal select").each(function () {
+            if ($(this).prop("required") && !$(this).val().trim()) {
+                isValid = false;
+            }
+        });
 
-<div class="modal-title fw-bold webybtn text-md mb-3">Customer Details</div>
-<div class="row d-flex justify-space-between">
-    <div class="row">
-        <div class="col">
-            <div class="form-floating mb-3">
-                <input type="text" asp-for="Email" class="form-control" id="email" name="email">
-                <label for="floatingInput" asp-for="Email">Email*</label>
-                <span asp-validation-for="Email" class="text-danger"></span>
-            </div>
-        </div>
-    </div>
+        // Enable or disable the Assign button based on validation
+        $(".assignBtn").prop("disabled", !isValid);
+    }
 
+    // Trigger validation on input change
+    $("#waitinglistmodal input, #waitinglistmodal select").on("input change", function () {
+        checkFields();
+    });
 
-    <div class="row">
-        <div class="col">
-            <div class="form-floating mb-3">
-                <input type="text" asp-for="Name" class="form-control" id="floatingInput">
-                <label for="floatingInput" asp-for="Name">Name*</label>
-                <span asp-validation-for="Name" class="text-danger"></span>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col">
-            <div class="form-floating mb-3">
-                <input type="text" asp-for="Phone" class="form-control" id="floatingInput">
-                <label for="floatingInput" asp-for="Phone">Mobile Number*</label>
-                <span asp-validation-for="Phone" class="text-danger"></span>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col">
-            <div class="form-floating mb-3">
-                <input type="text" asp-for="NoOfPerson" class="form-control" id="noOfPerson" name="noOfPerson"
-                    value="@Model.NoOfPerson">
-                <label for="floatingInput" asp-for="NoOfPerson">No. Of Persons*</label>
-                <span asp-validation-for="NoOfPerson" class="text-danger"></span>
-            </div>
-        </div>
-        <div class="col">
-            <div class="form-floating"> <select class="form-select" asp-for="SectionId" asp-items="ViewBag.Sections"
-                    id="floatingSelect" aria-label="Floating label select example" disabled>
-                    <option selected>Select a Sections</option>
-                </select>
-                <label for="floatingSelect">Section*</label>
-                <span asp-validation-for="SectionId" class="text-danger"></span>
-            </div>
-        </div>
-    </div>
-</div>so i want that if all data is feild then only the assign btn is enabled
+    // Initial check in case fields are pre-filled
+    checkFields();
+});
