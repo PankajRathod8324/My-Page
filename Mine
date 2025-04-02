@@ -1,23 +1,37 @@
 $(document).ready(function () {
+    console.log("Script loaded successfully!"); // Debugging log
+
     function checkFields() {
+        console.log("Checking fields...");
+
         let isValid = true;
 
-        // Check if all fields have values
+        // Check all input and select fields inside the modal
         $("#waitinglistmodal input, #waitinglistmodal select").each(function () {
-            if ($(this).prop("required") && !$(this).val().trim()) {
+            console.log($(this).attr("name"), ":", $(this).val()); // Log field values
+
+            if (!$(this).val().trim()) {
                 isValid = false;
             }
         });
 
-        // Enable or disable the Assign button based on validation
+        // Enable/Disable the Assign button
         $(".assignBtn").prop("disabled", !isValid);
+        console.log("Assign button enabled:", isValid);
     }
 
-    // Trigger validation on input change
-    $("#waitinglistmodal input, #waitinglistmodal select").on("input change", function () {
+    // Using `document` to delegate events for dynamically loaded elements
+    $(document).on("input change", "#waitinglistmodal input, #waitinglistmodal select", function () {
+        console.log("Field changed:", $(this).attr("name")); // Debugging log
         checkFields();
     });
 
-    // Initial check in case fields are pre-filled
+    // Trigger validation when the modal opens
+    $(document).on("shown.bs.modal", "#waitinglistmodal", function () {
+        console.log("Modal opened, checking fields...");
+        checkFields();
+    });
+
+    // Initial check if fields are pre-filled when the page loads
     checkFields();
 });
