@@ -1,66 +1,18 @@
-@model DAL.ViewModel.WaitingListVM
+Ensure jQuery and jQuery Validation Are Loaded Correctly
+Before using validation scripts, jQuery must be loaded. Check if it's included before validation scripts:
 
-<div class="modal-title fw-bold webybtn text-md mb-3">Customer Details</div>
-<div class="row d-flex justify-space-between">
-    <div class="row">
-        <div class="col">
-            <div class="form-floating mb-3">
-                <input type="email" asp-for="Email" class="form-control" id="email" name="email">
-                <label for="floatingInput" asp-for="Email">Email*</label>
-                <span asp-validation-for="Email" class="text-danger"></span>
-            </div>
-        </div>
-    </div>
-
-
-    <div class="row">
-        <div class="col">
-            <div class="form-floating mb-3">
-                <input type="text" asp-for="Name" class="form-control" id="floatingInput">
-                <label for="floatingInput" asp-for="Name">Name*</label>
-                <span asp-validation-for="Name" class="text-danger"></span>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col">
-            <div class="form-floating mb-3">
-                <input type="text" asp-for="Phone" class="form-control" id="floatingInput">
-                <label for="floatingInput" asp-for="Phone">Mobile Number*</label>
-                <span asp-validation-for="Phone" class="text-danger"></span>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col">
-            <div class="form-floating mb-3">
-                <input type="text" asp-for="NoOfPerson" class="form-control" id="noOfPerson" name="noOfPerson"
-                    value="@Model.NoOfPerson">
-                <label for="floatingInput" asp-for="NoOfPerson">No. Of Persons*</label>
-                <span asp-validation-for="NoOfPerson" class="text-danger"></span>
-            </div>
-        </div>
-        <div class="col">
-            <div class="form-floating"> <select class="form-select" asp-for="SectionId" asp-items="ViewBag.Sections"
-                    id="floatingSelect" aria-label="Floating label select example" disabled>
-                    <option selected>Select a Sections</option>
-                </select>
-                <label for="floatingSelect">Section*</label>
-                <span asp-validation-for="SectionId" class="text-danger"></span>
-            </div>
-        </div>
-    </div>
-</div>
-
+html
+Copy code
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
-<script
-    src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
+Make sure jQuery is included before the validation scripts.
 
-here i am not getting no error masg in using System.ComponentModel.DataAnnotations;
+✅ Fix 2: Ensure Your Model Has Required Attributes
+Your WaitingListVM model has no [Required] attributes. Try adding them:
 
-namespace DAL.ViewModel;
+csharp
+Copy code
 public class WaitingListVM
 {
     public int WaitingListId { get; set; }
@@ -71,25 +23,59 @@ public class WaitingListVM
 
     public string SectionName {get; set;}
 
+    [Required(ErrorMessage = "Name is required")]
     public string Name { get; set; } = null!;
 
     public string FirstName { get; set; } = null!;
 
     public string LastName { get; set; } = null!;
 
+    [Required(ErrorMessage = "Phone number is required")]
+    [RegularExpression(@"^\d{10}$", ErrorMessage = "Enter a valid 10-digit phone number")]
     public string Phone { get; set; } = null!;
 
-    
+    [Required(ErrorMessage = "Email is required")]
     [EmailAddress(ErrorMessage = "Enter a Valid Email")]
     public string Email { get; set; } = null!;
 
+    [Required(ErrorMessage = "Number of persons is required")]
+    [Range(1, 20, ErrorMessage = "Number of persons must be between 1 and 20")]
     public int NoOfPerson { get; set; }
 
     public int CreatedBy { get; set; }
-
     public DateTime CreatedAt { get; set; }
-
     public int ModifiedBy { get; set; }
-
     public DateTime ModifiedAt { get; set; }
 }
+Why?
+
+If Name, Phone, Email, or NoOfPerson are empty, no validation will run unless [Required] is added.
+
+✅ Fix 3: Ensure Client-Side Validation Works
+After loading your form dynamically, trigger validation:
+
+javascript
+Copy code
+$(document).ready(function () {
+    // This ensures validation is applied to dynamically loaded content
+    $.validator.unobtrusive.parse("#savecustomerdetails");
+});
+If your form is loaded via AJAX, use:
+
+javascript
+Copy code
+$(document).ajaxComplete(function () {
+    $.validator.unobtrusive.parse("#savecustomerdetails");
+});
+✅ Fix 4: Ensure asp-validation-for is Correct
+Your labels have for="floatingInput", but the inputs have different ids. Fix:
+
+html
+Copy code
+<label for="email" asp-for="Email">Email*</label>
+<label for="Name" asp-for="Name">Name*</label>
+<label for="Phone" asp-for="Phone">Mobile Number*</label>
+<label for="noOfPerson" asp-for="NoOfPerson">No. Of Persons*</label>
+This makes sure labels are properly linked to inputs.
+
+🛠 Try These Fixes and Let
