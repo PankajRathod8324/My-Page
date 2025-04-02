@@ -1,37 +1,95 @@
-$(document).ready(function () {
-    console.log("Script loaded successfully!"); // Debugging log
+@model DAL.ViewModel.WaitingListVM
 
-    function checkFields() {
-        console.log("Checking fields...");
+<div class="modal-title fw-bold webybtn text-md mb-3">Customer Details</div>
+<div class="row d-flex justify-space-between">
+    <div class="row">
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="email" asp-for="Email" class="form-control" id="email" name="email">
+                <label for="floatingInput" asp-for="Email">Email*</label>
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
 
-        let isValid = true;
 
-        // Check all input and select fields inside the modal
-        $("#waitinglistmodal input, #waitinglistmodal select").each(function () {
-            console.log($(this).attr("name"), ":", $(this).val()); // Log field values
+    <div class="row">
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="text" asp-for="Name" class="form-control" id="floatingInput">
+                <label for="floatingInput" asp-for="Name">Name*</label>
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
 
-            if (!$(this).val().trim()) {
-                isValid = false;
-            }
-        });
+    <div class="row">
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="text" asp-for="Phone" class="form-control" id="floatingInput">
+                <label for="floatingInput" asp-for="Phone">Mobile Number*</label>
+                <span asp-validation-for="Phone" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
 
-        // Enable/Disable the Assign button
-        $(".assignBtn").prop("disabled", !isValid);
-        console.log("Assign button enabled:", isValid);
-    }
+    <div class="row">
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="text" asp-for="NoOfPerson" class="form-control" id="noOfPerson" name="noOfPerson"
+                    value="@Model.NoOfPerson">
+                <label for="floatingInput" asp-for="NoOfPerson">No. Of Persons*</label>
+                <span asp-validation-for="NoOfPerson" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-floating"> <select class="form-select" asp-for="SectionId" asp-items="ViewBag.Sections"
+                    id="floatingSelect" aria-label="Floating label select example" disabled>
+                    <option selected>Select a Sections</option>
+                </select>
+                <label for="floatingSelect">Section*</label>
+                <span asp-validation-for="SectionId" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
+</div>
 
-    // Using `document` to delegate events for dynamically loaded elements
-    $(document).on("input change", "#waitinglistmodal input, #waitinglistmodal select", function () {
-        console.log("Field changed:", $(this).attr("name")); // Debugging log
-        checkFields();
-    });
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
 
-    // Trigger validation when the modal opens
-    $(document).on("shown.bs.modal", "#waitinglistmodal", function () {
-        console.log("Modal opened, checking fields...");
-        checkFields();
-    });
+here i am not getting no error masg in using System.ComponentModel.DataAnnotations;
 
-    // Initial check if fields are pre-filled when the page loads
-    checkFields();
-});
+namespace DAL.ViewModel;
+public class WaitingListVM
+{
+    public int WaitingListId { get; set; }
+
+    public DateTime WaitingTime { get; set; }
+
+    public int? SectionId { get; set; }
+
+    public string SectionName {get; set;}
+
+    public string Name { get; set; } = null!;
+
+    public string FirstName { get; set; } = null!;
+
+    public string LastName { get; set; } = null!;
+
+    public string Phone { get; set; } = null!;
+
+    
+    [EmailAddress(ErrorMessage = "Enter a Valid Email")]
+    public string Email { get; set; } = null!;
+
+    public int NoOfPerson { get; set; }
+
+    public int CreatedBy { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public int ModifiedBy { get; set; }
+
+    public DateTime ModifiedAt { get; set; }
+}
