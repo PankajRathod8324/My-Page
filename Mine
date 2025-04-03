@@ -1,15 +1,7 @@
-jquery.validate.min.js:4 
- Uncaught 
-TypeError: Cannot read properties of undefined (reading 'call')
-    at a.validator.check (jquery.validate.min.js:4:11323)
-    at a.validator.checkForm (jquery.validate.min.js:4:7116)
-    at a.validator.form (jquery.validate.min.js:4:6816)
-    at HTMLFormElement.<anonymous> (jquery.validate.min.js:4:1146)
-    at HTMLFormElement.dispatch (jquery-3.6.0.min.js:2:43064)
-    at v.handle (jquery-3.6.0.min.js:2:41048)
-check	@	jquery.validate.min.js:4
-checkForm	@	jquery.validate.min.js:4
-form	@	jquery.validate.min.js:4
-(anonymous)	@	jquery.validate.min.js:4
-dispatch	@	jquery-3.6.0.min.js:2
-v.handle	@	jquery-3.6.0.min.js:2
+ var role = _userService.GetRoleNameById((int)user.RoleId);
+        ViewBag.Roles = _userService.GetAllRoles().Select(r => new SelectListItem
+        {
+            Value = r.RoleId.ToString(),
+            Text = r.RoleName
+        }).ToList();
+her i want that when the role is account manager then in this viewbage the rolename Super Admin is not added in this view bag
