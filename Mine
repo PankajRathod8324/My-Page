@@ -1,46 +1,60 @@
-public List<OrderCategoryVM> GetOrderCategoryItem(int categoryId)
-{
-    var categoryData = _context.MenuCategories
-        .Where(c => c.CategoryId == categoryId)
-        .Select(c => new OrderCategoryVM
-        {
-            CategoryId = c.CategoryId,
-            CategoryName = c.CategoryName,
-            Orders = _context.Orders
-                .Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue 
-                                                          && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId 
-                                                                                      && mi.CategoryId == categoryId)))
-                .Select(o => new OrderVM
-                {
-                    OrderId = o.OrderId,
-                    OrderItems = _context.OrderItems
-                        .Where(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue 
-                                     && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId 
-                                                                 && mi.CategoryId == categoryId))
-                        .Select(oi => new OrderItemVM
-                        {
-                            ItemId = (int)oi.ItemId,
-                            ItemName = oi.ItemId.HasValue ? _context.MenuItems
-                                .Where(item => item.ItemId == oi.ItemId)
-                                .Select(item => item.ItemName)
-                                .FirstOrDefault() : "No Item",
-                            Price = oi.Rate,
-                            Modifiers = _context.OrderModifiers
-                                .Where(om => om.OrderItemId == oi.OrderItemId && om.ItemId == oi.ItemId)
-                                .Select(om => new OrderModifierVM
-                                {
-                                    ModifierId = (int)om.ModifierId,
-                                    ModifierName = om.ModifierId.HasValue ? _context.MenuModifiers
-                                        .Where(modifier => modifier.ModifierId == om.ModifierId)
-                                        .Select(modifier => modifier.ModifierName)
-                                        .FirstOrDefault() : "No Modifier",
-                                    ModifierRate = om.Rate,
-                                    Quantity = om.Quantity
-                                }).ToList(),
-                            Quantity = oi.Quantity
-                        }).ToList(),
-                }).Distinct().ToList() // Ensure distinct orders
-        }).ToList();
+@model List<DAL.ViewModel.OrderCategoryVM>
 
-    return categoryData;
-}
+@foreach (var category in Model)
+{
+    <div class="category-content p-3" id="@category.CategoryId" style="display: none;">
+        <div class="fs-3 fw-bold webybtn mb-3">@category.CategoryName</div>
+        @foreach (var order in category.Orders)
+        {
+            <div class="card box-border mb-3" style="max-width: 18rem;">
+                <div class="card-header card-bg-color ">
+                    <span class="d-flex flex-row justify-content-between align-items-center">
+                        <span>#@order.OrderId</span>
+                        <span>
+                            @if (@order.OccupiedTime.Days > 0)
+                            {
+                                @($"{@order.OccupiedTime.Days} days ")
+                            }
+                            @if (@order.OccupiedTime.Hours > 0)
+                            {
+                                @($"{@order.OccupiedTime.Hours} hours ")
+                            }
+                            @if (@order.OccupiedTime.Minutes > 0)
+                            {
+                                @($"{@order.OccupiedTime.Minutes} min ")
+                            }
+                            else
+                            {
+                                @("0 min")
+                            }
+                        </span>
+                    </span>
+
+                    @if (order.OrderTables.Any())
+                    {
+                        var groupedTables = order.OrderTables
+                        .GroupBy(t => t.SectionName)
+                        .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(t => t.TableName)));
+
+                        @foreach (var sections in groupedTables)
+                        {
+                            <span class="d-flex flex-row  align-items-center">
+                                <span>@sections.Key</span>
+                                <ul class="pt-3"><li><span>@sections.Value</span></li></ul>
+                            </span>
+                        }
+                    }
+
+
+
+                </div>
+
+                <div class="card-body text-primary">
+                    <h5 class="card-title">@category.CategoryName</h5>
+                    <p class="card-text">Items for @category.CategoryName category.</p>
+                </div>
+                <div class="card-footer bg-transparent border-primary">Footer</div>
+            </div>
+        }
+    </div>
+} my header is toomuch bih card header and the card body should be scroollable and make card little bigger and the other card like if two card then it should b ein horizontal after certain card it adjust according to that other card should go next row ok
