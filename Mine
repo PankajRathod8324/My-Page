@@ -1,21 +1,4 @@
-@model List<DAL.ViewModel.OrderCategoryVM>
-
-@foreach (var category in Model)
-{
-    <div class="category-content p-3" id="@category.CategoryId" style="display: none;">
-        <div class="fs-3 fw-bold webybtn mb-3">@category.CategoryName</div>
-
-    <div class="card box-border  mb-3" style="max-width: 18rem;">
-        <div class="card-header card-bg-color ">@category.CategoryName</div>
-        <div class="card-body text-primary">
-            <h5 class="card-title">@category.CategoryName</h5>
-            <p class="card-text">Items for @category.CategoryName category.</p>
-        </div>
-        <div class="card-footer bg-transparent border-primary">Footer</div>
-    </div>
-</div>
-} i have add this is as my partial view but it is not apearing it is printing that data in console 
-thisa is my parent fikle @model DAL.ViewModel.MenuCategoryVM
+@model DAL.ViewModel.MenuCategoryVM
 
 @{
     Layout = "_LayoutOrder";
@@ -24,7 +7,6 @@ thisa is my parent fikle @model DAL.ViewModel.MenuCategoryVM
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -48,16 +30,17 @@ thisa is my parent fikle @model DAL.ViewModel.MenuCategoryVM
         </div>
 
         <!-- Bootstrap Tabs -->
-        <ul class="nav nav-tabss border-0 bg-white p-3 pt-2 pb-0 rounded-3" id="categoryTabs">
+        <ul class="nav nav-tabs border-0 bg-white p-3 pt-2 pb-0 rounded-3" id="categoryTabs">
             <li class="nav-item">
-                <a class="nav-link active border-bottom border-primary fs-5 fw-bold " data-category="All"
-                    onclick="showCategory('All')">All</a>
+                <a class="nav-link active text-primary border-bottom border-primary fs-5 fw-bold"
+                   data-category="All" onclick="showCategory('All')">All</a>
             </li>
             @foreach (var category in Model.menuCategories)
             {
                 <li class="nav-item">
-                    <a class="nav-link categoryBtn text-nav-color fs-5 fw-bold" data-category="@category.CategoryId"
-                        onclick="showCategory('@category.CategoryId')">@category.CategoryName</a>
+                    <a class="nav-link categoryBtn text-nav-color fs-5 fw-bold"
+                       data-category="@category.CategoryId"
+                       onclick="showCategory('@category.CategoryId')">@category.CategoryName</a>
                 </li>
             }
         </ul>
@@ -67,7 +50,6 @@ thisa is my parent fikle @model DAL.ViewModel.MenuCategoryVM
             <div class="category-content" id="All">
                 @foreach (var category in Model.menuCategories)
                 {
-
                     <div class="card border-primary mb-3 d-inline-block" style="max-width: 18rem; margin: 10px;">
                         <div class="card-header bg-transparent border-primary">@category.CategoryName</div>
                         <div class="card-body text-primary">
@@ -78,33 +60,16 @@ thisa is my parent fikle @model DAL.ViewModel.MenuCategoryVM
                     </div>
                 }
             </div>
-            <div class="category-content" id ="kotcard">
 
-            </div>
-
-            @* @foreach (var category in Model.menuCategories)
-            {
-
-                <div class="category-content p-3" id="@category.CategoryId" style="display: none;">
-                    <div class="fs-3 fw-bold webybtn mb-3">@category.CategoryName</div>
-                    <div class="card box-border  mb-3" style="max-width: 18rem;">
-                        <div class="card-header card-bg-color ">@category.CategoryName</div>
-                        <div class="card-body text-primary">
-                            <h5 class="card-title">@category.CategoryName</h5>
-                            <p class="card-text">Items for @category.CategoryName category.</p>
-                        </div>
-                        <div class="card-footer bg-transparent border-primary">Footer</div>
-                    </div>
-                </div>
-            } *@
+            <!-- Placeholder for Partial View -->
+            <div class="category-content" id="kotcard"></div>
         </div>
     </div>
 </body>
 
 <script>
     $(document).ready(function () {
-        // Show the first category by default
-        $('.categoryBtn').click(function (){
+        $('.categoryBtn').click(function () {
             var categoryId = $(this).data('category');
             $.ajax({
                 url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
@@ -121,35 +86,22 @@ thisa is my parent fikle @model DAL.ViewModel.MenuCategoryVM
             });
         });
     });
+
     function showCategory(categoryId) {
         // Hide all category contents
-        document.querySelectorAll(".category-content").forEach(content => {
-            content.style.display = "none";
-        });
+        $(".category-content").hide();
 
         if (categoryId === "All") {
-            // Show all category cards
-            document.getElementById("All").style.display = "block";
+            $("#All").show();
         } else {
-            // Show only the selected category
-            document.getElementById(categoryId).style.display = "block";
+            $("#kotcard").show(); // Show the partial view container
         }
 
-        // Update tab styling
-        document.querySelectorAll(".nav-link").forEach(tab => {
-            tab.classList.remove("text-primary", "border-bottom", "border-primary");
-            @* tab.classList.remove('active-link'); *@
-                tab.classList.add("text-nav-color");
-        });
+        // Remove active styles from all tabs
+        $(".nav-link").removeClass("text-primary border-bottom border-primary").addClass("text-nav-color");
 
-        // Highlight the selected tab
-        let activeTab = document.querySelector(`[data-category="${categoryId}"]`);
-        activeTab.classList.add("text-primary", "border-bottom", "border-primary");
-        @* activeTab.classList.add('active-link'); *@
-
-
-
-            activeTab.classList.remove("text-nav-color");
+        // Add active styles to the selected tab
+        $(`[data-category="${categoryId}"]`).addClass("text-primary border-bottom border-primary").removeClass("text-nav-color");
     }
 </script>
 
