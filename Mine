@@ -1,29 +1,38 @@
-function showCategory(categoryId) {
-    // Hide all category contents
-    $(".category-content").hide();
+ public List<OrderCategoryVM> GetOrderCategoryItem(int categoryId)
+    {
+        var categoryData = _context.MenuCategories
+            .Where(c => c.CategoryId == categoryId)
+            .Select(c => new OrderCategoryVM
+            {
+                CategoryId = c.CategoryId,
+                CategoryName = c.CategoryName,
+                Orders = _context.OrderItems
+                    .Where(oi => _context.Orders
+                    .Any(mi => mi.OrderId == oi.OrderId))
+                    .Select(oi => new OrderVM
+                    {
+                        OrderId = (int)oi.OrderId,
+                        OrderItems = _context.OrderItems.Where(r => r.OrderId == oi.OrderId).Select(oi => new OrderItemVM
+                        {
+                            ItemId = (int)oi.ItemId,
+                            ItemName = oi.ItemId.HasValue ? (from item in _context.MenuItems
+                                                             where item.ItemId == oi.ItemId
+                                                             select item.ItemName).FirstOrDefault() : "No Item",
+                            Price = oi.Rate,
+                            Modifiers = _context.OrderModifiers.Where(r => r.OrderItemId == oi.OrderItemId && r.ItemId == oi.ItemId).Select(om => new OrderModifierVM
+                            {
+                                ModifierId = (int)om.ModifierId,
+                                ModifierName = om.ModifierId.HasValue ? (from modifier in _context.MenuModifiers
+                                                                         where modifier.ModifierId == om.ModifierId
+                                                                         select modifier.ModifierName).FirstOrDefault() : "No Modifier",
+                                ModifierRate = om.Rate,
+                                Quantity = om.Quantity
+                            }).ToList(),
+                            Quantity = oi.Quantity
+                        }).ToList(),
+                    }).ToList()
+            }).ToList();
 
-    if (categoryId === "All") {
-        $("#All").show();
-    } else {
-        $.ajax({
-            url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
-            type: 'GET',
-            data: { categoryId: categoryId },
-            success: function (data) {
-                console.log("Category items fetched successfully:", data);
-                $('#kotcard').html(data);
-                $('#kotcard').find('.category-content').show();  // Ensure newly added content is visible
-                $('#kotcard').show();
-            },
-            error: function (xhr, status, error) {
-                console.error("Error fetching category items:", error);
-            }
-        });
+        return categoryData;
     }
-
-    // Remove active styles from all tabs
-    $(".nav-link").removeClass("text-primary border-bottom border-primary").addClass("text-nav-color");
-
-    // Add active styles to the selected tab
-    $(`[data-category="${categoryId}"]`).addClass("text-primary border-bottom border-primary").removeClass("text-nav-color");
-}
+here i am getting two order with thw same orderId
