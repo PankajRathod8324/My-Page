@@ -19,70 +19,86 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
 
 </head>
 
-<body class="" style="background-color: rgb(245,245,245);">
+<body style="background-color: rgb(245,245,245);">
 
     <div style="padding-top: 100px; padding-left: 50px; padding-right: 50px;">
         <div class="container-fluid">
             <div class="row">
                 <div class="col">
-                    <div class="fs-2 fw-bold webybtn mb-3">KOT </div>
+                    <div class="fs-2 fw-bold webybtn mb-3">KOT</div>
                 </div>
             </div>
         </div>
 
-        <ul class="nav nav-tabss border-0 bg-white p-3 pt-2 pb-0 rounded-3">
+        <!-- Bootstrap Tabs -->
+        <ul class="nav nav-tabs border-0 bg-white p-3 pt-2 pb-0 rounded-3">
             <li class="nav-item">
                 <a class="nav-link active text-primary fs-5 fw-bold border-bottom border-primary" data-bs-toggle="tab"
-                    href="#tab1">All</a>
+                    href="#tabAll">All</a>
             </li>
             @foreach (var category in Model.menuCategories)
             {
                 <li class="nav-item">
                     <a class="nav-link text-nav-color fs-5 fw-bold" data-bs-toggle="tab"
-                        href="#@category.CategoryId">@category.CategoryName</a>
+                        href="#tab@category.CategoryId">@category.CategoryName</a>
                 </li>
             }
         </ul>
+
+        <!-- Tab Content -->
         <div class="tab-content mt-3 bg-white">
-            <div class="tab-pane fade show active" id="tab1">
+            <!-- All Tab -->
+            <div class="tab-pane fade show active" id="tabAll">
                 <div class="card border-success mb-3" style="max-width: 18rem;">
-                    <div class="card-header bg-transparent border-success">Header</div>
+                    <div class="card-header bg-transparent border-success">All Categories</div>
                     <div class="card-body text-success">
-                        <h5 class="card-title">Success card title</h5>
-                        <p class="card-text">Some quick example text to build on the card title and make up the bulk of
-                            the card's content.</p>
+                        <h5 class="card-title">All Items</h5>
+                        <p class="card-text">Here are items from all categories.</p>
                     </div>
                     <div class="card-footer bg-transparent border-success">Footer</div>
                 </div>
             </div>
 
+            <!-- Dynamic Category Tabs -->
+            @foreach (var category in Model.menuCategories)
+            {
+                <div class="tab-pane fade" id="tab@category.CategoryId">
+                    <div class="card border-primary mb-3" style="max-width: 18rem;">
+                        <div class="card-header bg-transparent border-primary">@category.CategoryName</div>
+                        <div class="card-body text-primary">
+                            <h5 class="card-title">@category.CategoryName</h5>
+                            <p class="card-text">Items for @category.CategoryName category.</p>
+                        </div>
+                        <div class="card-footer bg-transparent border-primary">Footer</div>
+                    </div>
+                </div>
+            }
         </div>
 
-
-
-
-
     </div>
-
-
 
 </body>
 
 <script>
-    document.querySelectorAll('.nav-link').forEach(tab => {
-        tab.addEventListener('click', function () {
-            document.querySelectorAll('.nav-link').forEach(t => {
-                t.classList.remove('text-primary', 'border-bottom', 'border-primary');
-                t.classList.add('text-nav-color');
+    document.addEventListener("DOMContentLoaded", function () {
+        let allTabs = document.querySelectorAll(".nav-link");
+
+        allTabs.forEach(tab => {
+            tab.addEventListener("click", function () {
+                // Remove active class from all tabs
+                allTabs.forEach(t => {
+                    t.classList.remove("text-primary", "border-bottom", "border-primary");
+                    t.classList.add("text-nav-color");
+                });
+
+                // Add active class to the selected tab
+                this.classList.add("text-primary", "border-bottom", "border-primary");
+                this.classList.remove("text-nav-color");
             });
-            this.classList.add('text-primary', 'border-bottom', 'border-primary');
-            this.classList.remove('text-nav-color');
         });
     });
 </script>
@@ -93,4 +109,4 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
-} i want that for perticuler categoryid perticuler card will be shown
+}
