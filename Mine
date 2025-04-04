@@ -1,4 +1,17 @@
-@model DAL.ViewModel.MenuCategoryVM
+Category items fetched successfully: 
+    <div class="category-content p-3" id="15" style="display: none;">
+        <div class="fs-3 fw-bold webybtn mb-3">Momos</div>
+
+    <div class="card box-border  mb-3" style="max-width: 18rem;">
+        <div class="card-header card-bg-color ">Momos</div>
+        <div class="card-body text-primary">
+            <h5 class="card-title">Momos</h5>
+            <p class="card-text">Items for Momos category.</p>
+        </div>
+        <div class="card-footer bg-transparent border-primary">Footer</div>
+    </div>
+</div> this is writing in console but not appearing so everythingi swork but doesn't show that tab right 
+can u tell me pls what is the error here @model DAL.ViewModel.MenuCategoryVM
 
 @{
     Layout = "_LayoutOrder";
@@ -7,6 +20,7 @@
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,15 +46,14 @@
         <!-- Bootstrap Tabs -->
         <ul class="nav nav-tabs border-0 bg-white p-3 pt-2 pb-0 rounded-3" id="categoryTabs">
             <li class="nav-item">
-                <a class="nav-link active text-primary border-bottom border-primary fs-5 fw-bold"
-                   data-category="All" onclick="showCategory('All')">All</a>
+                <a class="nav-link active text-primary border-bottom border-primary fs-5 fw-bold" data-category="All"
+                    onclick="showCategory('All')">All</a>
             </li>
             @foreach (var category in Model.menuCategories)
             {
                 <li class="nav-item">
-                    <a class="nav-link categoryBtn text-nav-color fs-5 fw-bold"
-                       data-category="@category.CategoryId"
-                       onclick="showCategory('@category.CategoryId')">@category.CategoryName</a>
+                    <a class="nav-link categoryBtn text-nav-color fs-5 fw-bold" data-category="@category.CategoryId"
+                        onclick="showCategory('@category.CategoryId')">@category.CategoryName</a>
                 </li>
             }
         </ul>
@@ -68,9 +81,13 @@
 </body>
 
 <script>
-    $(document).ready(function () {
-        $('.categoryBtn').click(function () {
-            var categoryId = $(this).data('category');
+    function showCategory(categoryId) {
+        // Hide all category contents
+        $(".category-content").hide();
+
+        if (categoryId === "All") {
+            $("#All").show();
+        } else {
             $.ajax({
                 url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
                 type: 'GET',
@@ -83,18 +100,7 @@
                 error: function (xhr, status, error) {
                     console.error("Error fetching category items:", error);
                 }
-            });
-        });
-    });
-
-    function showCategory(categoryId) {
-        // Hide all category contents
-        $(".category-content").hide();
-
-        if (categoryId === "All") {
-            $("#All").show();
-        } else {
-            $("#kotcard").show(); // Show the partial view container
+            }); // Show the partial view container
         }
 
         // Remove active styles from all tabs
