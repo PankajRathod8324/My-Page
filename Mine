@@ -1,30 +1,31 @@
-  public List<OrderCategoryVM> GetOrderCategoryItem(int categoryId)
-    {
-        //First get the all item by perticuler category Id
-        var items = _context.MenuItems.Where(item => item.CategoryId == categoryId).ToList();
-        //then get the all order item by using item id
-        var orderitem = _context.OrderItems.Where(r => r.ItemId == ).ToList();
-        //then get the all order item by using order id
-
-        //after that using that item id get the all order item by using order item id
-        var categoryData = _context.MenuCategories.Select(category => new OrderCategoryVM
+public List<OrderCategoryVM> GetOrderCategoryItem(int categoryId)
+{
+    var categoryData = _context.MenuCategories
+        .Where(c => c.CategoryId == categoryId)
+        .Select(c => new OrderCategoryVM
         {
-            CategoryId = category.CategoryId,
-            CategoryName = category.CategoryName,
-            OrderItems = orderitem.Select(oi => new OrderItemVM
-            {
-                ItemId = (int)oi.ItemId,
-                ItemName = oi.ItemId.HasValue ? _menuRepository.GetItemNameById(oi.ItemId.Value) : "No Item",
-                Price = oi.Rate,
-                Modifiers = _orderRepository.GetOrderModifiersByOrderItemIdAndItemId(oi.OrderItemId, (int)oi.ItemId).Select(om => new OrderModifierVM
+            CategoryId = c.CategoryId,
+            CategoryName = c.CategoryName,
+            OrderItems = _context.OrderItems
+                .Where(oi => _context.MenuItems
+                    .Any(mi => mi.ItemId == oi.ItemId && mi.CategoryId == categoryId))
+                .Select(oi => new OrderItemVM
                 {
-                    ModifierId = (int)om.ModifierId,
-                    ModifierName = om.ModifierId.HasValue ? _menuRepository.GetModifierNameById(om.ModifierId.Value) : "No Modifier",
-                    ModifierRate = om.Rate,
-                    Quantity = om.Quantity
-                }).ToList(),
-                Quantity = oi.Quantity
-            }).ToList(),
+                    ItemId = oi.ItemId,
+                    ItemName = oi.ItemId.HasValue ? _menuRepository.GetItemNameById(oi.ItemId.Value) : "No Item",
+                    Price = oi.Rate,
+                    Quantity = oi.Quantity,
+                    Modifiers = _context.OrderModifiers
+                        .Where(om => om.OrderItemId == oi.OrderItemId && om.ItemId == oi.ItemId)
+                        .Select(om => new OrderModifierVM
+                        {
+                            ModifierId = om.ModifierId ?? 0,
+                            ModifierName = om.ModifierId.HasValue ? _menuRepository.GetModifierNameById(om.ModifierId.Value) : "No Modifier",
+                            ModifierRate = om.Rate,
+                            Quantity = om.Quantity
+                        }).ToList()
+                }).ToList()
         }).ToList();
-        return categoryData;
-    }
+
+    return categoryData;
+}
