@@ -32,36 +32,24 @@
         <!-- Bootstrap Tabs -->
         <ul class="nav nav-tabs border-0 bg-white p-3 pt-2 pb-0 rounded-3" id="categoryTabs">
             <li class="nav-item">
-                <a class="nav-link active text-primary fs-5 fw-bold border-bottom border-primary" data-bs-toggle="tab"
-                    href="#tabAll">All</a>
+                <a class="nav-link active text-primary fs-5 fw-bold border-bottom border-primary" 
+                   data-category="All" onclick="showCategory('All')">All</a>
             </li>
             @foreach (var category in Model.menuCategories)
             {
                 <li class="nav-item">
-                    <a class="nav-link text-nav-color fs-5 fw-bold" data-bs-toggle="tab"
-                        href="#tab@category.CategoryId">@category.CategoryName</a>
+                    <a class="nav-link text-nav-color fs-5 fw-bold" 
+                       data-category="@category.CategoryId" 
+                       onclick="showCategory('@category.CategoryId')">@category.CategoryName</a>
                 </li>
             }
         </ul>
 
         <!-- Tab Content -->
         <div class="tab-content mt-3 bg-white" id="categoryTabContent">
-            <!-- All Tab -->
-            <div class="tab-pane fade show active" id="tabAll">
-                <div class="card border-success mb-3" style="max-width: 18rem;">
-                    <div class="card-header bg-transparent border-success">All Categories</div>
-                    <div class="card-body text-success">
-                        <h5 class="card-title">All Items</h5>
-                        <p class="card-text">Here are items from all categories.</p>
-                    </div>
-                    <div class="card-footer bg-transparent border-success">Footer</div>
-                </div>
-            </div>
-
-            <!-- Dynamic Category Tabs -->
-            @foreach (var category in Model.menuCategories)
+            @foreach (var category in Model.menuCategories.Prepend(new DAL.Models.MenuCategory { CategoryId = "All", CategoryName = "All Categories" }))
             {
-                <div class="tab-pane fade" id="tab@category.CategoryId">
+                <div class="tab-pane category-content" id="@category.CategoryId" style="display: @(category.CategoryId == "All" ? "block" : "none");">
                     <div class="card border-primary mb-3" style="max-width: 18rem;">
                         <div class="card-header bg-transparent border-primary">@category.CategoryName</div>
                         <div class="card-body text-primary">
@@ -77,26 +65,26 @@
 </body>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        let tabs = document.querySelectorAll(".nav-link");
-
-        tabs.forEach(tab => {
-            tab.addEventListener("click", function () {
-                // Activate Bootstrap tab
-                let tabTrigger = new bootstrap.Tab(this);
-                tabTrigger.show();
-
-                // Update active tab styling
-                tabs.forEach(t => {
-                    t.classList.remove("text-primary", "border-bottom", "border-primary");
-                    t.classList.add("text-nav-color");
-                });
-
-                this.classList.add("text-primary", "border-bottom", "border-primary");
-                this.classList.remove("text-nav-color");
-            });
+    function showCategory(categoryId) {
+        // Hide all category contents
+        document.querySelectorAll(".category-content").forEach(content => {
+            content.style.display = "none";
         });
-    });
+
+        // Show only the selected category
+        document.getElementById(categoryId).style.display = "block";
+
+        // Update tab styling
+        document.querySelectorAll(".nav-link").forEach(tab => {
+            tab.classList.remove("text-primary", "border-bottom", "border-primary");
+            tab.classList.add("text-nav-color");
+        });
+
+        // Highlight the selected tab
+        let activeTab = document.querySelector(`[data-category="${categoryId}"]`);
+        activeTab.classList.add("text-primary", "border-bottom", "border-primary");
+        activeTab.classList.remove("text-nav-color");
+    }
 </script>
 
 </html>
