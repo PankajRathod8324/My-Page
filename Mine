@@ -1,38 +1,46 @@
- public List<OrderCategoryVM> GetOrderCategoryItem(int categoryId)
-    {
-        var categoryData = _context.MenuCategories
-            .Where(c => c.CategoryId == categoryId)
-            .Select(c => new OrderCategoryVM
-            {
-                CategoryId = c.CategoryId,
-                CategoryName = c.CategoryName,
-                Orders = _context.OrderItems
-                    .Where(oi => _context.Orders
-                    .Any(mi => mi.OrderId == oi.OrderId))
-                    .Select(oi => new OrderVM
-                    {
-                        OrderId = (int)oi.OrderId,
-                        OrderItems = _context.OrderItems.Where(r => r.OrderId == oi.OrderId).Select(oi => new OrderItemVM
+public List<OrderCategoryVM> GetOrderCategoryItem(int categoryId)
+{
+    var categoryData = _context.MenuCategories
+        .Where(c => c.CategoryId == categoryId)
+        .Select(c => new OrderCategoryVM
+        {
+            CategoryId = c.CategoryId,
+            CategoryName = c.CategoryName,
+            Orders = _context.Orders
+                .Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue 
+                                                          && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId 
+                                                                                      && mi.CategoryId == categoryId)))
+                .Select(o => new OrderVM
+                {
+                    OrderId = o.OrderId,
+                    OrderItems = _context.OrderItems
+                        .Where(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue 
+                                     && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId 
+                                                                 && mi.CategoryId == categoryId))
+                        .Select(oi => new OrderItemVM
                         {
                             ItemId = (int)oi.ItemId,
-                            ItemName = oi.ItemId.HasValue ? (from item in _context.MenuItems
-                                                             where item.ItemId == oi.ItemId
-                                                             select item.ItemName).FirstOrDefault() : "No Item",
+                            ItemName = oi.ItemId.HasValue ? _context.MenuItems
+                                .Where(item => item.ItemId == oi.ItemId)
+                                .Select(item => item.ItemName)
+                                .FirstOrDefault() : "No Item",
                             Price = oi.Rate,
-                            Modifiers = _context.OrderModifiers.Where(r => r.OrderItemId == oi.OrderItemId && r.ItemId == oi.ItemId).Select(om => new OrderModifierVM
-                            {
-                                ModifierId = (int)om.ModifierId,
-                                ModifierName = om.ModifierId.HasValue ? (from modifier in _context.MenuModifiers
-                                                                         where modifier.ModifierId == om.ModifierId
-                                                                         select modifier.ModifierName).FirstOrDefault() : "No Modifier",
-                                ModifierRate = om.Rate,
-                                Quantity = om.Quantity
-                            }).ToList(),
+                            Modifiers = _context.OrderModifiers
+                                .Where(om => om.OrderItemId == oi.OrderItemId && om.ItemId == oi.ItemId)
+                                .Select(om => new OrderModifierVM
+                                {
+                                    ModifierId = (int)om.ModifierId,
+                                    ModifierName = om.ModifierId.HasValue ? _context.MenuModifiers
+                                        .Where(modifier => modifier.ModifierId == om.ModifierId)
+                                        .Select(modifier => modifier.ModifierName)
+                                        .FirstOrDefault() : "No Modifier",
+                                    ModifierRate = om.Rate,
+                                    Quantity = om.Quantity
+                                }).ToList(),
                             Quantity = oi.Quantity
                         }).ToList(),
-                    }).ToList()
-            }).ToList();
+                }).Distinct().ToList() // Ensure distinct orders
+        }).ToList();
 
-        return categoryData;
-    }
-here i am getting two order with thw same orderId
+    return categoryData;
+}
