@@ -47,9 +47,23 @@
 
         <!-- Tab Content -->
         <div class="tab-content mt-3 bg-white" id="categoryTabContent">
-            @foreach (var category in Model.menuCategories.Prepend(new DAL.Models.MenuCategory { CategoryId = "All", CategoryName = "All Categories" }))
+            <div class="category-content" id="All">
+                @foreach (var category in Model.menuCategories)
+                {
+                    <div class="card border-primary mb-3 d-inline-block" style="max-width: 18rem; margin: 10px;">
+                        <div class="card-header bg-transparent border-primary">@category.CategoryName</div>
+                        <div class="card-body text-primary">
+                            <h5 class="card-title">@category.CategoryName</h5>
+                            <p class="card-text">Items for @category.CategoryName category.</p>
+                        </div>
+                        <div class="card-footer bg-transparent border-primary">Footer</div>
+                    </div>
+                }
+            </div>
+
+            @foreach (var category in Model.menuCategories)
             {
-                <div class="tab-pane category-content" id="@category.CategoryId" style="display: @(category.CategoryId == "All" ? "block" : "none");">
+                <div class="category-content" id="@category.CategoryId" style="display: none;">
                     <div class="card border-primary mb-3" style="max-width: 18rem;">
                         <div class="card-header bg-transparent border-primary">@category.CategoryName</div>
                         <div class="card-body text-primary">
@@ -71,8 +85,13 @@
             content.style.display = "none";
         });
 
-        // Show only the selected category
-        document.getElementById(categoryId).style.display = "block";
+        if (categoryId === "All") {
+            // Show all category cards
+            document.getElementById("All").style.display = "block";
+        } else {
+            // Show only the selected category
+            document.getElementById(categoryId).style.display = "block";
+        }
 
         // Update tab styling
         document.querySelectorAll(".nav-link").forEach(tab => {
