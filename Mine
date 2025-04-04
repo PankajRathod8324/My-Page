@@ -35,7 +35,7 @@
         </div>
 
         <!-- Bootstrap Tabs -->
-        <ul class="nav nav-tabs border-0 bg-white p-3 pt-2 pb-0 rounded-3">
+        <ul class="nav nav-tabss border-0 bg-white p-3 pt-2 pb-0 rounded-3">
             <li class="nav-item">
                 <a class="nav-link active text-primary fs-5 fw-bold border-bottom border-primary" data-bs-toggle="tab"
                     href="#tabAll">All</a>
@@ -109,4 +109,4 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
-}
+}only first time is working i can tab only pancakje and all other are not working
