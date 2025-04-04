@@ -1,7 +1,46 @@
- var role = _userService.GetRoleNameById((int)user.RoleId);
-        ViewBag.Roles = _userService.GetAllRoles().Select(r => new SelectListItem
-        {
-            Value = r.RoleId.ToString(),
-            Text = r.RoleName
-        }).ToList();
-her i want that when the role is account manager then in this viewbage the rolename Super Admin is not added in this view bag
+ <div class="modal fade" id="CustomeDate" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-secondary" id="exampleModalLabel">Select Date Range</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col">
+                            <div class="form-floating ">
+                                <input type="date" id="startDate" name="startDate" class="form-control">
+                                <label>Start Date</label>
+                            </div>
+                        </div>
+
+                        <div class="col text-end">
+                            <div class="form-floating ">
+                                <input type="date" id="endDate" name="endDate" class="form-control">
+                                <label>End Date</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex align-item-center justify-content-center">
+                    <div class="">
+                        <button type="submit" class="btn text-white text-center datesubmit"
+                            style="background-color: rgba(0, 102, 167, 1); border-color: rgba(0, 102, 167, 1);">
+                            Submit
+                        </button>
+                    </div>
+                    <div class="">
+                        <button type="button" class="btn ms-4"
+                            style="background-color: white; border-color: rgba(0, 102, 167, 1); color: rgba(0, 102, 167, 1);"
+                            data-dismiss="modal">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>wht\y the close btn is not closing the modal
