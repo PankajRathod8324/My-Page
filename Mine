@@ -1,111 +1,91 @@
+Backend → New Method for "All" Category
+csharp
+Copy code
+public List<OrderCategoryVM> GetAllOrderCategoryItems()
+{
+    var allCategories = _context.MenuCategories
+        .Select(c => new OrderCategoryVM
+        {
+            CategoryId = c.CategoryId,
+            CategoryName = c.CategoryName,
+            Orders = _context.Orders
+                .Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId &&
+                                                          oi.ItemId.HasValue &&
+                                                          _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId &&
+                                                                                      mi.CategoryId == c.CategoryId)))
+                .Select(o => new OrderVM
+                {
+                    OrderId = o.OrderId,
+                    OccupiedTime = DateTime.Now - o.CreatedAt,
+                    OrderInstruction = o.OrderInstructions,
+                    // Same structure as your GetOrderCategoryItem method
+                    OrderItems = ...
+                    OrderTables = ...
+                }).ToList()
+        }).ToList();
 
-        <!-- Tab Content -->
-        <div class="tab-content mt-3 bg-white" id="categoryTabContent">
-            <div class="category-content-all" id="All">
-                
-            </div>
+    return allCategories;
+}
+Controller
+csharp
+Copy code
+public IActionResult GetAll()
+{
+    var data = _orderService.GetAllOrderCategoryItems();
+    return PartialView("_AllCategoryView", data);
+}
+Frontend (JS)
+javascript
+Copy code
+function showCategory(categoryId) {
+    $(".category-content").hide();
 
-            <!-- Placeholder for Partial View -->
-            <div class="category-content" id="kotcard"></div>
-        </div>
-    </div>
-</body>
+    if (categoryId === "All") {
+        $.ajax({
+            url: '@Url.Action("GetAll", "AccountManagerOrderApp")',
+            type: 'GET',
+            success: function (data) {
+                $('#All').html(data);
+                $('#All').show();
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching all category items:", error);
+            }
+        });
+    } else {
+        $.ajax({
+            url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
+            type: 'GET',
+            data: { categoryId: categoryId },
+            success: function (data) {
+                $('#kotcard').html(data);
+                $('#kotcard').show();
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching category items:", error);
+            }
+        });
+    }
+}
+View → _AllCategoryView.cshtml
+Loop through all categories and their orders:
 
-<script>
-    function showCategory(categoryId) {
-        // Hide all category contents
-        $(".category-content").hide();
-
-        if (categoryId === "All") {
-             $.ajax({
-                url: '@Url.Action("GetAll", "AccountManagerOrderApp")',
-                type: 'GET',
-                success: function (data) {
-                    console.log("Category items fetched successfully:", data);
-                    $('#All').html(data);
-                    $('#All').find('.category-content-all').show();  // Ensure newly added content is visible
-                    $('#All').show();
-                },
-                error: function (xhr, status, error) {
-                    console.error("Error fetching category items:", error);
-                }
-            });
-        } else {
-            $.ajax({
-                url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
-                type: 'GET',
-                data: { categoryId: categoryId },
-                success: function (data) {
-                    console.log("Category items fetched successfully:", data);
-                    $('#kotcard').html(data);
-                    $('#kotcard').find('.category-content').show();  // Ensure newly added content is visible
-                    $('#kotcard').show();
-                },
-                error: function (xhr, status, error) {
-                    console.error("Error fetching category items:", error);
-                }
-            });
+html
+Copy code
+@foreach (var category in Model)
+{
+    <h4>@category.CategoryName</h4>
+    <div class="category-order-list">
+        @foreach (var order in category.Orders)
+        {
+            // Your order display layout here
         }
+    </div>
+}
+This way:
 
-</html>in this for perticuler category it is working but in all category i wna that all category i can see and that running and in progress sttua also working and that previous and next btn is for ctegory and write according to that 
-    public List<OrderCategoryVM> GetOrderCategoryItem(int categoryId)
-    {
-        var categoryData = _context.MenuCategories
-            .Where(c => c.CategoryId == categoryId)
-            .Select(c => new OrderCategoryVM
-            {
-                CategoryId = c.CategoryId,
-                CategoryName = c.CategoryName,
-                Orders = _context.Orders
-                    .Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue
-                                                              && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId
-                                                                                          && mi.CategoryId == categoryId)))
-                    .Select(o => new OrderVM
-                    {
-                        OrderId = o.OrderId,
-                        OccupiedTime = DateTime.Now - o.CreatedAt,
-                        OrderInstruction = o.OrderInstructions,
-                        OrderItems = _context.OrderItems
-                            .Where(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue
-                                         && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId
-                                                                     && mi.CategoryId == categoryId))
-                            .Select(oi => new OrderItemVM
-                            {
-                                ItemId = (int)oi.ItemId,
-                                ItemName = oi.ItemId.HasValue ? _context.MenuItems
-                                    .Where(item => item.ItemId == oi.ItemId)
-                                    .Select(item => item.ItemName)
-                                    .FirstOrDefault() : "No Item",
-                                Price = oi.Rate,
-                                Modifiers = _context.OrderModifiers
-                                    .Where(om => om.OrderItemId == oi.OrderItemId && om.ItemId == oi.ItemId)
-                                    .Select(om => new OrderModifierVM
-                                    {
-                                        ModifierId = (int)om.ModifierId,
-                                        ModifierName = om.ModifierId.HasValue ? _context.MenuModifiers
-                                            .Where(modifier => modifier.ModifierId == om.ModifierId)
-                                            .Select(modifier => modifier.ModifierName)
-                                            .FirstOrDefault() : "No Modifier",
-                                        ModifierRate = om.Rate,
-                                        Quantity = om.Quantity
-                                    }).ToList(),
-                                Quantity = oi.Quantity,
-                                ItemInstructions = oi.ItemInstructions,
-                            }).ToList(),
-                        OrderTables = _context.OrderTables.Where(r => r.OrderId == o.OrderId).Select(ot => new OrderTableVM
-                        {
-                            TableId = (int)ot.TableId,
-                            TableName = ot.TableId.HasValue ? (from table in _context.Tables
-                                                               where table.TableId == ot.TableId
-                                                               select table.TableName).FirstOrDefault() : "No Table",
-                            SectionName = ot.TableId.HasValue ? (from table in _context.Tables
-                                                                 join section in _context.Sections on table.SectionId equals section.SectionId
-                                                                 where table.TableId == ot.TableId
-                                                                 select section.SectionName).FirstOrDefault() : "No Section"
-                        }).ToList(),
-                    }).ToList(), // Ensure distinct orders
+"All" → shows all category-wise orders (Grouped by Category Name)
 
-            }).ToList();
+Particular Category → shows specific category orders
 
-        return categoryData;
-    }here just i want to make that when i click on ALl i can see all ordre which respect to category if exists and other wise the when click perticuler category it is working in this code 
+Running/In Progress Status will automatically work based on your existing 
