@@ -1,48 +1,49 @@
-Changes in your view:
-Add a hidden input to store the selected CategoryId:
-
+Increment/Decrement with Limit:
 html
 Copy code
-<input type="hidden" id="selectedCategoryId" value="0" />
-Modify your showCategory function like this:
-
+<div class="input-group" style="width: 120px;">
+  <button class="btn btn-outline-secondary btn-minus" type="button">-</button>
+  <input type="text" class="form-control text-center qty-input" value="1" readonly>
+  <button class="btn btn-outline-secondary btn-plus" type="button">+</button>
+</div>
+Script Logic:
 javascript
 Copy code
-function showCategory(categoryId) {
-    $('#selectedCategoryId').val(categoryId);
+let maxQty = 5;  // Max quantity you want
 
-    if (categoryId == 0) {
-        $('.fs-5.fw-bold.text-primary').text('All');
-    } else {
-        var categoryName = $(`a[onclick="showCategory('${categoryId}')"]`).text();
-        $('.fs-5.fw-bold.text-primary').text(categoryName);
+$('.btn-plus').click(function(){
+    let input = $(this).siblings('.qty-input');
+    let current = parseInt(input.val());
+    if(current < maxQty){
+        input.val(current + 1);
     }
+});
 
-    // call ajax or load data based on categoryId here
-}
-Now, in your In Progress and Ready buttons, you can access the selected CategoryId like this:
-
-html
-Copy code
-<button type="button" class="btn text-white text-center"
-    onclick="handleStatus('InProgress')" 
-    style="background-color: rgba(0, 102, 167, 1); border-color: rgba(0, 102, 167, 1);">
-    In Progress
-</button>
-
-<button type="button" class="btn"
-    onclick="handleStatus('Ready')" 
-    style="background-color: white; border-color: rgba(0, 102, 167, 1); color: rgba(0, 102, 167, 1);">
-    Ready
-</button>
-JavaScript function to get selected CategoryId:
-
-javascript
-Copy code
-function handleStatus(status) {
-    var categoryId = $('#selectedCategoryId').val();
-    console.log("Selected CategoryId:", categoryId, "Status:", status);
-
-    // You can call your ajax here for filter data
-}
+$('.btn-minus').click(function(){
+    let input = $(this).siblings('.qty-input');
+    let current = parseInt(input.val());
+    if(current > 1){
+        input.val(current - 1);
+    }
+});
 Output:
+Looks clean with Bootstrap.
+
+Can't exceed max limit.
+
+Can't go below 1.
+
+Responsive & dynamic.
+
+Want me to convert this into ASP.NET MVC dynamic way for your project? Or need it to auto-take maxQty from DB?
+
+
+
+
+
+
+Is this conversation helpful so far?
+
+
+
+
