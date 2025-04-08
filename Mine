@@ -1,99 +1,55 @@
+using Microsoft.AspNetCore.Razor.TagHelpers;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+
+namespace DAL.Middleware;
 
 
-
-// Enable Session
-builder.Services.AddSession(options =>
+[HtmlTargetElement("button", Attributes = "permission")]
+[HtmlTargetElement("a", Attributes = "permission")]
+[HtmlTargetElement("div", Attributes = "permission")]
+public class PermissionTagHelper : TagHelper
 {
-    options.IdleTimeout = TimeSpan.FromDays(30); // 30 min session timeout
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
+    private readonly IAuthorizationService _authorizationService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-
-
-
-// Configure JWT Authentication
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]);
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    public PermissionTagHelper(IAuthorizationService authorizationService, IHttpContextAccessor httpContextAccessor)
     {
-        options.RequireHttpsMetadata = false;
-        options.SaveToken = true;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(key),
-            // RoleClaimType = ClaimTypes.Role
-            RoleClaimType = "role"
-
-        };
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                context.Token = context.Request.Cookies["JwtToken"];
-                return Task.CompletedTask;
-            },
-        };
-    });
-
-
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/AccessDenied";
-        options.AccessDeniedPath = "/AccessDenied";
-
-    });
-
-
-builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
-
-
-
-using (var scope = builder.Services.BuildServiceProvider().CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<PizzaShopContext>();
-    var requiredPermissions = context.Permissions.Select(p => p.PermissionName).Distinct().ToList(); // Fetch unique permissions
-
-    builder.Services.AddAuthorization(options =>
-    {
-        foreach (var permission in requiredPermissions)
-        {
-            options.AddPolicy($"{permission}ViewPolicy", policy => policy.Requirements.Add(new PermissionRequirement($"{permission}_View")));
-            options.AddPolicy($"{permission}EditPolicy", policy => policy.Requirements.Add(new PermissionRequirement($"{permission}_Edit")));
-            options.AddPolicy($"{permission}DeletePolicy", policy => policy.Requirements.Add(new PermissionRequirement($"{permission}_Delete")));
-        }
-    });
-}
-
-
-
-var app = builder.Build();
-
-app.UseStaticFiles();
-
-
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
-}
-
-app.Use(async(context, next) =>{
-    await next();
-    if(context.Response.StatusCode == 404)
-    {
-        context.Response.Redirect("/NotFound");
+        _authorizationService = authorizationService;
+        _httpContextAccessor = httpContextAccessor;
+         Console.WriteLine(" PermissionTagHelper Initialized");
     }
-});
 
+    [HtmlAttributeName("permission")]
+    public string Permission { get; set; }
 
+    public override async Task ProcessAsync(TagHelperContext context, TagHelperOutput output)
+    {
+        var user = _httpContextAccessor.HttpContext.User;
+
+        if (!user.Identity.IsAuthenticated)
+        {
+            Console.WriteLine("User is not authenticated. Hiding element.");
+            output.SuppressOutput();
+            return;
+        }
+
+        string policyName = $"{Permission}Policy";
+        Console.WriteLine($"Checking UI policy: {policyName}");
+
+        var authResult = await _authorizationService.AuthorizeAsync(user, null, policyName);
+
+        if (authResult.Succeeded)
+        {
+            Console.WriteLine($"UI: User has permission for {policyName}");
+        }
+        else
+        {
+            Console.WriteLine($"UI: User DOES NOT have permission for {policyName}. Hiding element.");
+            output.SuppressOutput();
+        }
+    }
+
+}
