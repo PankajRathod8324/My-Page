@@ -1,59 +1,13 @@
-Best Solution: Use Slick Carousel (Lightweight & Responsive)
-https://kenwheeler.github.io/slick/
+<div class="slider-wrapper" style="position: relative;">
+    <button class="prev-btn" style="position: absolute; left: -30px; top: 40%; z-index: 9;">
+        <i class="fa-solid fa-chevron-left"></i>
+    </button>
 
-Steps to Implement:
-1. Add slick css & js cdn in your layout
-html
-Copy code
-<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css" />
-<script src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
-2. Update your structure like this:
-html
-Copy code
-<div class="category-content" id="kotcard">
     <div class="card-slider">
-        @foreach (var order in Model)
-        {
-            <div class="card-container">
-                // your card content here
-            </div>
-        }
+        <!-- Your Cards Here -->
     </div>
+
+    <button class="next-btn" style="position: absolute; right: -30px; top: 40%; z-index: 9;">
+        <i class="fa-solid fa-chevron-right"></i>
+    </button>
 </div>
-3. Initialize slick in JS after ajax success (important)
-javascript
-Copy code
-success: function (data) {
-    $('#kotcard').html(data);
-
-    $('.card-slider').slick({
-        slidesToShow: 3,   // desktop
-        slidesToScroll: 1,
-        prevArrow: $('.prev-btn'),
-        nextArrow: $('.next-btn'),
-        responsive: [
-            {
-                breakpoint: 1024,
-                settings: {
-                    slidesToShow: 2
-                }
-            },
-            {
-                breakpoint: 600,
-                settings: {
-                    slidesToShow: 1
-                }
-            }
-        ]
-    });
-}
-4. Update your buttons like:
-html
-Copy code
-<button class="btn pagination-btn prev-btn">
-    <i class="fa-solid fa-chevron-left"></i>
-</button>
-
-<button class="btn pagination-btn next-btn">
-    <i class="fa-solid fa-chevron-right"></i>
-</button>
