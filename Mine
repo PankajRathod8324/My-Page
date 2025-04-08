@@ -4,9 +4,9 @@
             OccupiedTime = DateTime.Now - o.CreatedAt,
             OrderInstruction = o.OrderInstructions,
             OrderItems = _context.OrderItems
-                .Where(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue && oi.Status == status 
-                     && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId
-                        ))
+                .Where(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue && 
+                            (status == "In Progress" ? (oi.Quantity - oi.Readyitemquantity) > 0 : oi.Quantity == oi.Readyitemquantity) &&
+                            _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId))
                 .Select(oi => new OrderItemVM
                 {
                     ItemId = (int)oi.ItemId,
@@ -27,20 +27,6 @@
                         ModifierRate = om.Rate,
                         Quantity = om.Quantity
                     }).ToList(),
-                    Quantity = oi.Quantity,
+                    Quantity = oi.Quantity - oi.Readyitemquantity,
                     ItemInstructions = oi.ItemInstructions,
-                }).ToList(),
-            OrderTables = _context.OrderTables.Where(r => r.OrderId == o.OrderId).Select(ot => new OrderTableVM
-            {
-                TableId = (int)ot.TableId,
-                TableName = ot.TableId.HasValue ? (from table in _context.Tables
-                                                   where table.TableId == ot.TableId
-                                                   select table.TableName).FirstOrDefault() : "No Table",
-                SectionName = ot.TableId.HasValue ? (from table in _context.Tables
-                                                     join section in _context.Sections on table.SectionId equals section.SectionId
-                                                     where table.TableId == ot.TableId
-                                                     select section.SectionName).FirstOrDefault() : "No Section"
-            }).ToList(),
-          
-        }).ToList();// Ensure distinct orders
-        
+                }).ToList(),u understand first and i want that in ordre there are many items and there quantity so i wnat that if some let's say burder and there quantity is 5 so it is in Inprogress status so if there are like 3 burger is ready then check likw haichevr has In progress status and readyitem is 3 and quantity is 5 so 5-3= 2 only is in progress so in this list there is two data like order in which first 3 burger is in ready status and other 2 in in progress status right that should br logic and i am trying to do buyt not getted the right on
