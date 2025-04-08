@@ -1,49 +1,99 @@
-Increment/Decrement with Limit:
-html
-Copy code
-<div class="input-group" style="width: 120px;">
-  <button class="btn btn-outline-secondary btn-minus" type="button">-</button>
-  <input type="text" class="form-control text-center qty-input" value="1" readonly>
-  <button class="btn btn-outline-secondary btn-plus" type="button">+</button>
-</div>
-Script Logic:
-javascript
-Copy code
-let maxQty = 5;  // Max quantity you want
 
-$('.btn-plus').click(function(){
-    let input = $(this).siblings('.qty-input');
-    let current = parseInt(input.val());
-    if(current < maxQty){
-        input.val(current + 1);
-    }
+
+
+// Enable Session
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromDays(30); // 30 min session timeout
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
 });
 
-$('.btn-minus').click(function(){
-    let input = $(this).siblings('.qty-input');
-    let current = parseInt(input.val());
-    if(current > 1){
-        input.val(current - 1);
+
+
+
+// Configure JWT Authentication
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidAudience = jwtSettings["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            // RoleClaimType = ClaimTypes.Role
+            RoleClaimType = "role"
+
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                context.Token = context.Request.Cookies["JwtToken"];
+                return Task.CompletedTask;
+            },
+        };
+    });
+
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/AccessDenied";
+        options.AccessDeniedPath = "/AccessDenied";
+
+    });
+
+
+builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+
+
+
+using (var scope = builder.Services.BuildServiceProvider().CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<PizzaShopContext>();
+    var requiredPermissions = context.Permissions.Select(p => p.PermissionName).Distinct().ToList(); // Fetch unique permissions
+
+    builder.Services.AddAuthorization(options =>
+    {
+        foreach (var permission in requiredPermissions)
+        {
+            options.AddPolicy($"{permission}ViewPolicy", policy => policy.Requirements.Add(new PermissionRequirement($"{permission}_View")));
+            options.AddPolicy($"{permission}EditPolicy", policy => policy.Requirements.Add(new PermissionRequirement($"{permission}_Edit")));
+            options.AddPolicy($"{permission}DeletePolicy", policy => policy.Requirements.Add(new PermissionRequirement($"{permission}_Delete")));
+        }
+    });
+}
+
+
+
+var app = builder.Build();
+
+app.UseStaticFiles();
+
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+
+app.Use(async(context, next) =>{
+    await next();
+    if(context.Response.StatusCode == 404)
+    {
+        context.Response.Redirect("/NotFound");
     }
 });
-Output:
-Looks clean with Bootstrap.
-
-Can't exceed max limit.
-
-Can't go below 1.
-
-Responsive & dynamic.
-
-Want me to convert this into ASP.NET MVC dynamic way for your project? Or need it to auto-take maxQty from DB?
-
-
-
-
-
-
-Is this conversation helpful so far?
-
-
 
 
