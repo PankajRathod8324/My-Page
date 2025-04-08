@@ -1,69 +1,7 @@
+// Remove active styles from all tabs
+$(".nav-link").removeClass("text-primary border-bottom border-primary").addClass("text-nav-color");
 
-<script>
-    $(document).ready(function () {
-        // Show the initial category content
-        showCategory(0, 'All');
-        $(".card-container").click(function () {
-            $("#kotmodal").modal("show");
-        });
-    });
-    function showCategory(categoryId, categoryName) {
-        // Hide all category contents
-
-        $('#selectedCategoryId').val(categoryId);
-
-        $('#categoryName').html(`<span class="fs-3 fw-bold webybtn">${categoryName}</span>`);
-
-        $(".category-content").hide();
-        var status = "In Progress";
-        console.log(categoryId);
-        console.log(status);
-
-
-        $.ajax({
-            url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
-            type: 'GET',
-            data: { categoryId: categoryId, status: status },
-            success: function (data) {
-
-                @* console.log("Category items fetched successfully:", data); *@
-                    $('#kotcard').html(data);
-                $('#kotcard').find('.category-content').show();  // Ensure newly added content is visible
-                $('#kotcard').show();
-
-            },
-            error: function (xhr, status, error) {
-                console.error("Error fetching category items:", error);
-            }
-        });
-
-
-        // Remove active styles from all tabs
-        $(".nav-link").removeClass("text-primary border-bottom border-primary").addClass("text-nav-color");
-
-            // Add active styles to the selected tab
-            $(`[data-category="${categoryId}"]`).addClass("webybtn border-bottom border-primary").removeClass("text-nav-color");
-    }
-    function handleStatus(status) {
-        var categoryId = $('#selectedCategoryId').val();
-        console.log("Selected CategoryId:", categoryId, "Status:", status);
-
-        $.ajax({
-            url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
-            type: 'GET',
-            data: { categoryId: categoryId, status: status },
-            success: function (data) {
-                @* console.log("Category items fetched successfully:", data); *@
-                    $('#kotcard').html(data);
-                $('#kotcard').find('.category-content').show();  // Ensure newly added content is visible
-                $('#kotcard').show();
-            },
-            error: function (xhr, status, error) {
-                console.error("Error fetching category items:", error);
-            }
-        });
-
-    }
-</script>
-
-</html>here in this i want that what category is selected thata border and the text should be highlightes
+// Add active styles to selected tab
+$(`[data-category="${categoryId}"]`)
+    .removeClass("text-nav-color")
+    .addClass("text-primary border-bottom border-primary fw-bold");
