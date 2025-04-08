@@ -1,166 +1,38 @@
-@model List<DAL.ViewModel.OrderVM>
-<style>
-    .category-content {
-        display: none;
-    }
+var orderDetailsArray = [];
 
-    .card {
-        width: 22rem;
-        /* Bigger card size */
-        margin: 10px;
-        /* Maintain spacing */
-    }
+$(".showmodal").each(function () {
+    var orderId = $(this).data("id");
 
-    .card-header {
-        font-size: 1rem;
-        /* Reduce header size */
-        padding: 10px;
-    }
+    var items = [];
+    $(this).find(".card-body > span").each(function () {
+        var itemName = $(this).find("span:first").text().trim();
+        var quantity = $(this).find("span:last").text().trim();
 
-    .card-body {
-        height: 180px;
-        /* Fixed height */
-        overflow-y: auto;
-        /* Scrollable body */
-    }
+        var modifiers = [];
+        $(this).next("ul").find("li span").each(function () {
+            var modifierName = $(this).find("span:first").text().trim();
+            var modifierQty = $(this).find("span:last").text().trim();
 
-    .card-container {
-        display: flex;
-        flex-wrap: wrap;
-        /* Arrange cards in a row */
-        justify-content: flex-start;
-        using DocumentFormat.OpenXml.Wordprocessing;
-        /* Align items properly */
-    }
-</style>
-
-
-<div class="category-content" id="0">
-
-    <div class="card-container">
-        @foreach (var order in Model)
-        {
-            <div class="card showmodal box-border" data-id ="@order.OrderId" >
-                <div class="card-header card-bg-color">
-                    <span class="d-flex flex-row justify-content-between align-items-center">
-                        <span class="webybtn">#@order.OrderId</span>
-                        <span class="d-flex flex-row align-items-center gap-1 text-secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                                class="bi bi-stopwatch" viewBox="0 0 16 16">
-                                <path d="M8.5 5.6a.5.5 0 1 0-1 0v2.9h-3a.5.5 0 0 0 0 1H8a.5.5 0 0 0 .5-.5z" />
-                                <path
-                                    d="M6.5 1A.5.5 0 0 1 7 .5h2a.5.5 0 0 1 0 1v.57c1.36.196 2.594.78 3.584 1.64l.012-.013.354-.354-.354-.353a.5.5 0 0 1 .707-.708l1.414 1.415a.5.5 0 1 1-.707.707l-.353-.354-.354.354-.013.012A7 7 0 1 1 7 2.071V1.5a.5.5 0 0 1-.5-.5M8 3a6 6 0 1 0 .001 12A6 6 0 0 0 8 3" />
-                            </svg>
-
-                            @if (@order.OccupiedTime.Days > 0)
-                            {
-                                @($"{@order.OccupiedTime.Days} days ")
-                            }
-                            @if (@order.OccupiedTime.Hours > 0)
-                            {
-                                @($"{@order.OccupiedTime.Hours} hours ")
-                            }
-                            @if (@order.OccupiedTime.Minutes > 0)
-                            {
-                                @($"{@order.OccupiedTime.Minutes} min ")
-                            }
-                            else
-                            {
-                                @("0 min")
-                            }
-                        </span>
-                    </span>
-
-                    @if (order.OrderTables.Any())
-                    {
-                        var groupedTables = order.OrderTables
-                        .GroupBy(t => t.SectionName)
-                        .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(t => t.TableName)));
-
-                        @foreach (var sections in groupedTables)
-                        {
-                            <ul class="d-flex  mb-0 ps-0 justify-content-between text-secondary">
-                                <span>@sections.Key</span>
-
-                                <li><span>@sections.Value</span></li>
-                            </ul>
-                        }
-                    }
-                </div>
-
-                <div class="card-body ">
-                    @foreach (var item in order.OrderItems)
-                    {
-                        <span class="d-flex justify-content-between text-secondary">
-                            <span>@item.ItemName</span>
-                            <span>@item.Quantity</span>
-                        </span>
-                        <ul>
-                            <li>
-                                @foreach (var modifier in item.Modifiers)
-                                {
-
-                                    <span class="d-flex justify-content-between text-secondary">
-                                        <span>@modifier.ModifierName</span>
-                                        <span>@modifier.Quantity</span>
-                                    </span>
-
-
-                                }
-                            </li>
-                            <span class="instructionIcon">Instruction: </span><span
-                                class="text-secondary">@item.ItemInstructions</span>
-                        </ul>
-
-
-                    }
-                </div>
-                <div class="card-footer card-bg-color"><span><span class="instructionIcon">Instruction:
-                        </span>@order.OrderInstruction</span>
-                </div>
-            </div>
-        }
-    </div>
-
-</div>
-<div id="kotmodal" class="modal fade" data-backdrop="true">
-    <div class="modal-dialog modal-dialog-centered w-xl">
-        <div class="modal-content h-100 no-radius">
-            <div class="modal-header">
-                <div class="modal-title fs-4 fw-bold  text-md">Order ID: #1</div>
-                <button class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <form class="prepareitem">
-                <div class="modal-body " id="kotdetailsprepare">
-                </div>
-
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary saveprepare" >Mark As Prepared</button>
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-    $(document).ready(function () {
-        $(".showmodal").click(function () {
-            $("#kotmodal").modal("show");
-        });
-        $(".showmodal").click(function () {
-            var orderId = $(this).data("id");
-            $.ajax({
-                url: '@Url.Action("GetOrderDetails", "AccountManagerOrderApp")',
-                type: 'GET',
-                data: { orderId: orderId },
-                success: function (response) {
-                    $("#kotdetailsprepare").html(response);
-                },
-                error: function (xhr, status, error) {
-                    console.error("Error fetching order details:", error);
-                }
+            modifiers.push({
+                ModifierName: modifierName,
+                Quantity: modifierQty
             });
         });
+
+        var itemInstruction = $(this).next("ul").find(".instructionIcon").next().text().trim();
+
+        items.push({
+            ItemName: itemName,
+            Quantity: quantity,
+            Modifiers: modifiers,
+            ItemInstructions: itemInstruction
+        });
     });
-</script>in this getorderDetails i want to send the array in which what i should append that orderId adn the orderItem That loop details that i want in the array and that array i want to print in view 
+
+    orderDetailsArray.push({
+        OrderId: orderId,
+        OrderItems: items
+    });
+});
+
+console.log(orderDetailsArray);
