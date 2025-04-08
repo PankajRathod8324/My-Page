@@ -1,105 +1,69 @@
-@model List<DAL.ViewModel.OrderVM>
-
-
-<div class="d-flex justify-content-between text-secondary ">
-    <span>
-        Item
-    </span>
-    <span>
-        Quantity
-    </span>
-</div>
-@foreach (var item in Model.FirstOrDefault().OrderItems)
-{
-    <span class="d-flex justify-content-between text-secondary ps-3">
-        <span><input class="form-check-input" type="checkbox" value="@item.ItemId" id="@item.ItemId">@item.ItemName</span>
-        <span class="input-group border border-primary" style="width: 120px;">
-            <button class="btn  btn-minus" type="button">-</button>
-            <input type="text" class="form-control bg-white text-center qty-input" value="@item.Quantity" readonly>
-            <button class="btn  btn-plus" type="button">+</button>
-        </span>
-    </span>
-    <ul>
-        <li>
-            @if (item.Modifiers != null && item.Modifiers.Any())
-            {
-                foreach (var modifier in item.Modifiers)
-                {
-                    <span class="d-flex justify-content-between text-secondary">
-                        <span>@modifier.ModifierName</span>
-                    </span>
-                }
-            }
-        </li>
-    </ul>
-}
 
 <script>
-    @* let maxQty;  *@
-        @* maxQty = 0;  *@
-        $(document).ready(function () {
-            $('.prepareitem').submit(function (e) {
-                e.preventDefault();
-
-                var prepare = [];
-
-                let orderId = $(this).data('orderid');   // orderId from form attribute
-                let items = $(this).find('.form-check-input:checked');
-
-                if (items.length == 0) {
-                    alert('Please select at least one item.');
-                    return;
-                }
-
-                items.each(function (index) {
-                    let itemId = $(this).val();
-                    let quantity = $(this).closest('span').find('.qty-input').val();
-
-                    prepare.push({
-                        orderId: orderId,
-                        itemId: itemId,
-                        quantity: quantity
-                    });
-                });
-
-                console.log(prepare);
-
-                $.ajax({
-                    type: "POST",
-                    url: '/AccountManagerOrderApp/MakePrepare',
-                    data: JSON.stringify(prepare),
-                    contentType: "application/json",
-                    success: function (response) {
-                        alert(response.message);
-                    }
-                });
-            });
-            $('.btn-plus').click(function () {
-                let input = $(this).siblings('.qty-input');
-                let current = parseInt(input.val());
-                console.log(current);
-                @* console.log(maxQty); *@
-
-            if (current < 0) {
-                    input.val(current + 1);
-                    @* if (maxQty == 0) {
-                    maxQty = current;
-                } *@
-            }
-            });
-
-            $('.btn-minus').click(function () {
-                let input = $(this).siblings('.qty-input');
-                let current = parseInt(input.val());
-                console.log(current);
-                @* console.log(maxQty); *@
-
-            if (current > 1) {
-                    input.val(current - 1);
-                    @* if (maxQty == 0) {
-                    maxQty = current;
-                } *@
-            }
-            });
+    $(document).ready(function () {
+        // Show the initial category content
+        showCategory(0, 'All');
+        $(".card-container").click(function () {
+            $("#kotmodal").modal("show");
         });
-</script> here orderid is coming but itemid and quantity is not coming mewna dundedeinef it is not getting the valur\e here so see and correct it
+    });
+    function showCategory(categoryId, categoryName) {
+        // Hide all category contents
+
+        $('#selectedCategoryId').val(categoryId);
+
+        $('#categoryName').html(`<span class="fs-3 fw-bold webybtn">${categoryName}</span>`);
+
+        $(".category-content").hide();
+        var status = "In Progress";
+        console.log(categoryId);
+        console.log(status);
+
+
+        $.ajax({
+            url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
+            type: 'GET',
+            data: { categoryId: categoryId, status: status },
+            success: function (data) {
+
+                @* console.log("Category items fetched successfully:", data); *@
+                    $('#kotcard').html(data);
+                $('#kotcard').find('.category-content').show();  // Ensure newly added content is visible
+                $('#kotcard').show();
+
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching category items:", error);
+            }
+        });
+
+
+        // Remove active styles from all tabs
+        $(".nav-link").removeClass("text-primary border-bottom border-primary").addClass("text-nav-color");
+
+            // Add active styles to the selected tab
+            $(`[data-category="${categoryId}"]`).addClass("webybtn border-bottom border-primary").removeClass("text-nav-color");
+    }
+    function handleStatus(status) {
+        var categoryId = $('#selectedCategoryId').val();
+        console.log("Selected CategoryId:", categoryId, "Status:", status);
+
+        $.ajax({
+            url: '@Url.Action("GetKOT", "AccountManagerOrderApp")',
+            type: 'GET',
+            data: { categoryId: categoryId, status: status },
+            success: function (data) {
+                @* console.log("Category items fetched successfully:", data); *@
+                    $('#kotcard').html(data);
+                $('#kotcard').find('.category-content').show();  // Ensure newly added content is visible
+                $('#kotcard').show();
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching category items:", error);
+            }
+        });
+
+    }
+</script>
+
+</html>here in this i want that what category is selected thata border and the text should be highlightes
