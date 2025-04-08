@@ -1,32 +1,60 @@
- List<OrderVM> orderVm = _context.Orders.Where(i => orderIds.Contains(i.OrderId)).Select(o => new OrderVM
+List<OrderVM> orderVm = _context.Orders.Where(i => orderIds.Contains(i.OrderId)).Select(o => new OrderVM
+{
+    OrderId = o.OrderId,
+    OccupiedTime = DateTime.Now - o.CreatedAt,
+    OrderInstruction = o.OrderInstructions,
+
+    OrderItems = _context.OrderItems
+        .Where(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId))
+        .SelectMany(oi => new List<OrderItemVM>
         {
-            OrderId = o.OrderId,
-            OccupiedTime = DateTime.Now - o.CreatedAt,
-            OrderInstruction = o.OrderInstructions,
-            OrderItems = _context.OrderItems
-                .Where(oi => oi.OrderId == o.OrderId && oi.ItemId.HasValue && 
-                            (status == "In Progress" ? (oi.Quantity - oi.Readyitemquantity) > 0 : oi.Quantity == oi.Readyitemquantity) &&
-                            _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId))
-                .Select(oi => new OrderItemVM
-                {
-                    ItemId = (int)oi.ItemId,
-                    ItemName = oi.ItemId.HasValue ? _context.MenuItems
-                    .Where(item => item.ItemId == oi.ItemId)
-                    .Select(item => item.ItemName)
-                    .FirstOrDefault() : "No Item",
-                    Price = oi.Rate,
-                    Modifiers = _context.OrderModifiers
-                    .Where(om => om.OrderItemId == oi.OrderItemId && om.ItemId == oi.ItemId)
+            // Ready Items
+            new OrderItemVM
+            {
+                ItemId = (int)oi.ItemId,
+                ItemName = _context.MenuItems.Where(mi => mi.ItemId == oi.ItemId).Select(mi => mi.ItemName).FirstOrDefault(),
+                Price = oi.Rate,
+                Quantity = oi.Readyitemquantity,
+                ItemInstructions = oi.ItemInstructions,
+                Status = oi.Readyitemquantity > 0 ? "Ready" : null, // Optional for clarity
+                Modifiers = _context.OrderModifiers.Where(om => om.OrderItemId == oi.OrderItemId && om.ItemId == oi.ItemId)
                     .Select(om => new OrderModifierVM
                     {
                         ModifierId = (int)om.ModifierId,
-                        ModifierName = om.ModifierId.HasValue ? _context.MenuModifiers
-                        .Where(modifier => modifier.ModifierId == om.ModifierId)
-                        .Select(modifier => modifier.ModifierName)
-                        .FirstOrDefault() : "No Modifier",
+                        ModifierName = _context.MenuModifiers.Where(mod => mod.ModifierId == om.ModifierId).Select(mod => mod.ModifierName).FirstOrDefault(),
                         ModifierRate = om.Rate,
                         Quantity = om.Quantity
-                    }).ToList(),
-                    Quantity = oi.Quantity - oi.Readyitemquantity,
-                    ItemInstructions = oi.ItemInstructions,
-                }).ToList(),u understand first and i want that in ordre there are many items and there quantity so i wnat that if some let's say burder and there quantity is 5 so it is in Inprogress status so if there are like 3 burger is ready then check likw haichevr has In progress status and readyitem is 3 and quantity is 5 so 5-3= 2 only is in progress so in this list there is two data like order in which first 3 burger is in ready status and other 2 in in progress status right that should br logic and i am trying to do buyt not getted the right on
+                    }).ToList()
+            },
+
+            // In Progress Items
+            new OrderItemVM
+            {
+                ItemId = (int)oi.ItemId,
+                ItemName = _context.MenuItems.Where(mi => mi.ItemId == oi.ItemId).Select(mi => mi.ItemName).FirstOrDefault(),
+                Price = oi.Rate,
+                Quantity = (oi.Quantity - oi.Readyitemquantity),
+                ItemInstructions = oi.ItemInstructions,
+                Status = (oi.Quantity - oi.Readyitemquantity) > 0 ? "In Progress" : null,
+                Modifiers = _context.OrderModifiers.Where(om => om.OrderItemId == oi.OrderItemId && om.ItemId == oi.ItemId)
+                    .Select(om => new OrderModifierVM
+                    {
+                        ModifierId = (int)om.ModifierId,
+                        ModifierName = _context.MenuModifiers.Where(mod => mod.ModifierId == om.ModifierId).Select(mod => mod.ModifierName).FirstOrDefault(),
+                        ModifierRate = om.Rate,
+                        Quantity = om.Quantity
+                    }).ToList()
+            }
+
+        })
+        .Where(x => x.Quantity > 0) // Remove zero quantity records
+        .ToList(),
+
+    OrderTables = _context.OrderTables.Where(r => r.OrderId == o.OrderId).Select(ot => new OrderTableVM
+    {
+        TableId = (int)ot.TableId,
+        TableName = ot.TableId.HasValue ? _context.Tables.Where(t => t.TableId == ot.TableId).Select(t => t.TableName).FirstOrDefault() : "No Table",
+        SectionName = ot.TableId.HasValue ? (from t in _context.Tables join s in _context.Sections on t.SectionId equals s.SectionId where t.TableId == ot.TableId select s.SectionName).FirstOrDefault() : "No Section"
+    }).ToList(),
+
+}).ToList();
