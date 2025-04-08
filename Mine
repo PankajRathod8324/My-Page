@@ -1,38 +1,23 @@
-var orderDetailsArray = [];
-
-$(".showmodal").each(function () {
-    var orderId = $(this).data("id");
-
-    var items = [];
-    $(this).find(".card-body > span").each(function () {
-        var itemName = $(this).find("span:first").text().trim();
-        var quantity = $(this).find("span:last").text().trim();
-
-        var modifiers = [];
-        $(this).next("ul").find("li span").each(function () {
-            var modifierName = $(this).find("span:first").text().trim();
-            var modifierQty = $(this).find("span:last").text().trim();
-
-            modifiers.push({
-                ModifierName: modifierName,
-                Quantity: modifierQty
-            });
+ public IActionResult GetOrderDetails([FromBody] List<OrderVM> orderDetails)
+    {
+        return PartialView("_KOTDetails", orderDetails);
+    }
+ orderDetailsArray.push({
+            OrderId: orderId,
+            OrderItems: items
         });
+        console.log(orderDetailsArray);
+        $.ajax({
+            url: '@Url.Action("GetOrderDetails", "AccountManagerOrderApp")',
+            type: 'GET',
+            data: JSON.stringify({orderDetails: orderDetailsArray}),
+            contentType: 'application/json',
+            success: function (response) {
+                $("#kotdetailsprepare").html(response);
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching order details:", error);
+            }
+        
 
-        var itemInstruction = $(this).next("ul").find(".instructionIcon").next().text().trim();
-
-        items.push({
-            ItemName: itemName,
-            Quantity: quantity,
-            Modifiers: modifiers,
-            ItemInstructions: itemInstruction
-        });
-    });
-
-    orderDetailsArray.push({
-        OrderId: orderId,
-        OrderItems: items
-    });
-});
-
-console.log(orderDetailsArray);
+        }); here i am not getting the array
