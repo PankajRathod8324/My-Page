@@ -1,7 +1,40 @@
-// Remove active styles from all tabs
-$(".nav-link").removeClass("text-primary border-bottom border-primary").addClass("text-nav-color");
+HTML (Add data-category properly)
+html
+Copy code
+<a class="nav-link text-nav-color border-bottom border-primary fw-bold" 
+   data-category="0" 
+   onclick="showCategory(0, 'All')">
+   All
+</a>
 
-// Add active styles to selected tab
+@foreach (var category in Model)
+{
+    <a class="nav-link text-nav-color" 
+       data-category="@category.CategoryId" 
+       onclick="showCategory(@category.CategoryId, '@category.CategoryName')">
+       @category.CategoryName
+    </a>
+}
+Note: I gave border-bottom border-primary fw-bold only to All initially.
+
+2. JS → Update this part in showCategory() function:
+javascript
+Copy code
+// Remove active style from all
+$(".nav-link").removeClass("text-primary border-bottom border-primary fw-bold").addClass("text-nav-color");
+
+// Add active style to selected
 $(`[data-category="${categoryId}"]`)
     .removeClass("text-nav-color")
     .addClass("text-primary border-bottom border-primary fw-bold");
+Final Result:
+Case	Output
+Page Load	All → Highlighted & Underlined
+Click any Category	That one → Highlighted & Underlined, rest normal
+Would you like me to send full code (HTML + JS) ready to paste?
+
+
+
+
+
+
