@@ -1,40 +1,24 @@
-HTML (Add data-category properly)
-html
-Copy code
-<a class="nav-link text-nav-color border-bottom border-primary fw-bold" 
-   data-category="0" 
-   onclick="showCategory(0, 'All')">
-   All
-</a>
+<button class="btn  pagination-btn"
+                            style="background-color: white; border-color: rgba(0, 102, 167, 1); color: rgba(0, 102, 167, 1);">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <button class="btn  pagination-btn"
+                            style="background-color: white; border-color: rgba(0, 102, 167, 1); color: rgba(0, 102, 167, 1);">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+and in this is in parent and after that this partial view is appened
+<div class="category-content" id="kotcard">
 
-@foreach (var category in Model)
-{
-    <a class="nav-link text-nav-color" 
-       data-category="@category.CategoryId" 
-       onclick="showCategory(@category.CategoryId, '@category.CategoryName')">
-       @category.CategoryName
-    </a>
-}
-Note: I gave border-bottom border-primary fw-bold only to All initially.
+            </div>
 
-2. JS → Update this part in showCategory() function:
-javascript
-Copy code
-// Remove active style from all
-$(".nav-link").removeClass("text-primary border-bottom border-primary fw-bold").addClass("text-nav-color");
+in that there is card structure so this is i want in courosole like next and prious btn iw ant corosoual style should be applied in the acrd according to responsive alos
+div class="category-content" id="0">
 
-// Add active style to selected
-$(`[data-category="${categoryId}"]`)
-    .removeClass("text-nav-color")
-    .addClass("text-primary border-bottom border-primary fw-bold");
-Final Result:
-Case	Output
-Page Load	All → Highlighted & Underlined
-Click any Category	That one → Highlighted & Underlined, rest normal
-Would you like me to send full code (HTML + JS) ready to paste?
+    <div class="card-container">
+        @foreach (var order in Model)
+        {
+          ......
+        }
+    </div>
 
-
-
-
-
-
+</div>
