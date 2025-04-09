@@ -1,13 +1,16 @@
-<div class="slider-wrapper" style="position: relative;">
-    <button class="prev-btn" style="position: absolute; left: -30px; top: 40%; z-index: 9;">
-        <i class="fa-solid fa-chevron-left"></i>
-    </button>
-
-    <div class="card-slider">
-        <!-- Your Cards Here -->
-    </div>
-
-    <button class="next-btn" style="position: absolute; right: -30px; top: 40%; z-index: 9;">
-        <i class="fa-solid fa-chevron-right"></i>
-    </button>
-</div>
+ <ul class="nav nav-tabss border-0 bg-white p-3 pt-2 pb-0 rounded-3" id="categoryTabs">
+            <li class="nav-item">
+                <a class="nav-link active text-nav-color border-bottom border-primary fs-5 fw-bold" data-category="0"
+                    aria-selected="true" onclick="showWaitinList(0, 'All')">
+                    All
+                </a>
+            </li>
+            @foreach (var sections in Model)
+            {
+                <li class="nav-item">
+                    <a class="nav-link categoryBtn text-nav-color fs-5 fw-bold" data-category="@sections.SectionId"
+                        aria-selected="false" onclick="showWaitinList(@sections.SectionId)">@sections.SectionName @sections.WaitingList
+                    </a>
+                </li>
+            }
+        </ul> here i can see that i can see the waitinglIst count side by that section name but i want that all section count 
