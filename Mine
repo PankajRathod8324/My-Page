@@ -3,7 +3,7 @@
 <div>
     <div class="d-flex justify-content-between">
 
-        <span class="fs-5 fw-bold OrderId" value="@Model.FirstOrDefault().OrderId">OrderId ID: #@Model.FirstOrDefault().OrderId</span>
+        <span class="fs-5 fw-bold OrderId" data-orderID="@Model.FirstOrDefault().OrderId">OrderId ID: #@Model.FirstOrDefault().OrderId</span>
     </div>
 </div>
 <div
@@ -52,7 +52,7 @@
 
             var prepare = [];
 
-            let orderId = $(".OrderId").val();   // orderId from form attribute
+            let orderId = $(".OrderId").data("orderID");   // orderId from form attribute
             let items = $(this).find('.form-check-input:checked');
 
             if (items.length == 0) {
@@ -112,4 +112,4 @@
             }
         });
     });
-</script>i didn't ge the orderId
+</script>strill it is undefined
