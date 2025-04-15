@@ -1,36 +1,49 @@
- <div class="d-md-none dropdown m-2">
-                            <button class="btn btn-outline-light dropdown-toggle" type="button"
+<div class="d-flex  justify-content-between flex-row align-items-center">
+                        <!-- Dropdown for small screens -->
+                        <div class="d-md-none dropdown m-2">
+                            <select class="btn btn-outline-light dropdown-toggle selectedmenuitem" type="button"
                                 data-bs-toggle="dropdown" aria-expanded="false">
                                 Menu
-                            </button>
+                            </select>
                             <ul class="dropdown-menu dropdown-menu-dark">
                                 @if (isChef || isAccountManager)
                                 {
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="AccountManagerOrderApp" asp-action="KOT">
-                                            <i class="fa-solid fa-clipboard-list me-2"></i>KOT
-                                        </a>
-                                    </li>
+                                    <option>
+                                        <li>
+                                            <a class="dropdown-item" asp-controller="AccountManagerOrderApp"
+                                                asp-action="KOT">
+                                                <i class="fa-solid fa-clipboard-list me-2"></i>KOT
+                                            </a>
+                                        </li>
+                                    </option>
                                 }
                                 @if (isAccountManager)
                                 {
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="AccountManagerOrderApp"
-                                            asp-action="WaitingList">
-                                            <i class="fa-solid fa-clock me-2"></i>Waiting List
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="AccountManagerOrderApp" asp-action="Table">
-                                            <i class="fa-solid fa-square me-2"></i>Tables
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="AccountManagerOrderApp"
-                                            asp-action="MenuOrderApp">
-                                            <i class="fa-solid fa-bell-concierge me-2"></i>Menu
-                                        </a>
-                                    </li>
+                                    <option>
+                                        <li>
+                                            <a class="dropdown-item" asp-controller="AccountManagerOrderApp"
+                                                asp-action="WaitingList">
+                                                <i class="fa-solid fa-clock me-2"></i>Waiting List
+                                            </a>
+                                        </li>
+
+                                    </option>
+                                    <option>
+                                        <li>
+                                            <a class="dropdown-item" asp-controller="AccountManagerOrderApp"
+                                                asp-action="Table">
+                                                <i class="fa-solid fa-square me-2"></i>Tables
+                                            </a>
+                                        </li>
+                                    </option>
+                                    <option>
+                                        <li>
+                                            <a class="dropdown-item" asp-controller="AccountManagerOrderApp"
+                                                asp-action="MenuOrderApp">
+                                                <i class="fa-solid fa-bell-concierge me-2"></i>Menu
+                                            </a>
+                                        </li>
+                                    </option>
                                 }
                             </ul>
-                        </div>convert this into select and option dropdown and dynamically it will take the value whichevr i have selected in large screen
+                        </div>the option is nto working
