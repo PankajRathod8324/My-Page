@@ -1,163 +1,57 @@
-(DashboardController)
-This controller fetches data from PostgreSQL and returns it as JSON for rendering in the view.
-
-Using Entity Framework
-csharp
-Copy code
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-public class DashboardController : Controller
-{
-    private readonly ApplicationDbContext _context; // DbContext for EF Core
-
-    public DashboardController(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    public IActionResult Index()
-    {
-        return View();
-    }
-
-    [HttpGet]
-    public async Task<JsonResult> GetSalesData()
-    {
-        var salesData = await _context.Sales
-            .GroupBy(s => new { Year = s.SaleDate.Year, Month = s.SaleDate.Month })
-            .Select(g => new { 
-                Year = g.Key.Year, 
-                Month = g.Key.Month, 
-                TotalSales = g.Sum(s => s.Amount) 
-            })
-            .OrderBy(g => g.Year).ThenBy(g => g.Month)
-            .ToListAsync();
-
-        return Json(salesData);
-    }
-}
-Using ADO.NET with Npgsql (Alternative)
-If you’re not using Entity Framework:
-
-csharp
-Copy code
-using Microsoft.AspNetCore.Mvc;
-using Npgsql;
-using System;
-using System.Collections.Generic;
-using System.Data;
-
-public class DashboardController : Controller
-{
-    private readonly string _connectionString = "Host=localhost;Port=5432;Username=youruser;Password=yourpassword;Database=yourdb";
-
-    public IActionResult Index()
-    {
-        return View();
-    }
-
-    [HttpGet]
-    public JsonResult GetSalesData()
-    {
-        List<object> salesData = new List<object>();
-
-        using (var conn = new NpgsqlConnection(_connectionString))
-        {
-            conn.Open();
-            string query = @"
-                SELECT 
-                    EXTRACT(YEAR FROM sale_date) AS year, 
-                    EXTRACT(MONTH FROM sale_date) AS month, 
-                    SUM(amount) AS total_sales 
-                FROM sales
-                GROUP BY year, month
-                ORDER BY year, month;";
-
-            using (var cmd = new NpgsqlCommand(query, conn))
-            using (var reader = cmd.ExecuteReader())
-            {
-                while (reader.Read())
-                {
-                    salesData.Add(new
+   @if (@user.RoleId == 1 || @user.RoleId == 3)
                     {
-                        Year = reader["year"],
-                        Month = reader["month"],
-                        TotalSales = reader["total_sales"]
-                    });
-                }
-            }
-        }
-        return Json(salesData);
-    }
-}
-Step 3: View (Index.cshtml)
-This view will display the chart using Chart.js.
-
-html
-Copy code
-@{
-    ViewData["Title"] = "Sales Dashboard";
-}
-
-<h2>Sales Data Chart</h2>
-<canvas id="salesChart"></canvas>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        fetch('/Dashboard/GetSalesData')
-            .then(response => response.json())
-            .then(data => {
-                let labels = [];
-                let salesValues = [];
-
-                data.forEach(item => {
-                    labels.push(`${item.year}-${item.month}`);
-                    salesValues.push(item.totalSales);
-                });
-
-                var ctx = document.getElementById('salesChart').getContext('2d');
-                var salesChart = new Chart(ctx, {
-                    type: 'line', // Change to 'bar', 'pie', etc. based on requirement
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Monthly Sales',
-                            data: salesValues,
-                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        }
+                        <!-- User Profile Dropdown -->
+                        <div class="d-flex align-items-center">
+                            <!-- Mobile Screen Icon -->
+                            <a class="ms-2 " asp-controller="AccountManagerOrderApp" asp-action="KOT">
+                                <div>
+                                    <span
+                                        class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2"
+                                        style="color: #ffffff; background-color: transparent;">
+                                        <i class="fa-solid fa-clipboard-list"></i>
+                                        <span>KOT</span>
+                                    </span>
+                            </a>
+                        </div>
                     }
-                });
-            });
-    });
-</script>
-How It Works
-Controller (DashboardController)
 
-Fetches sales data from PostgreSQL.
+                    @if (@user.RoleId == 3)
+                    {
+                        <span>
+                            <a class="ms-2 " asp-controller="AccountManagerOrderApp" asp-action="WaitingList">
+                                <span
+                                    class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2"
+                                    style="color: #ffffff; background-color: transparent;">
+                                    <i class="fa-solid fa-clock" style="color: #ffffff;"></i>
+                                    <span>Waiting List</span>
+                                </span>
+                            </a>
+                        </span>
+                    }
+                    @if (@user.RoleId == 3)
+                    {
+                        <div>
+                            <a class="ms-2 " asp-controller="AccountManagerOrderApp" asp-action="Table">
+                                <span
+                                    class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2"
+                                    style="color: #ffffff; background-color: transparent;">
+                                    <i class="fa-solid fa-square" style="color: #ffffff;"></i>
+                                    <span>Tables</span>
+                                </span>
+                            </a>
+                        </div>
+                    }
 
-Returns JSON response (/Dashboard/GetSalesData).
-
-View (Index.cshtml)
-
-Uses Chart.js to visualize sales data.
-
-Fetches JSON data from the controller.
-
-
-
+                    @if (@user.RoleId == 3)
+                    {
+                        <div>
+                            <a class="ms-2 " asp-controller="AccountManagerOrderApp" asp-action="MenuOrderApp">
+                                <span
+                                    class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2"
+                                    style="color: #ffffff; background-color: transparent;">
+                                    <i class="fa-solid fa-bell-concierge" style="color: #ffffff;"></i>
+                                    <span>Menu</span>
+                                </span>
+                            </a>
+                        </div>
+                    } after 800px it should be in dropdown as it is and make it more responsive
