@@ -1,15 +1,28 @@
-<div class="d-md-none m-2 w-100">
-    <select class="form-select text-white bg-dark fa-select" onchange="handleMenuSelect(this)">
-        <option selected disabled> Menu</option> <!-- fa-utensils -->
-        @if (isChef || isAccountManager)
+  public IActionResult AddCustomerDetail([FromBody] JsonObject customerdata)
+    {
+        bool success = _accountmanagerorderapp.AddOrUpdateCustomer(customerdata);
+        string email = (string)customerdata["email"];
+        var customerId = _accountmanagerorderapp.GetCustomerIDByName(email);
+        if (success)
         {
-            <option value="@Url.Action("KOT", "AccountManagerOrderApp")">&#xf328; KOT</option> <!-- fa-clipboard-list -->
+            return Json(new { success = true, message = "Customer Added Successfully!" }, new );
         }
-        @if (isAccountManager)
+        else
         {
-            <option value="@Url.Action("WaitingList", "AccountManagerOrderApp")">&#xf017; Waiting List</option> <!-- fa-clock -->
-            <option value="@Url.Action("Table", "AccountManagerOrderApp")">&#xf0c8; Tables</option> <!-- fa-square -->
-            <option value="@Url.Action("MenuOrderApp", "AccountManagerOrderApp")">&#xf561; Menu</option> <!-- fa-bell-concierge -->
+            return Json(new { success = false, message = "An error occurred while processing the request." });
         }
-    </select>
-</div>
+    }here i want it return also customer ID and go to another page like url in ajax with the customerId
+   if (form.valid()) {
+                    $.ajax({
+                        url: '/AccountManagerOrderApp/AddCustomerDetail',
+                        type: 'POST',
+                        contentType: "application/json",
+                        data: submissionData,
+                        success: function (response) {
+                            toastr.success('Customer Added Successfully!', "Success");
+                        },
+                        error: function (xhr, status, error) {
+                            console.error('Error:', xhr.responseText); // Log detailed error
+                        }
+                    });
+                }and i wnat to pass that id in that page and in view if that id is coming then the perticuler div is d-block 
