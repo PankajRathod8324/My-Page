@@ -1,57 +1,76 @@
-   @if (@user.RoleId == 1 || @user.RoleId == 3)
-                    {
-                        <!-- User Profile Dropdown -->
-                        <div class="d-flex align-items-center">
-                            <!-- Mobile Screen Icon -->
-                            <a class="ms-2 " asp-controller="AccountManagerOrderApp" asp-action="KOT">
-                                <div>
-                                    <span
-                                        class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2"
-                                        style="color: #ffffff; background-color: transparent;">
-                                        <i class="fa-solid fa-clipboard-list"></i>
-                                        <span>KOT</span>
-                                    </span>
-                            </a>
-                        </div>
-                    }
+@{
+    var isChef = user.RoleId == 1;
+    var isAdmin = user.RoleId == 3;
+}
 
-                    @if (@user.RoleId == 3)
-                    {
-                        <span>
-                            <a class="ms-2 " asp-controller="AccountManagerOrderApp" asp-action="WaitingList">
-                                <span
-                                    class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2"
-                                    style="color: #ffffff; background-color: transparent;">
-                                    <i class="fa-solid fa-clock" style="color: #ffffff;"></i>
-                                    <span>Waiting List</span>
-                                </span>
-                            </a>
-                        </span>
-                    }
-                    @if (@user.RoleId == 3)
-                    {
-                        <div>
-                            <a class="ms-2 " asp-controller="AccountManagerOrderApp" asp-action="Table">
-                                <span
-                                    class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2"
-                                    style="color: #ffffff; background-color: transparent;">
-                                    <i class="fa-solid fa-square" style="color: #ffffff;"></i>
-                                    <span>Tables</span>
-                                </span>
-                            </a>
-                        </div>
-                    }
+<!-- Navigation Buttons - Visible on large screens -->
+<div class="d-none d-md-flex align-items-center">
+    @if (isChef || isAdmin)
+    {
+        <a class="ms-2" asp-controller="AccountManagerOrderApp" asp-action="KOT">
+            <span class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2 text-white" style="background-color: transparent;">
+                <i class="fa-solid fa-clipboard-list"></i>
+                <span>KOT</span>
+            </span>
+        </a>
+    }
 
-                    @if (@user.RoleId == 3)
-                    {
-                        <div>
-                            <a class="ms-2 " asp-controller="AccountManagerOrderApp" asp-action="MenuOrderApp">
-                                <span
-                                    class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2"
-                                    style="color: #ffffff; background-color: transparent;">
-                                    <i class="fa-solid fa-bell-concierge" style="color: #ffffff;"></i>
-                                    <span>Menu</span>
-                                </span>
-                            </a>
-                        </div>
-                    } after 800px it should be in dropdown as it is and make it more responsive
+    @if (isAdmin)
+    {
+        <a class="ms-2" asp-controller="AccountManagerOrderApp" asp-action="WaitingList">
+            <span class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2 text-white" style="background-color: transparent;">
+                <i class="fa-solid fa-clock"></i>
+                <span>Waiting List</span>
+            </span>
+        </a>
+
+        <a class="ms-2" asp-controller="AccountManagerOrderApp" asp-action="Table">
+            <span class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2 text-white" style="background-color: transparent;">
+                <i class="fa-solid fa-square"></i>
+                <span>Tables</span>
+            </span>
+        </a>
+
+        <a class="ms-2" asp-controller="AccountManagerOrderApp" asp-action="MenuOrderApp">
+            <span class="badge rounded-pill border border-white me-3 d-flex align-items-center justify-content-center gap-2 px-3 py-2 text-white" style="background-color: transparent;">
+                <i class="fa-solid fa-bell-concierge"></i>
+                <span>Menu</span>
+            </span>
+        </a>
+    }
+</div>
+
+<!-- Dropdown for small screens -->
+<div class="d-md-none dropdown">
+    <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        Menu
+    </button>
+    <ul class="dropdown-menu dropdown-menu-dark">
+        @if (isChef || isAdmin)
+        {
+            <li>
+                <a class="dropdown-item" asp-controller="AccountManagerOrderApp" asp-action="KOT">
+                    <i class="fa-solid fa-clipboard-list me-2"></i>KOT
+                </a>
+            </li>
+        }
+        @if (isAdmin)
+        {
+            <li>
+                <a class="dropdown-item" asp-controller="AccountManagerOrderApp" asp-action="WaitingList">
+                    <i class="fa-solid fa-clock me-2"></i>Waiting List
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" asp-controller="AccountManagerOrderApp" asp-action="Table">
+                    <i class="fa-solid fa-square me-2"></i>Tables
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" asp-controller="AccountManagerOrderApp" asp-action="MenuOrderApp">
+                    <i class="fa-solid fa-bell-concierge me-2"></i>Menu
+                </a>
+            </li>
+        }
+    </ul>
+</div>
