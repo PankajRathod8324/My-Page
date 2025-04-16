@@ -1,46 +1,15 @@
-  public IActionResult GetMenuItemDetails([FromBody] List<MenuCategoryVM> ItemDetailsArray)
-    {
-        return PartialView("_OrderDataPV", ItemDetailsArray);
-    }
+const modifierIds = selectedmodifier.map(m => m.ModifierId);
+const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
 
-    $(document).on("click", ".ModifierCard", function () {
-        var modId = $(this).data("modid");
-        selectedmodifier.push({ ModifierId: modId });
-
-        ItemDetailsArray.push({
-            ItemId: ItemIdTemp,
-            ModifierGroupIdForAdd: selectedmodifier
-        });
-        console.log(ItemDetailsArray);
-        $(this).toggleClass("selected");
-
-        if ($(this).hasClass("selected")) {
-            $(this).addClass("border-primary bg-primary-subtle");
-        }
-        else {
-            $(this).removeClass("border-primary bg-primary-subtle");
-        }
-
+if (existingItemIndex !== -1) {
+    // Merge and remove duplicates
+    const existingModifiers = ItemDetailsArray[existingItemIndex].ModifierGroupIdForAdd || [];
+    const mergedModifiers = [...new Set([...existingModifiers, ...modifierIds])];
+    
+    ItemDetailsArray[existingItemIndex].ModifierGroupIdForAdd = mergedModifiers;
+} else {
+    ItemDetailsArray.push({
+        ItemId: ItemIdTemp,
+        ModifierGroupIdForAdd: modifierIds
     });
-    $(document).on("click", ".modifieraddbtn", function () {
-        console.log( JSON.stringify(ItemDetailsArray));
-        $.ajax({
-            url: '@Url.Action("GetMenuItemDetails", "AccountManagerOrderApp")',
-            type: "POST",
-            data: JSON.stringify(ItemDetailsArray),
-            contentType: 'application/json',
-            success: function (response) {
-                @* $("#kotdetailsprepare").html(response); *@
-                    console.log("Hekifjfhnkids");
-            },
-            error: function (xhr, status, error) {
-                console.error("Error fetching order details:", error);
-            }
-        });
-    });
-
-in categoryVM 
-
-        public int ItemId { get; set; }
-        public List<int> ModifierGroupIdForAdd { get; set; }
-and then there is null value pass to controller whyy
+}
