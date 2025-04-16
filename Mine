@@ -1,23 +1,27 @@
-    public IActionResult MenuOrderApp(int customerId)
+public IActionResult MenuOrderApp(int customerId)
+{
+    var categories = _menuService.GetAllCategories();
+    ViewBag.CustomerId = customerId;
+    var tables = _accountmanagerorderapp.GetTablesByCustomerId(customerId);
+
+    var customerTables = tables.Select(t => new SectionVM
     {
-        var categories = _menuService.GetAllCategories();
-        ViewBag.CustomerId = customerId;
-        var table = _accountmanagerorderapp.GetTablesByCustomerId(customerId);
-        
-        var categoryvm = new MenuCategoryVM
+        SectionName = _tableandsectionService.GetSectionNameByTableId((int)t.TableId),
+        Tab = new List<SectionVM>
         {
-            CategoryName = categories.FirstOrDefault().CategoryName,
-            customerTables = table.Select(sec => new SectionVM{
-                SectionName = _tableandsectionService.GetSectionNameByTableId((int)sec.TableId),
-                Tab = table.Select(tab => new SectionVM{
-                    TableName = _tableandsectionService.GetTableNameByTableId((int)tab.TableId),
-                }).ToList(),
-            }).ToList(),
-            menuCategories = categories
-        };
-        return View(categoryvm);
-    }D:\Training\Assignment\Intership Project\PizzaShop_N_Tier\PizzaShop\Controllers\AccountManagerOrderAppController.cs(217,23): error CS0029: Cannot implicitly convert  
-type 'System.Collections.Generic.List<Entities.ViewModel.SectionVM>' to 'System.Collections.Generic.List<Entities.Models.Table>' [D:\Training\Assignment\Intership Pr 
-oject\PizzaShop_N_Tier\PizzaShop\PizzaShop.csproj]
-    101 Warning(s)
-    1 Error(s)
+            new SectionVM
+            {
+                TableName = _tableandsectionService.GetTableNameByTableId((int)t.TableId)
+            }
+        }
+    }).ToList();
+
+    var categoryvm = new MenuCategoryVM
+    {
+        CategoryName = categories.FirstOrDefault()?.CategoryName,
+        customerTables = customerTables,
+        menuCategories = categories
+    };
+
+    return View(categoryvm);
+}
