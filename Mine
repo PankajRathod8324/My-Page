@@ -1,27 +1,46 @@
-public IActionResult MenuOrderApp(int customerId)
-{
-    var categories = _menuService.GetAllCategories();
-    ViewBag.CustomerId = customerId;
-    var tables = _accountmanagerorderapp.GetTablesByCustomerId(customerId);
-
-    var customerTables = tables.Select(t => new SectionVM
+  public IActionResult GetMenuItemDetails([FromBody] List<MenuCategoryVM> ItemDetailsArray)
     {
-        SectionName = _tableandsectionService.GetSectionNameByTableId((int)t.TableId),
-        Tab = new List<SectionVM>
-        {
-            new SectionVM
-            {
-                TableName = _tableandsectionService.GetTableNameByTableId((int)t.TableId)
-            }
+        return PartialView("_OrderDataPV", ItemDetailsArray);
+    }
+
+    $(document).on("click", ".ModifierCard", function () {
+        var modId = $(this).data("modid");
+        selectedmodifier.push({ ModifierId: modId });
+
+        ItemDetailsArray.push({
+            ItemId: ItemIdTemp,
+            ModifierGroupIdForAdd: selectedmodifier
+        });
+        console.log(ItemDetailsArray);
+        $(this).toggleClass("selected");
+
+        if ($(this).hasClass("selected")) {
+            $(this).addClass("border-primary bg-primary-subtle");
         }
-    }).ToList();
+        else {
+            $(this).removeClass("border-primary bg-primary-subtle");
+        }
 
-    var categoryvm = new MenuCategoryVM
-    {
-        CategoryName = categories.FirstOrDefault()?.CategoryName,
-        customerTables = customerTables,
-        menuCategories = categories
-    };
+    });
+    $(document).on("click", ".modifieraddbtn", function () {
+        console.log( JSON.stringify(ItemDetailsArray));
+        $.ajax({
+            url: '@Url.Action("GetMenuItemDetails", "AccountManagerOrderApp")',
+            type: "POST",
+            data: JSON.stringify(ItemDetailsArray),
+            contentType: 'application/json',
+            success: function (response) {
+                @* $("#kotdetailsprepare").html(response); *@
+                    console.log("Hekifjfhnkids");
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching order details:", error);
+            }
+        });
+    });
 
-    return View(categoryvm);
-}
+in categoryVM 
+
+        public int ItemId { get; set; }
+        public List<int> ModifierGroupIdForAdd { get; set; }
+and then there is null value pass to controller whyy
