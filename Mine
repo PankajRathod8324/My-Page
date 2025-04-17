@@ -1,20 +1,16 @@
 $(document).on("click", ".modifieraddbtn", function () {
-    console.log(ItemIdTemp + "TempID");
-    console.log("ItemDetailsArray length: " + ItemDetailsArray.length);
-
     if (ItemDetailsArray.length === 0) {
         ItemDetailsArray.push({
             ItemId: ItemIdTemp,
             MenuItemModifier: []
         });
-        console.log(ItemDetailsArray);
     }
 
     const currentItem = ItemDetailsArray.find(item => item.ItemId === ItemIdTemp);
     const currentModifiers = currentItem?.MenuItemModifier || [];
 
-    // Check if this exact item + modifiers already exists
-    const isDuplicate = AppendedItemsArray.some(appended => {
+    // Try to find a match in the appended list
+    const existingIndex = AppendedItemsArray.findIndex(appended => {
         if (appended.ItemId !== ItemIdTemp) return false;
 
         const appendedMods = appended.MenuItemModifier.map(m => m.ModifierId).sort();
@@ -23,15 +19,19 @@ $(document).on("click", ".modifieraddbtn", function () {
         return JSON.stringify(appendedMods) === JSON.stringify(currentMods);
     });
 
-    if (isDuplicate) {
-        toastr.warning("This item with the same modifiers already exists.");
+    if (existingIndex !== -1) {
+        // Item with same modifiers exists → Increase quantity
+        AppendedItemsArray[existingIndex].Quantity += 1;
+        toastr.info("Quantity increased for existing item.");
+        console.log(AppendedItemsArray);
         return;
     }
 
-    // Not a duplicate, proceed and track it
+    // If not duplicate → Push new entry with quantity 1
     AppendedItemsArray.push({
         ItemId: ItemIdTemp,
-        MenuItemModifier: currentModifiers.map(m => ({ ModifierId: m.ModifierId }))
+        MenuItemModifier: currentModifiers.map(m => ({ ModifierId: m.ModifierId })),
+        Quantity: 1
     });
 
     $.ajax({
