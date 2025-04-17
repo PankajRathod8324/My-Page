@@ -1,55 +1,55 @@
+$(document).on("click", ".ModifierCard", function () {
+    var modId = $(this).data("modid");
+    var groupId = $(this).data("groupid"); // Get Modifier Group Id
+    var min = $(this).data('min');
+    var max = $(this).data('max');
+    let Highlight = true;
 
-    $(document).on("click", ".ModifierCard", function () {
-        var modId = $(this).data("modid");
-        var min = $(this).data('min');
-        var max = $(this).data('max');
-        let Highlight = true;
-        const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
+    const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
 
-        if (existingItemIndex !== -1) {
-            let existingModifiers = ItemDetailsArray[existingItemIndex].MenuItemModifier || [];
+    if (existingItemIndex !== -1) {
+        let existingModifiers = ItemDetailsArray[existingItemIndex].MenuItemModifier || [];
 
-            if ($(this).hasClass("selected")) {
-                // If already selected → remove from modifiers
-                existingModifiers = existingModifiers.filter(mod => mod.ModifierId !== modId);
-            } else {
-                // If not selected → add to modifiers
-                console.log(min + " " + max);
+        // Group-wise selected count
+        let groupModifiers = existingModifiers.filter(mod => mod.ModifierGroupId === groupId);
 
-                if (existingModifiers.length < max) {
-                    existingModifiers.push({ ModifierId: modId });
-                }
-                else {
-                    Highlight = false;
-                    alert("U can'tselected more then taht");
-                }
-            }
-
-            // Remove duplicates
-            const mergedModifiers = [];
-            const ids = new Set();
-
-            existingModifiers.forEach(mod => {
-                if (!ids.has(mod.ModifierId)) {
-                    ids.add(mod.ModifierId);
-                    mergedModifiers.push(mod);
-                }
-            });
-
-            ItemDetailsArray[existingItemIndex].MenuItemModifier = mergedModifiers;
+        if ($(this).hasClass("selected")) {
+            // Remove from the array
+            existingModifiers = existingModifiers.filter(mod => mod.ModifierId !== modId);
         } else {
-            // New item push
-            ItemDetailsArray.push({
-                ItemId: ItemIdTemp,
-                MenuItemModifier: [{ ModifierId: modId }]
-            });
+            if (groupModifiers.length < max) {
+                // Add only if group limit not reached
+                existingModifiers.push({ ModifierId: modId, ModifierGroupId: groupId });
+            } else {
+                Highlight = false;
+                alert("You can't select more than " + max + " options in this group.");
+            }
         }
 
-        console.log(ItemDetailsArray);
+        // Remove duplicates
+        const mergedModifiers = [];
+        const ids = new Set();
+        existingModifiers.forEach(mod => {
+            if (!ids.has(mod.ModifierId)) {
+                ids.add(mod.ModifierId);
+                mergedModifiers.push(mod);
+            }
+        });
 
-        // Toggle classes
-        if (Highlight == true) {
-            $(this).toggleClass("selected border-primary bg-primary-subtle");
-            console.log("Highlight" + Highlight);
-        }
-    }); here the perticuler modifiergroup has perticuler modifier so there is min and max selecteion accosding to that in perticuler modifiergrp only this min modifier can select that logic i want and don't remove anything if neede only then 
+        ItemDetailsArray[existingItemIndex].MenuItemModifier = mergedModifiers;
+    } else {
+        // New item push
+        ItemDetailsArray.push({
+            ItemId: ItemIdTemp,
+            MenuItemModifier: [{ ModifierId: modId, ModifierGroupId: groupId }]
+        });
+    }
+
+    console.log(ItemDetailsArray);
+
+    // Toggle styles only if allowed
+    if (Highlight == true) {
+        $(this).toggleClass("selected border-primary bg-primary-subtle");
+        console.log("Highlight: " + Highlight);
+    }
+});
