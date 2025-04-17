@@ -1,25 +1,30 @@
-$(this).closest('.d-flex').find('.itemrate').text((parseFloat(rate) * (parseFloat(Quantity) + 1)).toFixed(2));
-structure is this i have to chg the value according to the itemrate in this   <div class="d-flex justify-content-between col-md-6 gap-4">
-        <div>
-            <div class="d-flex flex-row webyborderitemdiv">
-                <div class="btn dec">-</div>
-                <div class="d-flex align-items-center justify-content-center px-2 inputquantity">1</div>
-                <div class="btn inc">+</div>
-            </div>
-        </div>
-        <div>
-            <div>
-                <span>₹</span>
-                <span class="fs-5 itemrate" value="@Model.FirstOrDefault().Rate">@Model.FirstOrDefault().Rate</span>
-            </div>
-             <div>
-                <span>₹</span>
-                <span class="fs-5 modifierrate" value="@(sum)" data-amt="@sum">@(sum)</span>
-            </div>
-        </div>
-        <div>
-            <a class="btn deleteitembtn">
-                <i class="bi bi-trash"></i>
-            </a>
-        </div>
-    </div>
+ $(document).on("click", ".ModifierCard", function () {
+        var modId = $(this).data("modid");
+        selectedmodifier.push({ ModifierId: modId });
+        @* const modifierId = selectedmodifier.map(modId => modId.ModifierId); *@
+
+        const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
+
+        if (existingItemIndex !== -1) {
+            // Merge and remove duplicates
+            const existingModifiers = ItemDetailsArray[existingItemIndex].MenuItemModifier || [];
+            const mergedModifiers = [...new Set([...existingModifiers, ...selectedmodifier])];
+
+            ItemDetailsArray[existingItemIndex].MenuItemModifier = mergedModifiers;
+        } else {
+            ItemDetailsArray.push({
+                ItemId: ItemIdTemp,
+                MenuItemModifier: selectedmodifier
+            });
+        }
+        console.log(ItemDetailsArray);
+        $(this).toggleClass("selected");
+
+        if ($(this).hasClass("selected")) {
+            $(this).addClass("border-primary bg-primary-subtle");
+        }
+        else {
+            $(this).removeClass("border-primary bg-primary-subtle");
+        }
+
+    });i want writw here that when i click it will add in array modifier and when i unclcik like it is not selected then it will remove from the array
