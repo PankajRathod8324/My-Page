@@ -1,16 +1,1 @@
-  $(document).on("click", ".inc", function () {
-        var Quantity = $(this).closest('.d-flex').find($('.inputquantity')).text();
-        $(this).closest('.d-flex').find($('.inputquantity'))[0].innerHTML = parseInt(Quantity) + 1;
-        let rate = $('.itemrate').attr("value");
-        $(this).closest('.d-flex').find($('.itemrate'))[0].innerHTML = (parseFloat(rate)*(parseFloat(Quantity)+1));
-        @* $(this).closest('.d-flex').find($('.itemrate')).text((parseFloat(rate)*(parseFloat(Quantity)+1)).toFixed(2)); *@
-        console.log(rate);
-        FinalSubtotalSum += parseFloat(rate);
-        console.log(FinalSubtotalSum);
-        $(".subtotal").text(FinalSubtotalSum.toFixed(2));
-        calculateTax();
-        finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
-        $(".finaltotalamt")[0].innerHTML = parseFloat(finaltotal).toPrecision(5);
-
-    });
-this line is no tworking whyy this).closest('.d-flex').find($('.itemrate'))[0].innerHTML = (parseFloat(rate)*(parseFloat(Quantity)+1));
+$(this).closest('.d-flex').find('.itemrate').text((parseFloat(rate) * (parseFloat(Quantity) + 1)).toFixed(2));
