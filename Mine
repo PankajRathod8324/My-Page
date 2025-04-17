@@ -1,41 +1,55 @@
-$(document).on("click", ".ModifierCard", function () {
-    var modId = $(this).data("modid");
 
-    const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
+    $(document).on("click", ".ModifierCard", function () {
+        var modId = $(this).data("modid");
+        var min = $(this).data('min');
+        var max = $(this).data('max');
+        let Highlight = true;
+        const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
 
-    if (existingItemIndex !== -1) {
-        let existingModifiers = ItemDetailsArray[existingItemIndex].MenuItemModifier || [];
+        if (existingItemIndex !== -1) {
+            let existingModifiers = ItemDetailsArray[existingItemIndex].MenuItemModifier || [];
 
-        if ($(this).hasClass("selected")) {
-            // If already selected → remove from modifiers
-            existingModifiers = existingModifiers.filter(mod => mod.ModifierId !== modId);
+            if ($(this).hasClass("selected")) {
+                // If already selected → remove from modifiers
+                existingModifiers = existingModifiers.filter(mod => mod.ModifierId !== modId);
+            } else {
+                // If not selected → add to modifiers
+                console.log(min + " " + max);
+
+                if (existingModifiers.length < max) {
+                    existingModifiers.push({ ModifierId: modId });
+                }
+                else {
+                    Highlight = false;
+                    alert("U can'tselected more then taht");
+                }
+            }
+
+            // Remove duplicates
+            const mergedModifiers = [];
+            const ids = new Set();
+
+            existingModifiers.forEach(mod => {
+                if (!ids.has(mod.ModifierId)) {
+                    ids.add(mod.ModifierId);
+                    mergedModifiers.push(mod);
+                }
+            });
+
+            ItemDetailsArray[existingItemIndex].MenuItemModifier = mergedModifiers;
         } else {
-            // If not selected → add to modifiers
-            existingModifiers.push({ ModifierId: modId });
+            // New item push
+            ItemDetailsArray.push({
+                ItemId: ItemIdTemp,
+                MenuItemModifier: [{ ModifierId: modId }]
+            });
         }
 
-        // Remove duplicates
-        const mergedModifiers = [];
-        const ids = new Set();
+        console.log(ItemDetailsArray);
 
-        existingModifiers.forEach(mod => {
-            if (!ids.has(mod.ModifierId)) {
-                ids.add(mod.ModifierId);
-                mergedModifiers.push(mod);
-            }
-        });
-
-        ItemDetailsArray[existingItemIndex].MenuItemModifier = mergedModifiers;
-    } else {
-        // New item push
-        ItemDetailsArray.push({
-            ItemId: ItemIdTemp,
-            MenuItemModifier: [{ ModifierId: modId }]
-        });
-    }
-
-    console.log(ItemDetailsArray);
-
-    // Toggle classes
-    $(this).toggleClass("selected border-primary bg-primary-subtle");
-});
+        // Toggle classes
+        if (Highlight == true) {
+            $(this).toggleClass("selected border-primary bg-primary-subtle");
+            console.log("Highlight" + Highlight);
+        }
+    }); here the perticuler modifiergroup has perticuler modifier so there is min and max selecteion accosding to that in perticuler modifiergrp only this min modifier can select that logic i want and don't remove anything if neede only then 
