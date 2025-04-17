@@ -1,106 +1,73 @@
- $(document).on("click", ".ModifierCard", function () {
-        var modId = $(this).data("modid");
-        var groupId = $(this).data("groupid"); // Get Modifier Group Id
-        var min = $(this).data('min');
-        var max = $(this).data('max');
-        let Highlight = true;
+$(document).on("click", ".modifieraddbtn", function () {
+    console.log(ItemIdTemp + "TempID");
+    console.log("ItemDetailsArray length: " + ItemDetailsArray.length);
 
-        const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
+    if (ItemDetailsArray.length === 0) {
+        ItemDetailsArray.push({
+            ItemId: ItemIdTemp,
+            MenuItemModifier: []
+        });
+        console.log(ItemDetailsArray);
+    }
 
-        if (existingItemIndex !== -1) {
-            let existingModifiers = ItemDetailsArray[existingItemIndex].MenuItemModifier || [];
+    const currentItem = ItemDetailsArray.find(item => item.ItemId === ItemIdTemp);
+    const currentModifiers = currentItem?.MenuItemModifier || [];
 
-            // Group-wise selected count
-            let groupModifiers = existingModifiers.filter(mod => mod.ModifierGroupId === groupId);
+    // Check if this exact item + modifiers already exists
+    const isDuplicate = AppendedItemsArray.some(appended => {
+        if (appended.ItemId !== ItemIdTemp) return false;
 
-            if ($(this).hasClass("selected")) {
-                // Remove from the array
-                existingModifiers = existingModifiers.filter(mod => mod.ModifierId !== modId);
-            } else {
-                if (groupModifiers.length < max) {
-                    // Add only if group limit not reached
-                    existingModifiers.push({ ModifierId: modId, ModifierGroupId: groupId });
-                } else {
-                    Highlight = false;
-                    toastr.warning("You can't select more than " + max + " options in this group.");
-                }
-            }
+        const appendedMods = appended.MenuItemModifier.map(m => m.ModifierId).sort();
+        const currentMods = currentModifiers.map(m => m.ModifierId).sort();
 
-            // Remove duplicates
-            const mergedModifiers = [];
-            const ids = new Set();
-            existingModifiers.forEach(mod => {
-                if (!ids.has(mod.ModifierId)) {
-                    ids.add(mod.ModifierId);
-                    mergedModifiers.push(mod);
-                }
-            });
+        return JSON.stringify(appendedMods) === JSON.stringify(currentMods);
+    });
 
-            ItemDetailsArray[existingItemIndex].MenuItemModifier = mergedModifiers;
-        } else {
-            // New item push
-            ItemDetailsArray.push({
-                ItemId: ItemIdTemp,
-                MenuItemModifier: [{ ModifierId: modId, ModifierGroupId: groupId }]
-            });
-        }
+    if (isDuplicate) {
+        toastr.warning("This item with the same modifiers already exists.");
+        return;
+    }
 
-        console.log(ItemDetailsArray);
+    // Not a duplicate, proceed and track it
+    AppendedItemsArray.push({
+        ItemId: ItemIdTemp,
+        MenuItemModifier: currentModifiers.map(m => ({ ModifierId: m.ModifierId }))
+    });
 
-        // Toggle styles only if allowed
-        if (Highlight == true) {
-            $(this).toggleClass("selected border-primary bg-primary-subtle");
-            console.log("Highlight: " + Highlight);
-        }
-    });
-    $(document).on("click", ".modifieraddbtn", function () {
-        console.log(ItemIdTemp + "TempID");
-        console.log(JSON.stringify(ItemDetailsArray.length));
-        if (ItemDetailsArray.length == 0) {
-            const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
-            // New item push
-            ItemDetailsArray.push({
-                ItemId: ItemIdTemp,
-                MenuItemModifier: []
-            });
-            console.log(ItemDetailsArray);
+    $.ajax({
+        url: '@Url.Action("GetMenuItemDetails", "AccountManagerOrderApp")',
+        type: "POST",
+        data: JSON.stringify(ItemDetailsArray),
+        contentType: 'application/json',
+        success: function (response) {
+            $("#modifierdatamodal").modal('hide');
+            $("#orderitemomdifier").append(response);
 
-        }
+            let total = 0;
 
-        $.ajax({
-            url: '@Url.Action("GetMenuItemDetails", "AccountManagerOrderApp")',
-            type: "POST",
-            data: JSON.stringify(ItemDetailsArray),
-            contentType: 'application/json',
-            success: function (response) {
-                $("#modifierdatamodal").modal('hide');
-                $("#orderitemomdifier").append(response);
-                let total = 0;
+            $(".ItemDataCard").each(function () {
+                let rate = parseFloat($(this).find('.itemrate').text()) || 0;
+                let modifierrate = parseFloat($(this).find('.modifierrate').text()) || 0;
+                total += (rate + modifierrate);
+            });
 
-                $(".ItemDataCard").each(function () {
-                    let rate = parseFloat($(this).find('.itemrate').text()) || 0;
-                    let modifierrate = parseFloat($(this).find('.modifierrate').text()) || 0;
-                    total += (rate + modifierrate);
-                });
-                FinalSubtotalSum = total;
-                console.log(FinalSubtotalSum + "Final Subtotal");
-                $(".subtotal").text(total.toFixed(2));
+            FinalSubtotalSum = total;
+            $(".subtotal").text(total.toFixed(2));
 
-                calculateTax();
+            calculateTax();
 
-                let finaltotal = 0;
+            let finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
+            $(".finaltotalamt").text(finaltotal);
+            FinalOrderSum = finaltotal;
 
-                finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
-                $(".finaltotalamt")[0].innerHTML = parseFloat(finaltotal).toPrecision(5);
-                selecteditem = [];
-                selectedmodifier = [];
-                ItemDetailsArray = [];
-                FinalOrderSum = finaltotal;
-                console.log(FinalOrderSum + "Final Total");
-            },
-            error: function (xhr, status, error) {
-                console.error("Error fetching order details:", error);
-            }
-        });
-    });
-her i want to track what items that are append so make array which will track and if the same array like itemid and also same modifierid's is there that element is again add then give toaster that already exists
+            selecteditem = [];
+            selectedmodifier = [];
+            ItemDetailsArray = [];
+
+            console.log("Final Order Total: " + FinalOrderSum);
+        },
+        error: function (xhr, status, error) {
+            console.error("Error fetching order details:", error);
+        }
+    });
+});
