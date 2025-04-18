@@ -1,73 +1,23 @@
-$(document).on("click", ".modifieraddbtn", function () {
-    if (ItemDetailsArray.length === 0) {
-        ItemDetailsArray.push({
-            ItemId: ItemIdTemp,
-            MenuItemModifier: []
-        });
-    }
+$(document).on("click", ".inc", function () {
+    const itemId = $(this).data("itemid"); // Get Item ID from element
+    const modifiers = ItemDetailsArray.find(x => x.ItemId === itemId)?.MenuItemModifier || [];
 
-    const currentItem = ItemDetailsArray.find(item => item.ItemId === ItemIdTemp);
-    const currentModifiers = currentItem?.MenuItemModifier || [];
+    // Find matching item in appended array based on ItemId and same modifiers
+    const existingIndex = AppendedItemArray.findIndex(x => {
+        return x.ItemId === itemId &&
+               JSON.stringify(x.MenuItemModifier.sort((a, b) => a.ModifierId - b.ModifierId)) ===
+               JSON.stringify(modifiers.sort((a, b) => a.ModifierId - b.ModifierId));
+    });
 
-    // Try to find a match in the appended list
-    const existingIndex = AppendedItemsArray.findIndex(appended => {
-        if (appended.ItemId !== ItemIdTemp) return false;
+    if (existingIndex !== -1) {
+        AppendedItemArray[existingIndex].Quantity += 1;
+    } else {
+        AppendedItemArray.push({
+            ItemId: itemId,
+            Quantity: 1,
+            MenuItemModifier: modifiers
+        });
+    }
 
-        const appendedMods = appended.MenuItemModifier.map(m => m.ModifierId).sort();
-        const currentMods = currentModifiers.map(m => m.ModifierId).sort();
-
-        return JSON.stringify(appendedMods) === JSON.stringify(currentMods);
-    });
-
-    if (existingIndex !== -1) {
-        // Item with same modifiers exists → Increase quantity
-        AppendedItemsArray[existingIndex].Quantity += 1;
-        toastr.info("Quantity increased for existing item.");
-        console.log(AppendedItemsArray);
-        return;
-    }
-
-    // If not duplicate → Push new entry with quantity 1
-    AppendedItemsArray.push({
-        ItemId: ItemIdTemp,
-        MenuItemModifier: currentModifiers.map(m => ({ ModifierId: m.ModifierId })),
-        Quantity: 1
-    });
-
-    $.ajax({
-        url: '@Url.Action("GetMenuItemDetails", "AccountManagerOrderApp")',
-        type: "POST",
-        data: JSON.stringify(ItemDetailsArray),
-        contentType: 'application/json',
-        success: function (response) {
-            $("#modifierdatamodal").modal('hide');
-            $("#orderitemomdifier").append(response);
-
-            let total = 0;
-
-            $(".ItemDataCard").each(function () {
-                let rate = parseFloat($(this).find('.itemrate').text()) || 0;
-                let modifierrate = parseFloat($(this).find('.modifierrate').text()) || 0;
-                total += (rate + modifierrate);
-            });
-
-            FinalSubtotalSum = total;
-            $(".subtotal").text(total.toFixed(2));
-
-            calculateTax();
-
-            let finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
-            $(".finaltotalamt").text(finaltotal);
-            FinalOrderSum = finaltotal;
-
-            selecteditem = [];
-            selectedmodifier = [];
-            ItemDetailsArray = [];
-
-            console.log("Final Order Total: " + FinalOrderSum);
-        },
-        error: function (xhr, status, error) {
-            console.error("Error fetching order details:", error);
-        }
-    });
+    console.log(AppendedItemArray);
 });
