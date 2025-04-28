@@ -1,28 +1,49 @@
-  public IActionResult AddCustomerDetail([FromBody] JsonObject customerdata)
-    {
-        bool success = _accountmanagerorderapp.AddOrUpdateCustomer(customerdata);
-        string email = (string)customerdata["email"];
-        var customerId = _accountmanagerorderapp.GetCustomerIDByName(email);
-        if (success)
-        {
-            return Json(new { success = true, message = "Customer Added Successfully!" }, new );
+<script>
+  $(document).ready(function () {
+
+    // Star click event
+    $('.star-rating .star').on('click', function () {
+      var value = $(this).data('value');
+      var parentDiv = $(this).parent();
+      var category = parentDiv.data('category');
+
+      // Set hidden input value
+      parentDiv.next('input[name="' + category + '"]').val(value);
+
+      // Highlight selected stars
+      parentDiv.children('.star').each(function () {
+        if ($(this).data('value') <= value) {
+          $(this).addClass('selected');
+        } else {
+          $(this).removeClass('selected');
         }
-        else
-        {
-            return Json(new { success = false, message = "An error occurred while processing the request." });
+      });
+    });
+
+    // Submit button click
+    $('#submitReviewBtn').on('click', function () {
+      var formData = {
+        FoodRating: $('input[name="FoodRating"]').val(),
+        ServiceRating: $('input[name="ServiceRating"]').val(),
+        AmbienceRating: $('input[name="AmbienceRating"]').val(),
+        ReviewText: $('textarea[name="ReviewText"]').val()
+      };
+
+      $.ajax({
+        type: "POST",
+        url: "/Review/SubmitReview",   // your controller action URL
+        data: formData,
+        success: function (response) {
+          alert('Review submitted successfully!');
+          $('#reviewModal').modal('hide');
+          $('#reviewForm')[0].reset();
+          $('.star').removeClass('selected');
+        },
+        error: function () {
+          alert('Something went wrong. Please try again.');
         }
-    }here i want it return also customer ID and go to another page like url in ajax with the customerId
-   if (form.valid()) {
-                    $.ajax({
-                        url: '/AccountManagerOrderApp/AddCustomerDetail',
-                        type: 'POST',
-                        contentType: "application/json",
-                        data: submissionData,
-                        success: function (response) {
-                            toastr.success('Customer Added Successfully!', "Success");
-                        },
-                        error: function (xhr, status, error) {
-                            console.error('Error:', xhr.responseText); // Log detailed error
-                        }
-                    });
-                }and i wnat to pass that id in that page and in view if that id is coming then the perticuler div is d-block 
+      });
+    });
+
+  });
+</script>
