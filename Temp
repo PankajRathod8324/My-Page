@@ -1,34 +1,47 @@
-public DashboardMetricsDto GetSalesMetrics(string filter)
-{
-    var dateRange = GetDateRangeFromFilter(filter);
-    return _orderRepository.GetMetricsByDateRange(dateRange.Start, dateRange.End);
-}
+When user clicks on a table with less capacity than noOfPerson, show a SweetAlert with suggested better tables.
 
-private (DateTime Start, DateTime End) GetDateRangeFromFilter(string filter)
-{
-    DateTime today = DateTime.Today;
-    return filter switch
-    {
-        "Today" => (today, today),
-        "Last7Days" => (today.AddDays(-6), today),
-        "AllTime" => (DateTime.MinValue, today),
-        _ => (today, today)
-    };
-}
-public DashboardMetricsDto GetMetricsByDateRange(DateTime startDate, DateTime endDate)
-{
-    var orders = _context.Orders
-        .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate)
-        .ToList();
+Example with SweetAlert2 (cdn)
+1. Include SweetAlert2 (CDN):
+Add this in your HTML <head> or before </body>:
 
-    var totalSales = orders.Sum(o => o.TotalAmount);
-    var totalOrders = orders.Count;
-    var avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+html
+Copy code
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+2. HTML Table Example:
+html
+Copy code
+<table id="tableList">
+  <tr data-capacity="2"><td>Table 1 (2 seats)</td></tr>
+  <tr data-capacity="4"><td>Table 2 (4 seats)</td></tr>
+  <tr data-capacity="6"><td>Table 3 (6 seats)</td></tr>
+</table>
+3. JavaScript Logic with SweetAlert:
+javascript
+Copy code
+const noOfPerson = 3; // You can set this dynamically
 
-    return new DashboardMetricsDto
-    {
-        TotalSales = totalSales,
-        TotalOrders = totalOrders,
-        AvgOrderValue = avgOrderValue
-    };
-}
+document.querySelectorAll("#tableList tr").forEach(row => {
+  row.addEventListener("click", () => {
+    const selectedCapacity = parseInt(row.getAttribute("data-capacity"));
+
+    if (selectedCapacity < noOfPerson) {
+      const suggestions = Array.from(document.querySelectorAll("#tableList tr"))
+        .filter(r => parseInt(r.getAttribute("data-capacity")) >= noOfPerson);
+
+      if (suggestions.length > 0) {
+        Swal.fire({
+          title: "Better Table Options",
+          html: suggestions.map(r => r.innerText).join("<br>"),
+          icon: "info",
+          confirmButtonText: "OK"
+        });
+      } else {
+        Swal.fire({
+          title: "No Better Table Found",
+          text: "There are no tables that can accommodate this size.",
+          icon: "warning"
+        });
+      }
+    }
+  });
+});
