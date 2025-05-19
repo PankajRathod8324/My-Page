@@ -1,53 +1,72 @@
-HTML (Bootstrap 5)
-html
-Copy code
-<!-- Floating Toggle Button (Bottom Right) -->
-<button class="btn btn-primary rounded-circle position-fixed" style="bottom: 20px; right: 20px; z-index: 1050;" 
-        onclick="toggleOrderTray()">
-    <i class="bi bi-list"></i>
-</button>
 
-<!-- Bottom Tray Showing Active Orders -->
-<div id="orderTray" class="position-fixed bottom-0 start-0 w-100 bg-white border-top shadow p-3" style="display: none; z-index: 1040;">
-    <h6 class="mb-2">Active Orders</h6>
-    <div id="orderTrayList" class="d-flex gap-3 flex-wrap">
-        <!-- Orders will be added here dynamically -->
-    </div>
-</div>
-✅ 2. Bootstrap Icons (optional for list icon)
-Add this in your <head> if you're using Bootstrap Icons:
+    public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
+    {
+        var ordersQuery = _context.Orders.AsQueryable();
 
-html
-Copy code
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-✅ 3. JavaScript
-html
-Copy code
-<script>
-    function toggleOrderTray() {
-        const tray = document.getElementById('orderTray');
-        tray.style.display = tray.style.display === 'none' ? 'block' : 'none';
-
-        if (tray.style.display === 'block') {
-            // Simulated active order data
-            const orders = [101, 102, 103]; // Replace with real AJAX call
-
-            const listContainer = document.getElementById('orderTrayList');
-            listContainer.innerHTML = ''; // Clear previous
-
-            if (orders.length === 0) {
-                listContainer.innerHTML = '<div class="text-muted">No active orders</div>';
-            } else {
-                orders.forEach(id => {
-                    const pill = document.createElement('span');
-                    pill.className = 'badge bg-primary';
-                    pill.textContent = `Order #${id}`;
-                    listContainer.appendChild(pill);
-                });
-            }
+        if (categoryId != 0)
+        {
+            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.CategoryId == categoryId && oi.ItemId.HasValue
+                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId
+                                                                                                               && mi.CategoryId == categoryId)));
         }
-    }
-</script>
-✅ How it Looks:
-A circular button at the bottom right (like Swiggy).
+        else
+        {
+            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.ItemId.HasValue
+                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId)));
+        }
 
+
+        var orders = categoryId != 0 ? ordersQuery
+            .Include(o => o.OrderItems
+                .Where(oi => oi.CategoryId == categoryId))
+            .ThenInclude(oi => oi.OrderModifiers)
+            .ToList() : ordersQuery
+            .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.OrderModifiers)
+            .ToList();
+
+
+        var orderVm = orders.Select(o => new OrderVM
+        {
+            OrderId = o.OrderId,
+            OccupiedTime = DateTime.UtcNow - o.CreatedAt,
+            OrderInstruction = o.OrderInstructions,
+            OrderItems = o.OrderItems
+                .Where(oi => oi.ItemId.HasValue && ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
+                                  (status != "In Progress" && oi.Readyitemquantity > 0)) && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId))
+                .SelectMany(oi => new List<OrderItemVM>
+                {
+                new OrderItemVM
+                {
+                    ItemId = (int)oi.ItemId,
+                    ItemName = _context.MenuItems.Where(mi => mi.ItemId == oi.ItemId).Select(mi => mi.ItemName).FirstOrDefault(),
+                    Price = oi.Rate,
+                    Quantity = (status == "In Progress") ? oi.Quantity - oi.Readyitemquantity : oi.Readyitemquantity,
+                    ItemInstructions = oi.ItemInstructions,
+                    Status = status,
+                    Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
+                    {
+                        ModifierId = (int)om.ModifierId,
+                        ModifierName = _context.MenuModifiers.Where(mod => mod.ModifierId == om.ModifierId).Select(mod => mod.ModifierName).FirstOrDefault(),
+                        ModifierRate = om.Rate,
+                        Quantity = 1
+                    }).ToList()
+                }
+
+                }).ToList(),
+            CustomerTables = _context.CustomerTables.Where(r => r.CustomerId == o.CustomerId && r.IsActive == true).Select(ot => new CustomerTableVM
+            {
+                TableId = (int)ot.TableId,
+                TableName = ot.TableId.HasValue ? (from table in _context.Tables
+                                                   where table.TableId == ot.TableId
+                                                   select table.TableName).FirstOrDefault() : "No Table",
+                SectionName = ot.TableId.HasValue ? (from table in _context.Tables
+                                                     join section in _context.Sections on table.SectionId equals section.SectionId
+                                                     where table.TableId == ot.TableId
+                                                     select section.SectionName).FirstOrDefault() : "No Section"
+            }).ToList(),
+
+        }).Where(o => o.OrderItems.Count > 0).ToList();
+
+        return orderVm;
+    }
