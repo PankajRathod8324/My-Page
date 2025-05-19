@@ -1,65 +1,44 @@
-public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
-{
-    var orders = _repository.GetOrdersWithRelatedData();
+CREATE PROCEDURE GetOrdersWithRelatedData
+AS
+BEGIN
+    SELECT 
+        o.OrderId,
+        o.CreatedAt,
+        o.OrderInstructions,
+        o.OrderStatusId,
 
-    var filteredOrders = orders
-        .Where(o => categoryId == 0 || o.OrderItems.Any(oi =>
-            oi.CategoryId == categoryId &&
-            oi.ItemId.HasValue &&
-            oi.MenuItem != null &&
-            oi.MenuItem.CategoryId == categoryId))
-        .ToList();
+        oi.OrderItemId,
+        oi.ItemId,
+        oi.Quantity,
+        oi.ReadyItemQuantity,
+        oi.Rate,
+        oi.ItemInstructions,
+        oi.CategoryId,
 
-    var orderVMs = filteredOrders.Select(o => new OrderVM
-    {
-        OrderId = o.OrderId,
-        OccupiedTime = DateTime.UtcNow - o.CreatedAt,
-        OrderInstruction = o.OrderInstructions,
-        OrderItems = o.OrderItems
-            .Where(oi => oi.ItemId.HasValue &&
-                ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
-                 (status != "In Progress" && oi.Readyitemquantity > 0)))
-            .Select(oi => new OrderItemVM
-            {
-                ItemId = oi.ItemId.Value,
-                ItemName = oi.MenuItem?.ItemName ?? "Unknown",
-                Price = oi.Rate,
-                Quantity = status == "In Progress" ? oi.Quantity - oi.Readyitemquantity : oi.Readyitemquantity,
-                ItemInstructions = oi.ItemInstructions,
-                Status = status,
-                Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
-                {
-                    ModifierId = om.ModifierId ?? 0,
-                    ModifierName = om.MenuModifier?.ModifierName ?? "Unknown",
-                    ModifierRate = om.Rate,
-                    Quantity = 1
-                }).ToList()
-            }).ToList(),
-        CustomerTables = o.Customer.CustomerTables
-            .Where(ct => ct.Isactive)
-            .Select(ct => new CustomerTableVM
-            {
-                TableId = ct.TableId ?? 0,
-                TableName = ct.Table?.TableName ?? "No Table",
-                SectionName = ct.Table?.Section?.SectionName ?? "No Section"
-            }).ToList()
-    })
-    .Where(vm => vm.OrderItems.Any())
-    .ToList();
+        mi.ItemName,
+        mi.CategoryId AS MenuCategoryId,
 
-    return orderVMs;
-}
-public List<Order> GetOrdersWithRelatedData()
-{
-    return _context.Orders
-        .Include(o => o.OrderItems)
-            .ThenInclude(oi => oi.OrderModifiers)
-        .Include(o => o.OrderItems)
-            .ThenInclude(oi => oi.MenuItem)
-        .Include(o => o.Customer)
-            .ThenInclude(c => c.CustomerTables.Where(ct => ct.Isactive))
-        .ThenInclude(ct => ct.Table)
-            .ThenInclude(t => t.Section)
-        .Where(o => o.OrderStatusId != 4 && o.OrderStatusId != 3)
-        .ToList();
-}
+        om.OrderModifierId,
+        om.ModifierId,
+        om.Rate AS ModifierRate,
+
+        mm.ModifierName,
+
+        c.CustomerId,
+
+        ct.CustomerTableId,
+        ct.TableId,
+        t.TableName,
+        s.SectionName
+
+    FROM Orders o
+    INNER JOIN OrderItems oi ON o.OrderId = oi.OrderId
+    LEFT JOIN MenuItems mi ON oi.ItemId = mi.ItemId
+    LEFT JOIN OrderModifiers om ON oi.OrderItemId = om.OrderItemId
+    LEFT JOIN MenuModifiers mm ON om.ModifierId = mm.ModifierId
+    LEFT JOIN Customers c ON o.CustomerId = c.CustomerId
+    LEFT JOIN CustomerTables ct ON c.CustomerId = ct.CustomerId AND ct.IsActive = 1
+    LEFT JOIN Tables t ON ct.TableId = t.TableId
+    LEFT JOIN Sections s ON t.SectionId = s.SectionId
+    WHERE o.OrderStatusId NOT IN (3, 4)
+END
