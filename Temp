@@ -1,66 +1,65 @@
-    public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
-    {
-        var orders = _accountmanagerorderapprepository.GetOrdersWithRelatedData();
-
-        var filteredOrders = orders
-            .Where(o => categoryId == 0 || o.OrderItems.Any(oi =>
-                oi.CategoryId == categoryId &&
-                oi.ItemId.HasValue &&
-                oi.Item != null &&
-                oi.Item.CategoryId == categoryId))
-            .ToList();
-
-        var orderVMs = filteredOrders.Select(o => new OrderVM
-        {
-            OrderId = o.OrderId,
-            OccupiedTime = DateTime.UtcNow - o.CreatedAt,
-            OrderInstruction = o.OrderInstructions,
-            OrderItems = o.OrderItems
-                .Where(oi => oi.ItemId.HasValue && (categoryId != 0 ? oi.CategoryId == categoryId : true) &&
-                    ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
-                     (status != "In Progress" && oi.Readyitemquantity > 0)))
-                .Select(oi => new OrderItemVM
-                {
-                    ItemId = oi.ItemId.Value,
-                    ItemName = oi.Item?.ItemName ?? "Unknown",
-                    Price = oi.Rate,
-                    Quantity = status == "In Progress" ? oi.Quantity - oi.Readyitemquantity : oi.Readyitemquantity,
-                    ItemInstructions = oi.ItemInstructions,
-                    Status = status,
-                    Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
-                    {
-                        ModifierId = om.ModifierId ?? 0,
-                        ModifierName = om.Modifier?.ModifierName ?? "Unknown",
-                        ModifierRate = om.Rate,
-                        Quantity = 1
-                    }).ToList()
-                }).ToList(),
-            CustomerTables = o.Customer.CustomerTables
-                .Where(ct => (bool)ct.Isactive)
-                .Select(ct => new CustomerTableVM
-                {
-                    TableId = ct.TableId ?? 0,
-                    TableName = ct.Table?.TableName ?? "No Table",
-                    SectionName = ct.Table?.Section?.SectionName ?? "No Section"
-                }).ToList()
-        })
-        .Where(vm => vm.OrderItems.Any())
-        .ToList();
-
-        return orderVMs;
-    }
-
-here is my service and these is my repo    public List<Order> GetOrdersWithRelatedData()
-    {
-        return _context.Orders
-            .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.OrderModifiers)
-            .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Item)
-            .Include(o => o.Customer)
-                .ThenInclude(c => c.CustomerTables.Where(ct => (bool)ct.Isactive))
-            .ThenInclude(ct => ct.Table)
-                .ThenInclude(t => t.Section)
-            .Where(o => o.OrderStatusId != 4 && o.OrderStatusId != 3)
-            .ToList();
-    } and i want that in service only want that mapping of in ordervm and repo i just want that that call to stored processor that is made in pgadmin postgreysql and make sure that in repo there should be no viewmodel ok and noew make that sercie\ve logic and the all join in stored processor and give me service, repo and stored processor file and make wit h zero error pls can run on postgreysql without any error 
+CREATE OR REPLACE FUNCTION get_orders_with_related_data(p_category_id INT, p_status TEXT)
+RETURNS TABLE (
+    orderid INT,
+    createdat TIMESTAMP,
+    orderinstructions TEXT,
+    itemid INT,
+    itemname TEXT,
+    rate NUMERIC,
+    quantity INT,
+    readyitemquantity INT,
+    iteminstructions TEXT,
+    modifierid INT,
+    modifiername TEXT,
+    modifierrate NUMERIC,
+    tableid INT,
+    tablename TEXT,
+    sectionname TEXT
+)
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        o.order_id,
+        o.created_at,
+        o.order_instructions,
+        oi.item_id,
+        mi.item_name,
+        oi.rate,
+        oi.quantity,
+        oi.readyitemquantity,
+        oi.item_instructions,
+        om.modifier_id,
+        mm.modifier_name,
+        om.rate AS modifier_rate,
+        ct.table_id,
+        t.table_name,
+        s.section_name
+    FROM orders o
+    INNER JOIN order_items oi ON o.order_id = oi.order_id
+    LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
+    LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
+    LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
+    LEFT JOIN customers c ON o.customer_id = c.customer_id
+    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = true
+    LEFT JOIN tables t ON ct.table_id = t.table_id
+    LEFT JOIN sections s ON t.section_id = s.section_id
+    WHERE o.order_status_id NOT IN (3, 4)
+      AND (p_category_id = 0 OR oi.category_id = p_category_id)
+      AND (
+          p_status IS NULL OR 
+          (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0) OR
+          (p_status != 'In Progress' AND oi.readyitemquantity > 0)
+      );
+END;
+$$ LANGUAGE plpgsql;
+public List<OrderVM> GetOrdersWithRelatedData(int categoryId, string status)
+{
+    return _context.Set<OrderVM>()
+        .FromSqlRaw("SELECT * FROM get_orders_with_related_data({0}, {1})", categoryId, status)
+        .ToList();
+}
+public List<OrderVM> GetOrderCategoryItem(int categoryId, string status)
+{
+    return _accountmanagerorderapprepository.GetOrdersWithRelatedData(categoryId, status);
+}
