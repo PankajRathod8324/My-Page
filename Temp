@@ -1,100 +1,78 @@
-1: Move ViewModel Mapping to Service Layer
-Move this logic to your Service Layer, keeping your controller clean. Example:
-
-csharp
-Copy code
-public List<OrderVM> MapToOrderVM(List<Order> orders, string status, int categoryId)
-{
-    return orders.Select(o => new OrderVM
+ public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
     {
-        OrderId = o.OrderId,
-        OccupiedTime = DateTime.UtcNow - o.CreatedAt,
-        OrderInstruction = o.OrderInstructions,
-        OrderItems = o.OrderItems
-            .Where(oi => oi.ItemId.HasValue &&
-                        ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
-                        (status != "In Progress" && oi.Readyitemquantity > 0)))
-            .Select(oi => new OrderItemVM
-            {
-                ItemId = (int)oi.ItemId,
-                ItemName = oi.Item?.ItemName, // If you include MenuItem in Include
-                Price = oi.Rate,
-                Quantity = (status == "In Progress") ? oi.Quantity - oi.Readyitemquantity : oi.Readyitemquantity,
-                ItemInstructions = oi.ItemInstructions,
-                Status = status,
-                Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
-                {
-                    ModifierId = (int)om.ModifierId,
-                    ModifierName = om.Modifier?.ModifierName,
-                    ModifierRate = om.Rate,
-                    Quantity = 1
-                }).ToList()
-            }).ToList(),
+        var orderCategoryItems = _accountmanagerorderapprepository.GetOrderCategoryItem(categoryId, status);
 
-        CustomerTables = o.CustomerTables
-            .Where(r => r.IsActive)
-            .Select(ot => new CustomerTableVM
+        return orderCategoryItems;
+    }
+this is my service and here is my repo
+public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
+    {
+        var ordersQuery = _context.Orders.AsQueryable();
+
+        if (categoryId != 0)
+        {
+            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.CategoryId == categoryId && oi.ItemId.HasValue
+                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId
+                                                                                                               && mi.CategoryId == categoryId)));
+        }
+        else
+        {
+            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.ItemId.HasValue
+                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId)));
+        }
+
+
+        var orders = categoryId != 0 ? ordersQuery
+            .Include(o => o.OrderItems
+                .Where(oi => oi.CategoryId == categoryId))
+            .ThenInclude(oi => oi.OrderModifiers)
+            .ToList() : ordersQuery
+            .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.OrderModifiers)
+            .ToList();
+
+
+        var orderVm = orders.Select(o => new OrderVM
+        {
+            OrderId = o.OrderId,
+            OccupiedTime = DateTime.UtcNow - o.CreatedAt,
+            OrderInstruction = o.OrderInstructions,
+            OrderItems = o.OrderItems
+                .Where(oi => oi.ItemId.HasValue && ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
+                                  (status != "In Progress" && oi.Readyitemquantity > 0)) && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId))
+                .SelectMany(oi => new List<OrderItemVM>
+                {
+                new OrderItemVM
+                {
+                    ItemId = (int)oi.ItemId,
+                    ItemName = _context.MenuItems.Where(mi => mi.ItemId == oi.ItemId).Select(mi => mi.ItemName).FirstOrDefault(),
+                    Price = oi.Rate,
+                    Quantity = (status == "In Progress") ? oi.Quantity - oi.Readyitemquantity : oi.Readyitemquantity,
+                    ItemInstructions = oi.ItemInstructions,
+                    Status = status,
+                    Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
+                    {
+                        ModifierId = (int)om.ModifierId,
+                        ModifierName = _context.MenuModifiers.Where(mod => mod.ModifierId == om.ModifierId).Select(mod => mod.ModifierName).FirstOrDefault(),
+                        ModifierRate = om.Rate,
+                        Quantity = 1
+                    }).ToList()
+                }
+
+                }).ToList(),
+            CustomerTables = _context.CustomerTables.Where(r => r.CustomerId == o.CustomerId && r.IsActive == true).Select(ot => new CustomerTableVM
             {
                 TableId = (int)ot.TableId,
-                TableName = ot.Table?.TableName ?? "No Table",
-                SectionName = ot.Table?.Section?.SectionName ?? "No Section"
-            }).ToList()
+                TableName = ot.TableId.HasValue ? (from table in _context.Tables
+                                                   where table.TableId == ot.TableId
+                                                   select table.TableName).FirstOrDefault() : "No Table",
+                SectionName = ot.TableId.HasValue ? (from table in _context.Tables
+                                                     join section in _context.Sections on table.SectionId equals section.SectionId
+                                                     where table.TableId == ot.TableId
+                                                     select section.SectionName).FirstOrDefault() : "No Section"
+            }).ToList(),
 
-    }).Where(o => o.OrderItems.Count > 0).ToList();
-}
-This way your controller/service just fetches data from DB, and calls this to map it.
+        }).Where(o => o.OrderItems.Count > 0).ToList();
 
-Part 2: Create Stored Procedure for DB Logic
-Here’s an example stored procedure to fetch filtered orders by category and status:
-
-sql
-Copy code
-CREATE PROCEDURE GetOrdersByCategoryAndStatus
-    @CategoryId INT,
-    @Status NVARCHAR(50)
-AS
-BEGIN
-    SELECT 
-        o.OrderId,
-        o.CreatedAt,
-        o.OrderInstructions,
-        oi.ItemId,
-        oi.Quantity,
-        oi.ReadyItemQuantity,
-        oi.Rate,
-        oi.ItemInstructions,
-        oi.OrderId AS OI_OrderId,
-        m.ItemName,
-        om.ModifierId,
-        mm.ModifierName,
-        om.Rate AS ModifierRate,
-        ct.CustomerId,
-        ct.TableId,
-        t.TableName,
-        s.SectionName
-    FROM Orders o
-    JOIN OrderItems oi ON o.OrderId = oi.OrderId
-    LEFT JOIN MenuItems m ON m.ItemId = oi.ItemId
-    LEFT JOIN OrderModifiers om ON om.OrderItemId = oi.OrderItemId
-    LEFT JOIN MenuModifiers mm ON mm.ModifierId = om.ModifierId
-    LEFT JOIN CustomerTables ct ON ct.CustomerId = o.CustomerId AND ct.IsActive = 1
-    LEFT JOIN Tables t ON ct.TableId = t.TableId
-    LEFT JOIN Sections s ON t.SectionId = s.SectionId
-    WHERE 
-        o.OrderStatusId NOT IN (3, 4) AND
-        (@CategoryId = 0 OR oi.CategoryId = @CategoryId)
-END
-Part 3: Call the Stored Procedure in Repository (C#)
-csharp
-Copy code
-public List<Order> GetOrdersFromSP(int categoryId, string status)
-{
-    return _context.Orders
-        .FromSqlRaw("EXEC GetOrdersByCategoryAndStatus @CategoryId = {0}, @Status = {1}", categoryId, status)
-        .Include(o => o.OrderItems).ThenInclude(oi => oi.OrderModifiers)
-        .Include(o => o.CustomerTables).ThenInclude(ct => ct.Table).ThenInclude(t => t.Section)
-        .ToList();
-}
-Now, this List<Order> goes to the mapping method shown earlier to become List<OrderVM>.
-
-Let me know your table/column names
+        return orderVm;
+    } 
