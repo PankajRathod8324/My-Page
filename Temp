@@ -1,72 +1,135 @@
-CREATE OR REPLACE PROCEDURE get_order_vm_data_temp(
-    p_category_id INT,
-    p_status TEXT
-)
-LANGUAGE plpgsql
-AS $$
+CREATE PROCEDURE [dbo].[GetOrderCategoryItem]
+    @categoryId INT,
+    @status NVARCHAR(50) = NULL
+AS
 BEGIN
-    DROP TABLE IF EXISTS temp_order_vm_data;
-
-    CREATE TEMP TABLE temp_order_vm_data (
-        orderid INT,
-        createdat TIMESTAMP,
-        orderinstructions TEXT,
-        itemid INT,
-        itemname TEXT,
-        rate NUMERIC,
-        quantity INT,
-        readyitemquantity INT,
-        iteminstructions TEXT,
-        status TEXT,
-        modifierid INT,
-        modifiername TEXT,
-        modifierrate NUMERIC,
-        tableid INT,
-        tablename TEXT,
-        sectionname TEXT
-    ) ON COMMIT DROP;
-
-    INSERT INTO temp_order_vm_data
-    SELECT
-        o.order_id,
-        o.created_at,
-        o.order_instructions,
-        oi.item_id,
-        mi.item_name,
-        oi.rate,
-        CASE 
-            WHEN p_status = 'In Progress' THEN oi.quantity - oi.readyitemquantity
-            ELSE oi.readyitemquantity
-        END AS quantity,
-        oi.readyitemquantity,
-        oi.item_instructions,
-        p_status,
-        om.modifier_id,
-        mm.modifier_name,
-        om.rate,
-        ct.table_id,
-        t.table_name,
-        s.section_name
-    FROM orders o
-    JOIN order_items oi ON o.order_id = oi.order_id
-    JOIN menu_items mi ON oi.item_id = mi.item_id
-    LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
-    LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
-    LEFT JOIN customers c ON o.customer_id = c.customer_id
-    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = TRUE
-    LEFT JOIN tables t ON ct.table_id = t.table_id
-    LEFT JOIN sections s ON t.section_id = s.section_id
-    WHERE o.order_status_id NOT IN (3, 4)
-      AND oi.item_id IS NOT NULL
-      AND (
-            p_category_id = 0 OR (
-                oi.category_id = p_category_id AND 
-                mi.category_id = p_category_id
-            )
-          )
-      AND (
-            (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0)
-            OR (p_status != 'In Progress' AND oi.readyitemquantity > 0)
-          );
-END;
-$$;
+    SET NOCOUNT ON;
+    
+    -- Create a temporary table to hold the final results
+    CREATE TABLE #OrderResults (
+        OrderId INT,
+        OccupiedTime BIGINT, -- Will store ticks or total milliseconds
+        OrderInstruction NVARCHAR(MAX),
+        ItemId INT,
+        ItemName NVARCHAR(255),
+        Price DECIMAL(18,2),
+        Quantity INT,
+        ItemInstructions NVARCHAR(MAX),
+        Status NVARCHAR(50),
+        ModifierId INT NULL,
+        ModifierName NVARCHAR(255) NULL,
+        ModifierRate DECIMAL(18,2) NULL,
+        ModifierQuantity INT NULL,
+        TableId INT NULL,
+        TableName NVARCHAR(255) NULL,
+        SectionName NVARCHAR(255) NULL
+    );
+    
+    -- Get all relevant orders based on category filter
+    INSERT INTO #OrderResults (OrderId, OccupiedTime, OrderInstruction, ItemId, ItemName, Price, Quantity, ItemInstructions, Status, TableId, TableName, SectionName)
+    SELECT 
+        o.OrderId,
+        DATEDIFF_BIG(MILLISECOND, o.CreatedAt, GETUTCDATE()) * 10000 AS OccupiedTime,
+        o.OrderInstructions AS OrderInstruction,
+        oi.ItemId,
+        mi.ItemName,
+        oi.Rate AS Price,
+        CASE WHEN @status = 'In Progress' THEN (oi.Quantity - oi.ReadyItemQuantity) ELSE oi.ReadyItemQuantity END AS Quantity,
+        oi.ItemInstructions,
+        @status AS Status,
+        ct.TableId,
+        CASE WHEN ct.TableId IS NOT NULL THEN t.TableName ELSE 'No Table' END AS TableName,
+        CASE WHEN ct.TableId IS NOT NULL THEN s.SectionName ELSE 'No Section' END AS SectionName
+    FROM Orders o
+    INNER JOIN OrderItems oi ON oi.OrderId = o.OrderId
+    INNER JOIN MenuItems mi ON mi.ItemId = oi.ItemId
+    LEFT JOIN CustomerTables ct ON ct.CustomerId = o.CustomerId AND ct.IsActive = 1
+    LEFT JOIN Tables t ON t.TableId = ct.TableId
+    LEFT JOIN Sections s ON s.SectionId = t.SectionId
+    WHERE o.OrderStatusId NOT IN (3, 4)
+    AND oi.ItemId IS NOT NULL
+    AND (
+        (@status = 'In Progress' AND (oi.Quantity - oi.ReadyItemQuantity) > 0) OR
+        (@status <> 'In Progress' AND oi.ReadyItemQuantity > 0)
+    )
+    AND ((@categoryId = 0) OR (@categoryId != 0 AND oi.CategoryId = @categoryId AND mi.CategoryId = @categoryId))
+    AND (
+        (ct.CustomerId IS NOT NULL) OR -- Has customer tables
+        NOT EXISTS (SELECT 1 FROM CustomerTables WHERE CustomerId = o.CustomerId AND IsActive = 1) -- Or no customer tables
+    );
+    
+    -- Now add modifiers for all items
+    INSERT INTO #OrderResults (OrderId, OccupiedTime, OrderInstruction, ItemId, ItemName, Price, Quantity, ItemInstructions, Status, ModifierId, ModifierName, ModifierRate, ModifierQuantity, TableId, TableName, SectionName)
+    SELECT 
+        o.OrderId,
+        o.OccupiedTime,
+        o.OrderInstruction,
+        o.ItemId,
+        o.ItemName,
+        o.Price,
+        o.Quantity,
+        o.ItemInstructions,
+        o.Status,
+        om.ModifierId,
+        mm.ModifierName,
+        om.Rate AS ModifierRate,
+        1 AS ModifierQuantity,
+        o.TableId,
+        o.TableName,
+        o.SectionName
+    FROM #OrderResults o
+    INNER JOIN OrderItems oi ON oi.OrderId = o.OrderId AND oi.ItemId = o.ItemId
+    INNER JOIN OrderModifiers om ON om.OrderItemId = oi.OrderItemId
+    INNER JOIN MenuModifiers mm ON mm.ModifierId = om.ModifierId
+    WHERE o.ModifierId IS NULL; -- Only join to base items (without modifiers)
+    
+    -- Remove the original rows that now have modifier versions
+    DELETE FROM #OrderResults 
+    WHERE ModifierId IS NULL
+    AND EXISTS (
+        SELECT 1 
+        FROM #OrderResults o2 
+        WHERE o2.OrderId = #OrderResults.OrderId 
+        AND o2.ItemId = #OrderResults.ItemId 
+        AND o2.ModifierId IS NOT NULL
+    );
+    
+    -- For orders with no customer tables, ensure we have at least one row per order/item
+    -- This handles the case where the CROSS JOIN in the original wouldn't produce any rows
+    INSERT INTO #OrderResults (OrderId, OccupiedTime, OrderInstruction, ItemId, ItemName, Price, Quantity, ItemInstructions, Status, ModifierId, ModifierName, ModifierRate, ModifierQuantity)
+    SELECT 
+        o.OrderId,
+        o.OccupiedTime,
+        o.OrderInstruction,
+        o.ItemId,
+        o.ItemName,
+        o.Price,
+        o.Quantity,
+        o.ItemInstructions,
+        o.Status,
+        o.ModifierId,
+        o.ModifierName,
+        o.ModifierRate,
+        o.ModifierQuantity
+    FROM #OrderResults o
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM #OrderResults o2 
+        WHERE o2.OrderId = o.OrderId 
+        AND o2.ItemId = o.ItemId 
+        AND o2.TableId IS NOT NULL
+    )
+    AND o.TableId IS NULL
+    AND NOT EXISTS (
+        SELECT 1 
+        FROM #OrderResults o3 
+        WHERE o3.OrderId = o.OrderId 
+        AND o3.ItemId = o.ItemId 
+        AND o3.ModifierId IS NOT NULL
+    );
+    
+    -- Return the final result
+    SELECT * FROM #OrderResults ORDER BY OrderId, ItemId, ISNULL(ModifierId, 0);
+    
+    DROP TABLE #OrderResults;
+END
