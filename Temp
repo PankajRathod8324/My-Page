@@ -1,24 +1,7 @@
-CREATE OR REPLACE FUNCTION get_orders_with_related_data(p_category_id INT, p_status TEXT)
-RETURNS TABLE (
-    orderid INT,
-    createdat TIMESTAMP,
-    orderinstructions TEXT,
-    itemid INT,
-    itemname TEXT,
-    rate NUMERIC,
-    quantity INT,
-    readyitemquantity INT,
-    iteminstructions TEXT,
-    modifierid INT,
-    modifiername TEXT,
-    modifierrate NUMERIC,
-    tableid INT,
-    tablename TEXT,
-    sectionname TEXT
-)
+CREATE OR REPLACE PROCEDURE get_order_vm_data(p_category_id INT, p_status TEXT)
+LANGUAGE plpgsql
 AS $$
 BEGIN
-    RETURN QUERY
     SELECT 
         o.order_id,
         o.created_at,
@@ -52,7 +35,8 @@ BEGIN
           (p_status != 'In Progress' AND oi.readyitemquantity > 0)
       );
 END;
-$$ LANGUAGE plpgsql;
+$$;
+
 public List<OrderVM> GetOrdersWithRelatedData(int categoryId, string status)
 {
     return _context.Set<OrderVM>()
