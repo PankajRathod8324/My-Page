@@ -1,11 +1,12 @@
 CREATE OR REPLACE PROCEDURE get_order_vm_data_json(
     IN p_category_id INT,
-    IN p_status TEXT
+    IN p_status TEXT,
+    OUT json_result JSON
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    SELECT json_agg(row_to_json(t))
+    SELECT json_agg(row_to_json(t)) INTO json_result
     FROM (
         SELECT
             o.order_id,
@@ -42,20 +43,3 @@ BEGIN
     ) t;
 END;
 $$;
-public string GetOrdersJson(int categoryId, string? status)
-{
-    using var connection = new NpgsqlConnection(_connectionString);
-    connection.Open();
-
-    using var command = new NpgsqlCommand("CALL get_order_vm_data_json(@p_category_id, @p_status)", connection);
-    command.Parameters.AddWithValue("p_category_id", categoryId);
-    command.Parameters.AddWithValue("p_status", (object?)status ?? DBNull.Value);
-
-    using var reader = command.ExecuteReader();
-    if (reader.Read())
-    {
-        return reader.GetString(0);
-    }
-
-    return string.Empty;
-}
