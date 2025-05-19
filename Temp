@@ -1,78 +1,126 @@
- public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
-    {
-        var orderCategoryItems = _accountmanagerorderapprepository.GetOrderCategoryItem(categoryId, status);
-
-        return orderCategoryItems;
-    }
-this is my service and here is my repo
+CREATE OR REPLACE FUNCTION get_order_category_items(
+    in_category_id INTEGER,
+    in_status TEXT
+)
+RETURNS TABLE (
+    order_id INTEGER,
+    occupied_time INTERVAL,
+    order_instruction TEXT,
+    item_id INTEGER,
+    item_name TEXT,
+    price NUMERIC,
+    quantity INTEGER,
+    item_instructions TEXT,
+    modifier_id INTEGER,
+    modifier_name TEXT,
+    modifier_rate NUMERIC,
+    modifier_quantity INTEGER,
+    table_id INTEGER,
+    table_name TEXT,
+    section_name TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        o.orderid,
+        now() - o.createdat AS occupied_time,
+        o.orderinstructions,
+        oi.itemid,
+        mi.itemname,
+        oi.rate,
+        CASE
+            WHEN in_status = 'In Progress' THEN oi.quantity - oi.readyitemquantity
+            ELSE oi.readyitemquantity
+        END AS quantity,
+        oi.iteminstructions,
+        om.modifierid,
+        mm.modifiername,
+        om.rate,
+        1 AS modifier_quantity,
+        t.tableid,
+        t.tablename,
+        s.sectionname
+    FROM orders o
+    JOIN orderitems oi ON oi.orderid = o.orderid
+    LEFT JOIN menuitems mi ON mi.itemid = oi.itemid
+    LEFT JOIN ordermodifiers om ON om.orderitemid = oi.orderitemid
+    LEFT JOIN menumodifiers mm ON mm.modifierid = om.modifierid
+    LEFT JOIN customertables ct ON ct.customerid = o.customerid AND ct.isactive = true
+    LEFT JOIN tables t ON t.tableid = ct.tableid
+    LEFT JOIN sections s ON s.sectionid = t.sectionid
+    WHERE o.orderstatusid NOT IN (3, 4)
+      AND oi.itemid IS NOT NULL
+      AND (
+          in_category_id = 0 OR (
+              oi.categoryid = in_category_id AND
+              mi.categoryid = in_category_id
+          )
+      )
+      AND (
+          (in_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0) OR
+          (in_status != 'In Progress' AND oi.readyitemquantity > 0)
+      );
+END;
+$$ LANGUAGE plpgsql;
 public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
+{
+    var orders = _accountmanagerorderapprepository.GetOrderCategoryItem(categoryId, status);
+
+    var orderVms = orders.Select(o => new OrderVM
     {
-        var ordersQuery = _context.Orders.AsQueryable();
-
-        if (categoryId != 0)
-        {
-            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.CategoryId == categoryId && oi.ItemId.HasValue
-                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId
-                                                                                                               && mi.CategoryId == categoryId)));
-        }
-        else
-        {
-            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.ItemId.HasValue
-                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId)));
-        }
-
-
-        var orders = categoryId != 0 ? ordersQuery
-            .Include(o => o.OrderItems
-                .Where(oi => oi.CategoryId == categoryId))
-            .ThenInclude(oi => oi.OrderModifiers)
-            .ToList() : ordersQuery
-            .Include(o => o.OrderItems)
-            .ThenInclude(oi => oi.OrderModifiers)
-            .ToList();
-
-
-        var orderVm = orders.Select(o => new OrderVM
-        {
-            OrderId = o.OrderId,
-            OccupiedTime = DateTime.UtcNow - o.CreatedAt,
-            OrderInstruction = o.OrderInstructions,
-            OrderItems = o.OrderItems
-                .Where(oi => oi.ItemId.HasValue && ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
-                                  (status != "In Progress" && oi.Readyitemquantity > 0)) && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId))
-                .SelectMany(oi => new List<OrderItemVM>
-                {
-                new OrderItemVM
-                {
-                    ItemId = (int)oi.ItemId,
-                    ItemName = _context.MenuItems.Where(mi => mi.ItemId == oi.ItemId).Select(mi => mi.ItemName).FirstOrDefault(),
-                    Price = oi.Rate,
-                    Quantity = (status == "In Progress") ? oi.Quantity - oi.Readyitemquantity : oi.Readyitemquantity,
-                    ItemInstructions = oi.ItemInstructions,
-                    Status = status,
-                    Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
-                    {
-                        ModifierId = (int)om.ModifierId,
-                        ModifierName = _context.MenuModifiers.Where(mod => mod.ModifierId == om.ModifierId).Select(mod => mod.ModifierName).FirstOrDefault(),
-                        ModifierRate = om.Rate,
-                        Quantity = 1
-                    }).ToList()
-                }
-
-                }).ToList(),
-            CustomerTables = _context.CustomerTables.Where(r => r.CustomerId == o.CustomerId && r.IsActive == true).Select(ot => new CustomerTableVM
+        OrderId = o.OrderId,
+        OccupiedTime = DateTime.UtcNow - o.CreatedAt,
+        OrderInstruction = o.OrderInstructions,
+        OrderItems = o.OrderItems
+            .Where(oi => oi.ItemId.HasValue &&
+                        ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
+                         (status != "In Progress" && oi.Readyitemquantity > 0)))
+            .Select(oi => new OrderItemVM
             {
-                TableId = (int)ot.TableId,
-                TableName = ot.TableId.HasValue ? (from table in _context.Tables
-                                                   where table.TableId == ot.TableId
-                                                   select table.TableName).FirstOrDefault() : "No Table",
-                SectionName = ot.TableId.HasValue ? (from table in _context.Tables
-                                                     join section in _context.Sections on table.SectionId equals section.SectionId
-                                                     where table.TableId == ot.TableId
-                                                     select section.SectionName).FirstOrDefault() : "No Section"
+                ItemId = oi.ItemId.Value,
+                ItemName = _context.MenuItems.Where(mi => mi.ItemId == oi.ItemId).Select(mi => mi.ItemName).FirstOrDefault(),
+                Price = oi.Rate,
+                Quantity = (status == "In Progress") ? (oi.Quantity - oi.Readyitemquantity) : oi.Readyitemquantity,
+                ItemInstructions = oi.ItemInstructions,
+                Status = status,
+                Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
+                {
+                    ModifierId = om.ModifierId.Value,
+                    ModifierName = _context.MenuModifiers.Where(m => m.ModifierId == om.ModifierId).Select(m => m.ModifierName).FirstOrDefault(),
+                    ModifierRate = om.Rate,
+                    Quantity = 1
+                }).ToList()
             }).ToList(),
 
-        }).Where(o => o.OrderItems.Count > 0).ToList();
+        CustomerTables = _context.CustomerTables
+            .Where(r => r.CustomerId == o.CustomerId && r.IsActive)
+            .Select(ct => new CustomerTableVM
+            {
+                TableId = ct.TableId ?? 0,
+                TableName = ct.TableId.HasValue 
+                    ? _context.Tables.Where(t => t.TableId == ct.TableId).Select(t => t.TableName).FirstOrDefault() ?? "No Table"
+                    : "No Table",
+                SectionName = ct.TableId.HasValue
+                    ? (from t in _context.Tables
+                       join s in _context.Sections on t.SectionId equals s.SectionId
+                       where t.TableId == ct.TableId
+                       select s.SectionName).FirstOrDefault() ?? "No Section"
+                    : "No Section"
+            }).ToList()
+    })
+    .Where(o => o.OrderItems.Count > 0)
+    .ToList();
 
-        return orderVm;
-    } 
+    return orderVms;
+}public List<OrderCategoryItemVM> GetOrderCategoryItem(int categoryId, string? status)
+{
+    var categoryParam = new Npgsql.NpgsqlParameter("in_category_id", categoryId);
+    var statusParam = new Npgsql.NpgsqlParameter("in_status", status ?? (object)DBNull.Value);
+
+    var result = _context.OrderCategoryItemVM
+        .FromSqlRaw("SELECT * FROM get_order_category_items(@in_category_id, @in_status)", categoryParam, statusParam)
+        .ToList();
+
+    return result;
+}
+
