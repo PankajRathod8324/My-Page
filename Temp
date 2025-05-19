@@ -1,74 +1,76 @@
 public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
-{
-    var orders = _accountmanagerorderapprepository.GetOrderCategoryItem(categoryId);
-
-    var orderVms = orders.Select(o => new OrderVM
     {
-        OrderId = o.OrderId,
-        OccupiedTime = DateTime.UtcNow - o.CreatedAt,
-        OrderInstruction = o.OrderInstructions,
+        var ordersQuery = _context.Orders.AsQueryable();
 
-        OrderItems = _accountmanagerorderapprepository.GetOrderItemsByOrderId(o.OrderId)
-            .Where(oi => oi.ItemId != 0 &&
-                ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
-                 (status != "In Progress" && oi.Readyitemquantity > 0)))
-            .Select(oi => new OrderItemVM
-            {
-                ItemId = (int)oi.ItemId,
-                ItemName = oi.ItemId.HasValue ? _menuRepository.GetItemNameById((int)oi.ItemId) : "No Item",
-                Price = oi.Rate,
-                Quantity = (status == "In Progress") ? (oi.Quantity - oi.Readyitemquantity) : oi.Readyitemquantity,
-                ItemInstructions = oi.ItemInstructions,
-                Status = status,
-                Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
+        if (categoryId != 0)
+        {
+            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.CategoryId == categoryId && oi.ItemId.HasValue
+                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId
+                                                                                                               && mi.CategoryId == categoryId)));
+        }
+        else
+        {
+            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.ItemId.HasValue
+                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId)));
+        }
+
+
+        var orders = categoryId != 0 ? ordersQuery
+            .Include(o => o.OrderItems
+                .Where(oi => oi.CategoryId == categoryId))
+            .ThenInclude(oi => oi.OrderModifiers)
+            .ToList() : ordersQuery
+            .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.OrderModifiers)
+            .ToList();
+
+
+        var orderVm = orders.Select(o => new OrderVM
+        {
+            OrderId = o.OrderId,
+            OccupiedTime = DateTime.UtcNow - o.CreatedAt,
+            OrderInstruction = o.OrderInstructions,
+            OrderItems = o.OrderItems
+                .Where(oi => oi.ItemId.HasValue && ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
+                                  (status != "In Progress" && oi.Readyitemquantity > 0)) && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId))
+                .SelectMany(oi => new List<OrderItemVM>
                 {
-                    ModifierId = (int)om.ModifierId,
-                    ModifierName = om.ModifierId.HasValue ? _menuRepository.GetModifierNameById((int)om.ModifierId) : "No Modifier",
-                    ModifierRate = om.ModifierId.HasValue ? _menuRepository.GetModifierPriceById((int)om.ModifierId) : 0m,
-                    Quantity = 1
-                }).ToList()
+                new OrderItemVM
+                {
+                    ItemId = (int)oi.ItemId,
+                    ItemName = _context.MenuItems.Where(mi => mi.ItemId == oi.ItemId).Select(mi => mi.ItemName).FirstOrDefault(),
+                    Price = oi.Rate,
+                    Quantity = (status == "In Progress") ? oi.Quantity - oi.Readyitemquantity : oi.Readyitemquantity,
+                    ItemInstructions = oi.ItemInstructions,
+                    Status = status,
+                    Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
+                    {
+                        ModifierId = (int)om.ModifierId,
+                        ModifierName = _context.MenuModifiers.Where(mod => mod.ModifierId == om.ModifierId).Select(mod => mod.ModifierName).FirstOrDefault(),
+                        ModifierRate = om.Rate,
+                        Quantity = 1
+                    }).ToList()
+                }
+
+                }).ToList(),
+            CustomerTables = _context.CustomerTables.Where(r => r.CustomerId == o.CustomerId && r.Isactive == true).Select(ot => new CustomerTableVM
+            {
+                TableId = (int)ot.TableId,
+                TableName = ot.TableId.HasValue ? (from table in _context.Tables
+                                                   where table.TableId == ot.TableId
+                                                   select table.TableName).FirstOrDefault() : "No Table",
+                SectionName = ot.TableId.HasValue ? (from table in _context.Tables
+                                                     join section in _context.Sections on table.SectionId equals section.SectionId
+                                                     where table.TableId == ot.TableId
+                                                     select section.SectionName).FirstOrDefault() : "No Section"
             }).ToList(),
 
-        CustomerTables = _accountmanagerorderapprepository.GetTablesByCustomerId((int)o.CustomerId).Select(ct => new CustomerTableVM
-        {
-            TableId = (int)ct.TableId,
-            TableName = ct.TableId.HasValue ? _tableRepository.GetTableNameByTableId((int)ct.TableId) ?? "No Table" : "No Table",
-            SectionName = ct.TableId.HasValue ? _tableRepository.GetSectionNameByTableId((int)ct.TableId) : "No Section"
-        }).ToList()
+        }).Where(o => o.OrderItems.Count > 0).ToList();
 
-    }).Where(o => o.OrderItems.Count > 0).ToList();
-
-    return orderVms;
-}
-CREATE OR REPLACE FUNCTION get_orders_by_category(p_category_id INT)
-RETURNS TABLE (
-    order_id INT,
-    created_at TIMESTAMP,
-    order_instructions TEXT,
-    customer_id INT
-)
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        o.order_id,
-        o.created_at,
-        o.order_instructions,
-        o.customer_id
-    FROM orders o
-    WHERE o.order_status_id NOT IN (3, 4)
-      AND (
-          p_category_id = 0 OR EXISTS (
-              SELECT 1 FROM order_items oi
-              WHERE oi.order_id = o.order_id
-                AND oi.category_id = p_category_id
-          )
-      );
-END;
-$$ LANGUAGE plpgsql;
-public List<Order> GetOrderCategoryItem(int categoryId)
-{
-    return _context.Orders
-        .FromSqlRaw("SELECT * FROM get_orders_by_category({0})", categoryId)
-        .ToList();
-}
+        return orderVm;
+    }this is my repo and i want tomak ethata my repo will look clewan elegent bu shifting as much as in service a\only the _context call be here 
+ public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
+    {
+        var orderCategoryItems = _accountmanagerorderapprepository.GetOrderCategoryItem(categoryId, status);
+        return orderCategoryItems;
+    }
