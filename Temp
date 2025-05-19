@@ -1,8 +1,9 @@
-CREATE OR REPLACE PROCEDURE get_order_vm_data(p_category_id INT, p_status TEXT)
+CREATE OR REPLACE PROCEDURE get_order_vm_data(p_category_id INT, p_status TEXT) 
 LANGUAGE plpgsql
+	RETURNS text
 AS $$
 BEGIN
-    SELECT 
+    RETURN(SELECT 
         o.order_id,
         o.created_at,
         o.order_instructions,
@@ -33,17 +34,6 @@ BEGIN
           p_status IS NULL OR 
           (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0) OR
           (p_status != 'In Progress' AND oi.readyitemquantity > 0)
-      );
+      ););
 END;
 $$;
-
-public List<OrderVM> GetOrdersWithRelatedData(int categoryId, string status)
-{
-    return _context.Set<OrderVM>()
-        .FromSqlRaw("SELECT * FROM get_orders_with_related_data({0}, {1})", categoryId, status)
-        .ToList();
-}
-public List<OrderVM> GetOrderCategoryItem(int categoryId, string status)
-{
-    return _accountmanagerorderapprepository.GetOrdersWithRelatedData(categoryId, status);
-}
