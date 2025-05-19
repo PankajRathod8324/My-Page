@@ -1,67 +1,71 @@
-CREATE OR REPLACE PROCEDURE get_order_vm_data_temp(
-    p_category_id INT,
-    p_status TEXT
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    DROP TABLE IF EXISTS temp_order_vm_data;
+ public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
+    {
+        var ordersQuery = _context.Orders.AsQueryable();
 
-    CREATE TEMP TABLE temp_order_vm_data (
-        orderid INT,
-        createdat TIMESTAMP,
-        orderinstructions TEXT,
-        itemid INT,
-        itemname TEXT,
-        rate NUMERIC,
-        quantity INT,
-        readyitemquantity INT,
-        iteminstructions TEXT,
-        status TEXT,
-        modifierid INT,
-        modifiername TEXT,
-        modifierrate NUMERIC,
-        tableid INT,
-        tablename TEXT,
-        sectionname TEXT
-    ) ON COMMIT DROP;
+        if (categoryId != 0)
+        {
+            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.CategoryId == categoryId && oi.ItemId.HasValue
+                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId
+                                                                                                               && mi.CategoryId == categoryId)));
+        }
+        else
+        {
+            ordersQuery = ordersQuery.Where(o => _context.OrderItems.Any(oi => oi.OrderId == o.OrderId && o.OrderStatusId != 4 && o.OrderStatusId != 3 && oi.ItemId.HasValue
+                                                                               && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId)));
+        }
 
-    INSERT INTO temp_order_vm_data
-    SELECT
-        o.order_id,
-        o.created_at,
-        o.order_instructions,
-        oi.item_id,
-        mi.item_name,
-        oi.rate,
-        CASE
-            WHEN p_status = 'In Progress' THEN oi.quantity - oi.readyitemquantity
-            ELSE oi.readyitemquantity
-        END AS quantity,
-        oi.readyitemquantity,
-        oi.item_instructions,
-        p_status,
-        om.modifier_id,
-        mm.modifier_name,
-        om.rate,
-        ct.table_id,
-        t.table_name,
-        s.section_name
-    FROM orders o
-    INNER JOIN order_items oi ON o.order_id = oi.order_id
-    LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
-    LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
-    LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
-    LEFT JOIN customers c ON o.customer_id = c.customer_id
-    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = true
-    LEFT JOIN tables t ON ct.table_id = t.table_id
-    LEFT JOIN sections s ON t.section_id = s.section_id
-    WHERE o.order_status_id NOT IN (3, 4)
-        AND (p_category_id = 0 OR oi.category_id = p_category_id)
-        AND (
-            p_status IS NULL
-            OR (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0)
-            OR (p_status != 'In Progress' AND oi.readyitemquantity > 0)
-        );
-END;
-$$;
+
+        var orders = categoryId != 0 ? ordersQuery
+            .Include(o => o.OrderItems
+                .Where(oi => oi.CategoryId == categoryId))
+            .ThenInclude(oi => oi.OrderModifiers)
+            .ToList() : ordersQuery
+            .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.OrderModifiers)
+            .ToList();
+
+
+        var orderVm = orders.Select(o => new OrderVM
+        {
+            OrderId = o.OrderId,
+            OccupiedTime = DateTime.UtcNow - o.CreatedAt,
+            OrderInstruction = o.OrderInstructions,
+            OrderItems = o.OrderItems
+                .Where(oi => oi.ItemId.HasValue && ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
+                                  (status != "In Progress" && oi.Readyitemquantity > 0)) && _context.MenuItems.Any(mi => mi.ItemId == oi.ItemId))
+                .SelectMany(oi => new List<OrderItemVM>
+                {
+                new OrderItemVM
+                {
+                    ItemId = (int)oi.ItemId,
+                    ItemName = _context.MenuItems.Where(mi => mi.ItemId == oi.ItemId).Select(mi => mi.ItemName).FirstOrDefault(),
+                    Price = oi.Rate,
+                    Quantity = (status == "In Progress") ? oi.Quantity - oi.Readyitemquantity : oi.Readyitemquantity,
+                    ItemInstructions = oi.ItemInstructions,
+                    Status = status,
+                    Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
+                    {
+                        ModifierId = (int)om.ModifierId,
+                        ModifierName = _context.MenuModifiers.Where(mod => mod.ModifierId == om.ModifierId).Select(mod => mod.ModifierName).FirstOrDefault(),
+                        ModifierRate = om.Rate,
+                        Quantity = 1
+                    }).ToList()
+                }
+
+                }).ToList(),
+            CustomerTables = _context.CustomerTables.Where(r => r.CustomerId == o.CustomerId && r.Isactive == true).Select(ot => new CustomerTableVM
+            {
+                TableId = (int)ot.TableId,
+                TableName = ot.TableId.HasValue ? (from table in _context.Tables
+                                                   where table.TableId == ot.TableId
+                                                   select table.TableName).FirstOrDefault() : "No Table",
+                SectionName = ot.TableId.HasValue ? (from table in _context.Tables
+                                                     join section in _context.Sections on table.SectionId equals section.SectionId
+                                                     where table.TableId == ot.TableId
+                                                     select section.SectionName).FirstOrDefault() : "No Section"
+            }).ToList(),
+
+        }).Where(o => o.OrderItems.Count > 0).ToList();
+
+        return orderVm;
+    } pls make sure that these logic and my procesure logic should be same that is not giving me same answer pls amke it same logic here also
