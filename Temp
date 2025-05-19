@@ -2,49 +2,43 @@ CREATE PROCEDURE GetOrdersWithRelatedData
 AS
 BEGIN
     SELECT 
-        o.OrderId,
-        o.CreatedAt,
-        o.OrderInstructions,
-        o.OrderStatusId,
+        o.order_id,
+        o.created_at,
+        o.order_instructions,
+        o.order_status_id,
 
-        oi.OrderItemId,
-        oi.ItemId,
-        oi.Quantity,
-        oi.ReadyItemQuantity,
-        oi.Rate,
-        oi.ItemInstructions,
-        oi.CategoryId,
+        oi.order_item_id,
+        oi.item_id,
+        oi.quantity,
+        oi.readyitemquantity,
+        oi.rate,
+        oi.item_instructions,
+        oi.category_id,
 
-        mi.ItemName,
-        mi.CategoryId AS MenuCategoryId,
+        mi.item_name,
+        mi.category_id AS MenuCategoryId,
 
-        om.OrderModifierId,
-        om.ModifierId,
-        om.Rate AS ModifierRate,
+        om.order_modifier_id,
+        om.modifier_id,
+        om.rate AS ModifierRate,
 
-        mm.ModifierName,
+        mm.modifier_name,
 
-        c.CustomerId,
+        c.customer_id,
 
-        ct.CustomerTableId,
-        ct.TableId,
-        t.TableName,
-        s.SectionName
+        ct.customer_table_id,
+        ct.table_id,
+        t.table_name,
+        s.section_name
 
     FROM Orders o
-    INNER JOIN OrderItems oi ON o.OrderId = oi.OrderId
-    LEFT JOIN MenuItems mi ON oi.ItemId = mi.ItemId
-    LEFT JOIN OrderModifiers om ON oi.OrderItemId = om.OrderItemId
-    LEFT JOIN MenuModifiers mm ON om.ModifierId = mm.ModifierId
-    LEFT JOIN Customers c ON o.CustomerId = c.CustomerId
-    LEFT JOIN CustomerTables ct ON c.CustomerId = ct.CustomerId AND ct.IsActive = 1
-    LEFT JOIN Tables t ON ct.TableId = t.TableId
-    LEFT JOIN Sections s ON t.SectionId = s.SectionId
-    WHERE o.OrderStatusId NOT IN (3, 4)
+    INNER JOIN order_items oi ON o.order_id= oi.order_id
+    LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
+    LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
+    LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
+    LEFT JOIN customers c ON o.customer_id = c.customer_id
+    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = 1
+    LEFT JOIN tables t ON ct.TableId = t.TableId
+    LEFT JOIN sections s ON t.section_id = s.section_id
+    WHERE o.order_status_id NOT IN (3, 4);
 END
-public List<OrderWithDetailsDTO> GetOrdersWithRelatedData()
-{
-    return _context.OrderWithDetailsDTOs
-        .FromSqlRaw("EXEC GetOrdersWithRelatedData")
-        .ToList();
-}
