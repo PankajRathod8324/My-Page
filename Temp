@@ -123,4 +123,46 @@ public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
 
     return result;
 }
+public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
+{
+    var orders = _accountmanagerorderapprepository.GetOrderCategoryItem(categoryId, status);
+
+    var orderVms = orders.Select(o => new OrderVM
+    {
+        OrderId = o.OrderId,
+        OccupiedTime = DateTime.UtcNow - o.CreatedAt,
+        OrderInstruction = o.OrderInstructions,
+        OrderItems = o.OrderItems
+            .Where(oi => oi.ItemId.HasValue &&
+                        ((status == "In Progress" && (oi.Quantity - oi.Readyitemquantity) > 0) ||
+                         (status != "In Progress" && oi.Readyitemquantity > 0)))
+            .Select(oi => new OrderItemVM
+            {
+                ItemId = oi.ItemId.Value,
+                ItemName = oi.ItemName, // This should be populated from SP
+                Price = oi.Rate,
+                Quantity = (status == "In Progress") ? (oi.Quantity - oi.Readyitemquantity) : oi.Readyitemquantity,
+                ItemInstructions = oi.ItemInstructions,
+                Status = status,
+                Modifiers = oi.OrderModifiers.Select(om => new OrderModifierVM
+                {
+                    ModifierId = om.ModifierId.Value,
+                    ModifierName = om.ModifierName, // From SP
+                    ModifierRate = om.Rate,
+                    Quantity = 1
+                }).ToList()
+            }).ToList(),
+
+        CustomerTables = o.CustomerTables.Select(ct => new CustomerTableVM
+        {
+            TableId = ct.TableId ?? 0,
+            TableName = ct.TableName ?? "No Table",
+            SectionName = ct.SectionName ?? "No Section"
+        }).ToList()
+    })
+    .Where(o => o.OrderItems.Count > 0)
+    .ToList();
+
+    return orderVms;
+}
 
