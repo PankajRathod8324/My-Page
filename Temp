@@ -1,62 +1,97 @@
-CREATE OR REPLACE FUNCTION get_order_list(p_category_id INT)
-RETURNS TABLE (
-    OrderId INT,
-    OccupiedTime TIMESTAMP,
-    OrderInstruction TEXT,
-    ItemId INT,
-    ItemName TEXT,
-    Rate NUMERIC,
-    Quantity NUMERIC,
-    ItemInstructions TEXT,
-    ItemStatus TEXT,
-    ModifierId INT,
-    ModifierName TEXT,
-    ModifierRate NUMERIC,
-    ModifierQuantity INT,
-    TableId INT,
-    TableName TEXT,
-    SectionName TEXT
-) 
-LANGUAGE plpgsql
-AS $$
+ALTER PROCEDURE [dbo].[YourProcedureName]
+    @categoryId INT,
+    @status NVARCHAR(50) = NULL
+AS
 BEGIN
-    -- Return all orders (status not 3 or 4) with their items, modifiers, and tables
-    RETURN QUERY
-    SELECT
-        om.OrderId,
-        om.OccupiedTime,
-        om.OrderInstruction,
-        od.ItemId,
-        od.ItemName,
-        od.Rate,
-        -- Compute Quantity based on status logic
-        CASE 
-            WHEN od.Status = 'In Progress' THEN (od.Quantity - od.ReadyItemQuantity)
-            ELSE od.ReadyItemQuantity
-        END AS Quantity,
-        od.ItemInstructions,
-        od.Status,
-        m.ModifierId,
-        m.ModifierName,
-        m.ModifierRate,
-        1 AS ModifierQuantity,
+    SET NOCOUNT ON;
+    
+    -- Create temp table for final results
+    CREATE TABLE #Results (
+        OrderId INT,
+        OccupiedTime BIGINT,
+        OrderInstruction NVARCHAR(MAX),
+        ItemId INT,
+        ItemName NVARCHAR(255),
+        Price DECIMAL(18,2),
+        Quantity INT,
+        ItemInstructions NVARCHAR(MAX),
+        Status NVARCHAR(50),
+        ModifierId INT NULL,
+        ModifierName NVARCHAR(255) NULL,
+        ModifierRate DECIMAL(18,2) NULL,
+        ModifierQuantity INT NULL,
+        TableId INT NULL,
+        TableName NVARCHAR(255) NULL,
+        SectionName NVARCHAR(255) NULL
+    );
+    
+    -- Insert order items with basic info
+    INSERT INTO #Results (OrderId, OccupiedTime, OrderInstruction, ItemId, ItemName, Price, Quantity, ItemInstructions, Status, TableId, TableName, SectionName)
+    SELECT 
+        o.OrderId,
+        DATEDIFF_BIG(MILLISECOND, o.CreatedAt, GETUTCDATE()) * 10000,
+        o.OrderInstructions,
+        oi.ItemId,
+        mi.ItemName,
+        oi.Rate,
+        CASE WHEN @status = 'In Progress' THEN (oi.Quantity - oi.ReadyItemQuantity) ELSE oi.ReadyItemQuantity END,
+        oi.ItemInstructions,
+        @status,
         ct.TableId,
-        ct.TableName,
-        s.SectionName
-    FROM OrderMaster om
-    JOIN OrderDetail od ON om.OrderId = od.OrderId
-    LEFT JOIN OrderDetailModifier odm ON od.OrderDetailId = odm.OrderDetailId
-    LEFT JOIN Modifier m ON odm.ModifierId = m.ModifierId
-    LEFT JOIN CustomerOrderTables cot ON om.OrderId = cot.OrderId
-    LEFT JOIN CustomerTable ct ON cot.TableId = ct.TableId
-    LEFT JOIN Section s ON ct.SectionId = s.SectionId
-    WHERE 
-        om.OrderStatusId NOT IN (3,4)                              -- exclude unwanted order statuses
-        AND od.ItemId IS NOT NULL                                  -- skip null items
-        AND (p_category_id = 0 OR od.CategoryId = p_category_id)   -- optional category filter
-        AND (
-            (od.Status = 'In Progress' AND (od.Quantity - od.ReadyItemQuantity) > 0)
-            OR (od.Status <> 'In Progress' AND od.ReadyItemQuantity > 0)
-        );
-END;
-$$;
+        ISNULL(t.TableName, 'No Table'),
+        ISNULL(s.SectionName, 'No Section')
+    FROM Orders o
+    JOIN OrderItems oi ON o.OrderId = oi.OrderId
+    JOIN MenuItems mi ON oi.ItemId = mi.ItemId
+    LEFT JOIN CustomerTables ct ON o.CustomerId = ct.CustomerId AND ct.IsActive = 1
+    LEFT JOIN Tables t ON ct.TableId = t.TableId
+    LEFT JOIN Sections s ON t.SectionId = s.SectionId
+    WHERE o.OrderStatusId NOT IN (3, 4)
+    AND oi.ItemId IS NOT NULL
+    AND ((@categoryId = 0) OR (mi.CategoryId = @categoryId AND oi.CategoryId = @categoryId))
+    AND (
+        (@status = 'In Progress' AND (oi.Quantity - oi.ReadyItemQuantity) > 0) OR
+        (@status <> 'In Progress' AND oi.ReadyItemQuantity > 0)
+    );
+    
+    -- Add modifiers
+    INSERT INTO #Results (OrderId, OccupiedTime, OrderInstruction, ItemId, ItemName, Price, Quantity, ItemInstructions, Status, ModifierId, ModifierName, ModifierRate, ModifierQuantity, TableId, TableName, SectionName)
+    SELECT 
+        r.OrderId,
+        r.OccupiedTime,
+        r.OrderInstruction,
+        r.ItemId,
+        r.ItemName,
+        r.Price,
+        r.Quantity,
+        r.ItemInstructions,
+        r.Status,
+        om.ModifierId,
+        mm.ModifierName,
+        om.Rate,
+        1,
+        r.TableId,
+        r.TableName,
+        r.SectionName
+    FROM #Results r
+    JOIN OrderItems oi ON r.OrderId = oi.OrderId AND r.ItemId = oi.ItemId
+    JOIN OrderModifiers om ON oi.OrderItemId = om.OrderItemId
+    JOIN MenuModifiers mm ON om.ModifierId = mm.ModifierId
+    WHERE r.ModifierId IS NULL;
+    
+    -- Remove base rows that have modifiers
+    DELETE FROM #Results
+    WHERE ModifierId IS NULL
+    AND EXISTS (
+        SELECT 1 FROM #Results r2 
+        WHERE r2.OrderId = #Results.OrderId 
+        AND r2.ItemId = #Results.ItemId 
+        AND r2.ModifierId IS NOT NULL
+    );
+    
+    -- Return final results
+    SELECT * FROM #Results
+    ORDER BY OrderId, ItemId, ISNULL(ModifierId, 0);
+    
+    DROP TABLE #Results;
+END
