@@ -1,43 +1,74 @@
-CREATE OR REPLACE PROCEDURE get_order_vm_data(
-    IN p_category_id INT,
-    IN p_status TEXT,
-    INOUT ref REFCURSOR
+CREATE OR REPLACE PROCEDURE get_order_vm_data_json(
+    p_category_id INT,
+    p_status TEXT,
+    OUT json_result JSON
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    OPEN ref FOR
-    SELECT 
-        o.order_id,
-        o.created_at,
-        o.order_instructions,
-        oi.item_id,
-        mi.item_name,
-        oi.rate,
-        oi.quantity,
-        oi.readyitemquantity,
-        oi.item_instructions,
-        om.modifier_id,
-        mm.modifier_name,
-        om.rate AS modifier_rate,
-        ct.table_id,
-        t.table_name,
-        s.section_name
-    FROM orders o
-    INNER JOIN order_items oi ON o.order_id = oi.order_id
-    LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
-    LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
-    LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
-    LEFT JOIN customers c ON o.customer_id = c.customer_id
-    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = true
-    LEFT JOIN tables t ON ct.table_id = t.table_id
-    LEFT JOIN sections s ON t.section_id = s.section_id
-    WHERE o.order_status_id NOT IN (3, 4)
-      AND (p_category_id = 0 OR oi.category_id = p_category_id)
-      AND (
-          p_status IS NULL OR  
-          (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0) OR
-          (p_status != 'In Progress' AND oi.readyitemquantity > 0)
-      );
+    SELECT json_agg(row_to_json(t)) INTO json_result
+    FROM (
+        SELECT
+            o.order_id,
+            o.created_at,
+            o.order_instructions,
+            oi.item_id,
+            mi.item_name,
+            oi.rate,
+            oi.quantity,
+            oi.readyitemquantity,
+            oi.item_instructions,
+            om.modifier_id,
+            mm.modifier_name,
+            om.rate AS modifier_rate,
+            ct.table_id,
+            t.table_name,
+            s.section_name
+        FROM orders o
+        INNER JOIN order_items oi ON o.order_id = oi.order_id
+        LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
+        LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
+        LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
+        LEFT JOIN customers c ON o.customer_id = c.customer_id
+        LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = true
+        LEFT JOIN tables t ON ct.table_id = t.table_id
+        LEFT JOIN sections s ON t.section_id = s.section_id
+        WHERE o.order_status_id NOT IN (3, 4)
+          AND (p_category_id = 0 OR oi.category_id = p_category_id)
+          AND (
+              p_status IS NULL OR
+              (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0) OR
+              (p_status != 'In Progress' AND oi.readyitemquantity > 0)
+          )
+    ) t;
 END;
 $$;
+public string GetOrdersJson(int categoryId, string? status)
+{
+    using var connection = new NpgsqlConnection(_connectionString);
+    connection.Open();
+
+    using var command = new NpgsqlCommand("CALL get_order_vm_data_json(@p_category_id, @p_status, @json_result)", connection);
+
+    command.Parameters.AddWithValue("p_category_id", categoryId);
+    command.Parameters.AddWithValue("p_status", (object?)status ?? DBNull.Value);
+
+    var jsonParam = new NpgsqlParameter("json_result", NpgsqlTypes.NpgsqlDbType.Json)
+    {
+        Direction = ParameterDirection.Output
+    };
+    command.Parameters.Add(jsonParam);
+
+    command.ExecuteNonQuery();
+
+    return (string)jsonParam.Value;
+}
+public List<OrderVM> GetOrdersWithRelatedData(int categoryId, string? status)
+{
+    string jsonData = _repository.GetOrdersJson(categoryId, status);
+
+    if (string.IsNullOrEmpty(jsonData))
+        return new List<OrderVM>();
+
+    return JsonSerializer.Deserialize<List<OrderVM>>(jsonData) ?? new List<OrderVM>();
+}
