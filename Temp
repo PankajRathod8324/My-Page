@@ -1,19 +1,18 @@
-public string GetOrdersJsonFromProcedure(int categoryId, string? status)
+public List<OrderVM> GetOrderViewModelData(int categoryId, string status)
 {
     using var connection = new NpgsqlConnection(_connectionString);
     connection.Open();
 
-    using var command = new NpgsqlCommand("CALL get_order_vm_data_json(@p_category_id, @p_status, @json_result)", connection);
-    command.Parameters.AddWithValue("p_category_id", categoryId);
-    command.Parameters.AddWithValue("p_status", (object?)status ?? DBNull.Value);
-
-    var jsonParam = new NpgsqlParameter("json_result", DbType.String)
+    // Execute stored procedure
+    using (var command = new NpgsqlCommand("CALL get_order_vm_data_temp(@p_category_id, @p_status);", connection))
     {
-        Direction = ParameterDirection.Output
-    };
-    command.Parameters.Add(jsonParam);
+        command.Parameters.AddWithValue("p_category_id", categoryId);
+        command.Parameters.AddWithValue("p_status", (object?)status ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
 
-    command.ExecuteNonQuery();
+    // Fetch results directly from temp table
+    var result = connection.Query<OrderVM>("SELECT * FROM temp_order_vm_data").ToList();
 
-    return jsonParam.Value?.ToString() ?? "[]";
+    return result;
 }
