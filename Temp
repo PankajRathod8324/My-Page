@@ -166,3 +166,17 @@ public List<OrderVM> GetOrderCategoryItem(int categoryId, string? status)
     return orderVms;
 }
 
+// Repository method (no ViewModel here)
+public List<Order> GetOrderCategoryItem(int categoryId, string? status)
+{
+    var categoryParam = new Npgsql.NpgsqlParameter("in_category_id", categoryId);
+    var statusParam = new Npgsql.NpgsqlParameter("in_status", status ?? (object)DBNull.Value);
+
+    var result = _context.Orders
+        .FromSqlRaw("SELECT * FROM get_order_category_items(@in_category_id, @in_status)", categoryParam, statusParam)
+        .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.OrderModifiers)
+        .ToList();
+
+    return result;
+}
