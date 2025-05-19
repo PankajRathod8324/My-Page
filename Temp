@@ -42,3 +42,9 @@ BEGIN
     LEFT JOIN Sections s ON t.SectionId = s.SectionId
     WHERE o.OrderStatusId NOT IN (3, 4)
 END
+public List<OrderWithDetailsDTO> GetOrdersWithRelatedData()
+{
+    return _context.OrderWithDetailsDTOs
+        .FromSqlRaw("EXEC GetOrdersWithRelatedData")
+        .ToList();
+}
