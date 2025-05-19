@@ -1,7 +1,38 @@
-CREATE PROCEDURE GetOrdersWithRelatedData
-AS
+CREATE OR REPLACE FUNCTION GetOrdersWithRelatedData()
+RETURNS TABLE (
+    order_id INT,
+    created_at TIMESTAMP,
+    order_instructions TEXT,
+    order_status_id INT,
+
+    order_item_id INT,
+    item_id INT,
+    quantity INT,
+    readyitemquantity INT,
+    rate NUMERIC,
+    item_instructions TEXT,
+    category_id INT,
+
+    item_name TEXT,
+    menu_category_id INT,
+
+    order_modifier_id INT,
+    modifier_id INT,
+    modifier_rate NUMERIC,
+
+    modifier_name TEXT,
+
+    customer_id INT,
+
+    customer_table_id INT,
+    table_id INT,
+    table_name TEXT,
+    section_name TEXT
+) AS
+$$
 BEGIN
-    SELECT 
+    RETURN QUERY
+    SELECT
         o.order_id,
         o.created_at,
         o.order_instructions,
@@ -16,11 +47,11 @@ BEGIN
         oi.category_id,
 
         mi.item_name,
-        mi.category_id AS MenuCategoryId,
+        mi.category_id AS menu_category_id,
 
         om.order_modifier_id,
         om.modifier_id,
-        om.rate AS ModifierRate,
+        om.rate AS modifier_rate,
 
         mm.modifier_name,
 
@@ -30,15 +61,21 @@ BEGIN
         ct.table_id,
         t.table_name,
         s.section_name
-
-    FROM Orders o
-    INNER JOIN order_items oi ON o.order_id= oi.order_id
+    FROM orders o
+    INNER JOIN order_items oi ON o.order_id = oi.order_id
     LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
     LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
     LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
     LEFT JOIN customers c ON o.customer_id = c.customer_id
-    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = 1
-    LEFT JOIN tables t ON ct.TableId = t.TableId
+    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = true
+    LEFT JOIN tables t ON ct.table_id = t.table_id
     LEFT JOIN sections s ON t.section_id = s.section_id
     WHERE o.order_status_id NOT IN (3, 4);
-END
+END;
+$$ LANGUAGE plpgsql;
+public List<OrderRelatedDataVM> GetOrdersWithRelatedData()
+{
+    return _context.OrderRelatedDataVM
+        .FromSqlRaw("SELECT * FROM GetOrdersWithRelatedData()")
+        .ToList();
+}
