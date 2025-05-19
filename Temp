@@ -1,18 +1,62 @@
-public List<OrderVM> GetOrderViewModelData(int categoryId, string status)
-{
-    using var connection = new NpgsqlConnection(_connectionString);
-    connection.Open();
+CREATE OR REPLACE PROCEDURE get_order_vm_data_temp(
+    p_category_id INT,
+    p_status TEXT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    DROP TABLE IF EXISTS temp_order_vm_data;
 
-    // Execute stored procedure
-    using (var command = new NpgsqlCommand("CALL get_order_vm_data_temp(@p_category_id, @p_status);", connection))
-    {
-        command.Parameters.AddWithValue("p_category_id", categoryId);
-        command.Parameters.AddWithValue("p_status", (object?)status ?? DBNull.Value);
-        command.ExecuteNonQuery();
-    }
+    CREATE TEMP TABLE temp_order_vm_data (
+        orderid INT,
+        createdat TIMESTAMP,
+        orderinstructions TEXT,
+        itemid INT,
+        itemname TEXT,
+        rate NUMERIC,
+        quantity INT,
+        readyitemquantity INT,
+        iteminstructions TEXT,
+        modifierid INT,
+        modifiername TEXT,
+        modifierrate NUMERIC,
+        tableid INT,
+        tablename TEXT,
+        sectionname TEXT
+    ) ON COMMIT DROP;
 
-    // Fetch results directly from temp table
-    var result = connection.Query<OrderVM>("SELECT * FROM temp_order_vm_data").ToList();
-
-    return result;
-}
+    INSERT INTO temp_order_vm_data
+    SELECT
+        o.order_id,
+        o.created_at,
+        o.order_instructions,
+        oi.item_id,
+        mi.item_name,
+        oi.rate,
+        oi.quantity,
+        oi.readyitemquantity,
+        oi.item_instructions,
+        om.modifier_id,
+        mm.modifier_name,
+        om.rate,
+        ct.table_id,
+        t.table_name,
+        s.section_name
+    FROM orders o
+    INNER JOIN order_items oi ON o.order_id = oi.order_id
+    LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
+    LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
+    LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
+    LEFT JOIN customers c ON o.customer_id = c.customer_id
+    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = true
+    LEFT JOIN tables t ON ct.table_id = t.table_id
+    LEFT JOIN sections s ON t.section_id = s.section_id
+    WHERE o.order_status_id NOT IN (3, 4)
+        AND (p_category_id = 0 OR oi.category_id = p_category_id)
+        AND (
+            p_status IS NULL
+            OR (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0)
+            OR (p_status != 'In Progress' AND oi.readyitemquantity > 0)
+        );
+END;
+$$;
