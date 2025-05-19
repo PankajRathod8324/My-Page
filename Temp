@@ -1,7 +1,19 @@
-DO $$
-DECLARE
-    result_json JSON;
-BEGIN
-    CALL get_order_vm_data_json(0, NULL, result_json);
-    RAISE NOTICE 'Result: %', result_json;
-END $$;
+public string GetOrdersJsonFromProcedure(int categoryId, string? status)
+{
+    using var connection = new NpgsqlConnection(_connectionString);
+    connection.Open();
+
+    using var command = new NpgsqlCommand("CALL get_order_vm_data_json(@p_category_id, @p_status, @json_result)", connection);
+    command.Parameters.AddWithValue("p_category_id", categoryId);
+    command.Parameters.AddWithValue("p_status", (object?)status ?? DBNull.Value);
+
+    var jsonParam = new NpgsqlParameter("json_result", DbType.String)
+    {
+        Direction = ParameterDirection.Output
+    };
+    command.Parameters.Add(jsonParam);
+
+    command.ExecuteNonQuery();
+
+    return jsonParam.Value?.ToString() ?? "[]";
+}
