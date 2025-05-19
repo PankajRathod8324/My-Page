@@ -1,9 +1,13 @@
-CREATE OR REPLACE PROCEDURE get_order_vm_data(p_category_id INT, p_status TEXT) 
+CREATE OR REPLACE PROCEDURE get_order_vm_data(
+    IN p_category_id INT,
+    IN p_status TEXT,
+    INOUT ref REFCURSOR
+)
 LANGUAGE plpgsql
-	RETURNS text
 AS $$
 BEGIN
-    RETURN(SELECT 
+    OPEN ref FOR
+    SELECT 
         o.order_id,
         o.created_at,
         o.order_instructions,
@@ -31,9 +35,9 @@ BEGIN
     WHERE o.order_status_id NOT IN (3, 4)
       AND (p_category_id = 0 OR oi.category_id = p_category_id)
       AND (
-          p_status IS NULL OR 
+          p_status IS NULL OR  
           (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0) OR
           (p_status != 'In Progress' AND oi.readyitemquantity > 0)
-      ););
+      );
 END;
 $$;
