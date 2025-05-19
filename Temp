@@ -1,97 +1,134 @@
-ALTER PROCEDURE [dbo].[YourProcedureName]
-    @categoryId INT,
-    @status NVARCHAR(50) = NULL
-AS
+CREATE OR REPLACE PROCEDURE get_kot(
+    p_category_id INT,
+    p_status TEXT
+)
+LANGUAGE plpgsql
+AS $$
 BEGIN
-    SET NOCOUNT ON;
-    
-    -- Create temp table for final results
-    CREATE TABLE #Results (
-        OrderId INT,
-        OccupiedTime BIGINT,
-        OrderInstruction NVARCHAR(MAX),
-        ItemId INT,
-        ItemName NVARCHAR(255),
-        Price DECIMAL(18,2),
-        Quantity INT,
-        ItemInstructions NVARCHAR(MAX),
-        Status NVARCHAR(50),
-        ModifierId INT NULL,
-        ModifierName NVARCHAR(255) NULL,
-        ModifierRate DECIMAL(18,2) NULL,
-        ModifierQuantity INT NULL,
-        TableId INT NULL,
-        TableName NVARCHAR(255) NULL,
-        SectionName NVARCHAR(255) NULL
+    DROP TABLE IF EXISTS temp_order_vm_data;
+
+    CREATE TEMP TABLE temp_order_vm_data (
+        orderid INT,
+        occupiedtime TIMESTAMP,
+        orderinstructions TEXT,
+        itemid INT,
+        itemname TEXT,
+        rate NUMERIC,
+        quantity INT,
+        iteminstructions TEXT,
+        status TEXT,
+        modifierid INT,
+        modifiername TEXT,
+        modifierrate NUMERIC,
+        tableid INT,
+        tablename TEXT,
+        sectionname TEXT
     );
-    
-    -- Insert order items with basic info
-    INSERT INTO #Results (OrderId, OccupiedTime, OrderInstruction, ItemId, ItemName, Price, Quantity, ItemInstructions, Status, TableId, TableName, SectionName)
-    SELECT 
-        o.OrderId,
-        DATEDIFF_BIG(MILLISECOND, o.CreatedAt, GETUTCDATE()) * 10000,
-        o.OrderInstructions,
-        oi.ItemId,
-        mi.ItemName,
-        oi.Rate,
-        CASE WHEN @status = 'In Progress' THEN (oi.Quantity - oi.ReadyItemQuantity) ELSE oi.ReadyItemQuantity END,
-        oi.ItemInstructions,
-        @status,
-        ct.TableId,
-        ISNULL(t.TableName, 'No Table'),
-        ISNULL(s.SectionName, 'No Section')
-    FROM Orders o
-    JOIN OrderItems oi ON o.OrderId = oi.OrderId
-    JOIN MenuItems mi ON oi.ItemId = mi.ItemId
-    LEFT JOIN CustomerTables ct ON o.CustomerId = ct.CustomerId AND ct.IsActive = 1
-    LEFT JOIN Tables t ON ct.TableId = t.TableId
-    LEFT JOIN Sections s ON t.SectionId = s.SectionId
-    WHERE o.OrderStatusId NOT IN (3, 4)
-    AND oi.ItemId IS NOT NULL
-    AND ((@categoryId = 0) OR (mi.CategoryId = @categoryId AND oi.CategoryId = @categoryId))
-    AND (
-        (@status = 'In Progress' AND (oi.Quantity - oi.ReadyItemQuantity) > 0) OR
-        (@status <> 'In Progress' AND oi.ReadyItemQuantity > 0)
-    );
-    
-    -- Add modifiers
-    INSERT INTO #Results (OrderId, OccupiedTime, OrderInstruction, ItemId, ItemName, Price, Quantity, ItemInstructions, Status, ModifierId, ModifierName, ModifierRate, ModifierQuantity, TableId, TableName, SectionName)
-    SELECT 
-        r.OrderId,
-        r.OccupiedTime,
-        r.OrderInstruction,
-        r.ItemId,
-        r.ItemName,
-        r.Price,
-        r.Quantity,
-        r.ItemInstructions,
-        r.Status,
-        om.ModifierId,
-        mm.ModifierName,
-        om.Rate,
-        1,
-        r.TableId,
-        r.TableName,
-        r.SectionName
-    FROM #Results r
-    JOIN OrderItems oi ON r.OrderId = oi.OrderId AND r.ItemId = oi.ItemId
-    JOIN OrderModifiers om ON oi.OrderItemId = om.OrderItemId
-    JOIN MenuModifiers mm ON om.ModifierId = mm.ModifierId
-    WHERE r.ModifierId IS NULL;
-    
-    -- Remove base rows that have modifiers
-    DELETE FROM #Results
-    WHERE ModifierId IS NULL
+
+    INSERT INTO temp_order_vm_data(orderid ,
+        occupiedtime,
+        orderinstructions ,
+        itemid ,
+        itemname ,
+        rate ,
+        quantity ,
+        iteminstructions ,
+        status ,
+        tableid ,
+        tablename ,
+        sectionname )
+    SELECT
+        o.order_id,
+        o.created_at,
+        o.order_instructions,
+        oi.item_id,
+        mi.item_name,
+        oi.rate,
+        CASE 
+            WHEN p_status = 'In Progress' THEN oi.quantity - oi.readyitemquantity
+            ELSE oi.readyitemquantity
+        END AS quantity,
+        oi.item_instructions,
+        p_status,
+        ct.table_id,
+        t.table_name,
+        s.section_name
+    FROM orders o
+    JOIN order_items oi ON o.order_id = oi.order_id
+    JOIN menu_items mi ON oi.item_id = mi.item_id
+    LEFT JOIN customers c ON o.customer_id = c.customer_id
+    LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = TRUE
+    LEFT JOIN tables t ON ct.table_id = t.table_id
+    LEFT JOIN sections s ON t.section_id = s.section_id
+    WHERE o.order_status_id NOT IN (3, 4)
+      AND oi.item_id IS NOT NULL
+      AND (
+            p_category_id = 0 OR (
+                oi.category_id = p_category_id AND 
+                mi.category_id = p_category_id
+            )
+          )
+      AND (
+            (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0)
+            OR (p_status != 'In Progress' AND oi.readyitemquantity > 0)
+          );
+
+	 INSERT INTO temp_order_vm_data(orderid ,
+        occupiedtime,
+        orderinstructions ,
+        itemid ,
+        itemname ,
+        rate ,
+        quantity ,
+        iteminstructions ,
+        status ,
+		   modifierid ,
+        modifiername ,
+        modifierrate ,
+        tableid ,
+        tablename ,
+        sectionname )
+    SELECT
+        o.order_id,
+        o.created_at,
+        o.order_instructions,
+        oi.item_id,
+		
+        mi.item_name,
+		  oi.rate,
+		
+        
+        CASE 
+            WHEN p_status = 'In Progress' THEN oi.quantity - oi.readyitemquantity
+            ELSE oi.readyitemquantity
+        END AS quantity,
+		
+        oi.item_instructions,
+        p_status,
+		   om.modifier_id,
+		 mm.modifier_name,
+		 mm.modifier_rate,
+        ct.table_id,
+        t.table_name,
+        s.section_name
+    FROM temp_order_vm_data  o
+	JOIN order_items oi ON o.order_id = oi.order_id
+    JOIN order_modifiers om ON o.order_id = om.order_id
+    JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
+    WHERE o.modifier_id IS NULL;
+
+	  DELETE FROM temp_order_vm_data
+    WHERE modifier_id IS NULL
     AND EXISTS (
-        SELECT 1 FROM #Results r2 
-        WHERE r2.OrderId = #Results.OrderId 
-        AND r2.ItemId = #Results.ItemId 
-        AND r2.ModifierId IS NOT NULL
+        SELECT 1 FROM temp_order_vm_data r2 
+        WHERE r2.orderid =  temp_order_vm_data.orderid 
+        AND r2.item_id =  temp_order_vm_data.item_id 
+        AND r2.modifierid IS NOT NULL
     );
     
     -- Return final results
-    SELECT * FROM #Results
-    ORDER BY OrderId, ItemId, ISNULL(ModifierId, 0);
+    SELECT * FROM temp_order_vm_data
+    ORDER BY orderid, itemid, ISNULL(modifierid, 0);
     
-    DROP TABLE #Results;
-END
+END;
+$$;
