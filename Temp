@@ -1,116 +1,42 @@
-CREATE OR REPLACE FUNCTION public.get_kot(
-    p_category_id INT,
-    p_status TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    result JSONB;
-BEGIN
-    -- Your core logic goes here (see below)
-    
-    WITH order_data AS (
-        SELECT
-            o.order_id,
-            NOW() - o.created_at AS occupiedtime,
-            o.order_instructions,
-            oi.order_item_id,
-            oi.item_id,
-            mi.item_name,
-            oi.rate,
-            CASE
-                WHEN p_status = 'In Progress' THEN oi.quantity - oi.readyitemquantity
-                ELSE oi.readyitemquantity
-            END AS quantity,
-            oi.item_instructions,
-            p_status AS status,
-            om.modifier_id,
-            mm.modifier_name,
-            om.rate AS modifier_rate,
-            ct.table_id,
-            t.table_name,
-            s.section_name
-        FROM orders o
-        JOIN order_items oi ON o.order_id = oi.order_id
-        JOIN menu_items mi ON oi.item_id = mi.item_id
-        LEFT JOIN order_modifiers om ON oi.order_item_id = om.order_item_id
-        LEFT JOIN menu_modifiers mm ON om.modifier_id = mm.modifier_id
-        LEFT JOIN customers c ON o.customer_id = c.customer_id
-        LEFT JOIN customer_tables ct ON c.customer_id = ct.customer_id AND ct.isactive = TRUE
-        LEFT JOIN tables t ON ct.table_id = t.table_id
-        LEFT JOIN sections s ON t.section_id = s.section_id
-        WHERE o.order_status_id NOT IN (3, 4)
-            AND oi.item_id IS NOT NULL
-            AND (p_category_id = 0 OR (oi.category_id = p_category_id AND mi.category_id = p_category_id))
-            AND (
-                (p_status = 'In Progress' AND (oi.quantity - oi.readyitemquantity) > 0)
-                OR (p_status != 'In Progress' AND oi.readyitemquantity > 0)
-            )
-    ),
+ public bool PrepareItem(List<PrepareItemVM> prepareItems)
+    {
+        foreach (var item in prepareItems)
+        {
+            var orderItem = _context.OrderItems
+                .FirstOrDefault(x => x.OrderId == item.OrderId && x.ItemId == item.ItemId);
+            if (item.Status == "In Progress")
+            {
+                if (orderItem != null)
+                {
+                    orderItem.Readyitemquantity += item.Quantity;
+                }
+            }
+            else
+            {
+                if (orderItem != null)
+                {
+                    orderItem.Readyitemquantity -= item.Quantity;
+                }
+            }
+        }
 
-    -- Build modifiers JSON array for each order_item
-    item_with_modifiers AS (
-        SELECT
-            order_id,
-            order_item_id,
-            jsonb_build_object(
-                'ItemId', item_id,
-                'ItemName', item_name,
-                'Rate', rate,
-                'Quantity', quantity,
-                'ItemInstructions', item_instructions,
-                'Status', status,
-                'Modifiers', jsonb_agg(
-                    jsonb_build_object(
-                        'ModifierId', modifier_id,
-                        'ModifierName', modifier_name,
-                        'ModifierRate', modifier_rate,
-                        'Quantity', 1
-                    )
-                ) FILTER (WHERE modifier_id IS NOT NULL)
-            ) AS item_json
-        FROM order_data
-        GROUP BY order_id, order_item_id, item_id, item_name, rate, quantity, item_instructions, status
-    ),
+        _context.SaveChanges();
 
-    -- Group all items under each order
-    final_data AS (
-        SELECT
-            order_id,
-            jsonb_agg(item_json) AS order_items
-        FROM item_with_modifiers
-        GROUP BY order_id
-    )
+        foreach (var item in prepareItems)
+        {
+            var orderItem = _context.OrderItems
+                .FirstOrDefault(x => x.OrderId == item.OrderId && x.ItemId == item.ItemId);
 
-    -- Final JSON object per order
-    SELECT jsonb_agg(
-        jsonb_build_object(
-            'OrderId', od.order_id,
-            'OccupiedTime', (SELECT occupiedtime FROM order_data WHERE order_id = od.order_id LIMIT 1),
-            'OrderInstructions', (SELECT order_instructions FROM order_data WHERE order_id = od.order_id LIMIT 1),
-            'CustomerTables', (
-                SELECT jsonb_agg(jsonb_build_object(
-                    'TableId', table_id,
-                    'TableName', table_name,
-                    'SectionName', section_name
-                )) FROM (
-                    SELECT DISTINCT table_id, table_name, section_name
-                    FROM order_data
-                    WHERE order_id = od.order_id
-                ) tbl
-            ),
-            'OrderItems', od.order_items
-        )
-    ) INTO result
-    FROM final_data od;
 
-    RETURN result;
-END;
-$$;
-using var cmd = new NpgsqlCommand("SELECT public.get_kot(@p_category_id, @p_status);", conn);
-cmd.Parameters.AddWithValue("p_category_id", categoryId);
-cmd.Parameters.AddWithValue("p_status", status);
-
-var jsonResult = cmd.ExecuteScalar()?.ToString();
-var orderVMs = JsonConvert.DeserializeObject<List<OrderVM>>(jsonResult);
+            if (orderItem.Quantity == orderItem.Readyitemquantity)
+            {
+                orderItem.Status = "Ready";
+            }
+            else
+            {
+                orderItem.Status = "In Progress";
+            }
+        }
+        _context.SaveChanges();
+        return true;
+    }
