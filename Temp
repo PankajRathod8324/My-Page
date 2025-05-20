@@ -1,42 +1,47 @@
- public bool PrepareItem(List<PrepareItemVM> prepareItems)
-    {
-        foreach (var item in prepareItems)
-        {
-            var orderItem = _context.OrderItems
-                .FirstOrDefault(x => x.OrderId == item.OrderId && x.ItemId == item.ItemId);
-            if (item.Status == "In Progress")
-            {
-                if (orderItem != null)
-                {
-                    orderItem.Readyitemquantity += item.Quantity;
-                }
-            }
-            else
-            {
-                if (orderItem != null)
-                {
-                    orderItem.Readyitemquantity -= item.Quantity;
-                }
-            }
-        }
+CREATE OR REPLACE PROCEDURE public.prepare_items(
+    IN p_items JSONB
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    item JSONB;
+    v_order_id INT;
+    v_item_id INT;
+    v_quantity INT;
+    v_status TEXT;
+    v_quantity_total INT;
+    v_ready_total INT;
+BEGIN
+    FOR item IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        v_order_id := (item ->> 'OrderId')::INT;
+        v_item_id := (item ->> 'ItemId')::INT;
+        v_quantity := (item ->> 'Quantity')::INT;
+        v_status := item ->> 'Status';
 
-        _context.SaveChanges();
+        IF v_status = 'In Progress' THEN
+            UPDATE order_items
+            SET readyitemquantity = readyitemquantity + v_quantity
+            WHERE order_id = v_order_id AND item_id = v_item_id;
+        ELSE
+            UPDATE order_items
+            SET readyitemquantity = GREATEST(readyitemquantity - v_quantity, 0)
+            WHERE order_id = v_order_id AND item_id = v_item_id;
+        END IF;
 
-        foreach (var item in prepareItems)
-        {
-            var orderItem = _context.OrderItems
-                .FirstOrDefault(x => x.OrderId == item.OrderId && x.ItemId == item.ItemId);
+        SELECT quantity, readyitemquantity
+        INTO v_quantity_total, v_ready_total
+        FROM order_items
+        WHERE order_id = v_order_id AND item_id = v_item_id;
 
-
-            if (orderItem.Quantity == orderItem.Readyitemquantity)
-            {
-                orderItem.Status = "Ready";
-            }
-            else
-            {
-                orderItem.Status = "In Progress";
-            }
-        }
-        _context.SaveChanges();
-        return true;
-    }
+        UPDATE order_items
+        SET status = CASE
+                        WHEN v_ready_total = v_quantity_total THEN 'Ready'
+                        ELSE 'In Progress'
+                    END
+        WHERE order_id = v_order_id AND item_id = v_item_id;
+    END LOOP;
+END;
+$$;
+var itemsJson = JsonSerializer.Serialize(prepareItems);
+context.Database.ExecuteSqlRaw("CALL prepare_items({0}::jsonb)", itemsJson);
