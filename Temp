@@ -1,47 +1,131 @@
-CREATE OR REPLACE PROCEDURE public.prepare_items(
-    IN p_items JSONB
-)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    item JSONB;
-    v_order_id INT;
-    v_item_id INT;
-    v_quantity INT;
-    v_status TEXT;
-    v_quantity_total INT;
-    v_ready_total INT;
-BEGIN
-    FOR item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
-        v_order_id := (item ->> 'OrderId')::INT;
-        v_item_id := (item ->> 'ItemId')::INT;
-        v_quantity := (item ->> 'Quantity')::INT;
-        v_status := item ->> 'Status';
+  public List<OrderSectionVM> GetOrderSection()
+    {
+        var activeTableOrders = _context.Tables
+            .Include(t => t.Status)
+            .Include(t => t.CustomerTables)
+            .ThenInclude(ct => ct.Customer)
+            .ToList();
 
-        IF v_status = 'In Progress' THEN
-            UPDATE order_items
-            SET readyitemquantity = readyitemquantity + v_quantity
-            WHERE order_id = v_order_id AND item_id = v_item_id;
-        ELSE
-            UPDATE order_items
-            SET readyitemquantity = GREATEST(readyitemquantity - v_quantity, 0)
-            WHERE order_id = v_order_id AND item_id = v_item_id;
-        END IF;
+        var tableInfoList = activeTableOrders.Select(table =>
+        {
+            var activeCT = table.CustomerTables.FirstOrDefault(ct => (bool)ct.Isactive);
+            var activeOrder = activeCT != null
+                ? _context.Orders.FirstOrDefault(order =>
+                    order.CustomerId == activeCT.CustomerId &&
+                    order.OrderStatusId == 6)
+                : null;
 
-        SELECT quantity, readyitemquantity
-        INTO v_quantity_total, v_ready_total
-        FROM order_items
-        WHERE order_id = v_order_id AND item_id = v_item_id;
+            return new
+            {
+                Table = table,
+                Order = activeOrder
+            };
+        }).ToList();
 
-        UPDATE order_items
-        SET status = CASE
-                        WHEN v_ready_total = v_quantity_total THEN 'Ready'
-                        ELSE 'In Progress'
-                    END
-        WHERE order_id = v_order_id AND item_id = v_item_id;
-    END LOOP;
-END;
-$$;
-var itemsJson = JsonSerializer.Serialize(prepareItems);
-context.Database.ExecuteSqlRaw("CALL prepare_items({0}::jsonb)", itemsJson);
+
+        var groupedByOrder = tableInfoList
+      .GroupBy(x => x.Order?.CustomerId)
+      .SelectMany(group =>
+      {
+          if (group.Key != null && group.Count() > 1)
+          {
+              // Multiple tables with same OrderId merge them
+              var first = group.First();
+              return new List<OrderTableVM>
+              {
+                new OrderTableVM
+                {
+                    SectionId = first.Table.SectionId ?? 0,
+                    TableId = 0,
+                    TableName = string.Join(", ", group.Select(x => x.Table.TableName).Distinct()),
+                    Status = string.Join(", ", group.Select(x => x.Table.Status.StatusName).Distinct()),
+                    Capacity = group.Sum(x => x.Table.Capacity),
+                    OccuipiedTime = first.Order != null ? (DateTime.UtcNow - first.Order.CreatedAt) : TimeSpan.Zero,
+                    OrderTable = new List<OrderTableVM>
+                    {
+                        new OrderTableVM
+                        {
+                            OrderId = first.Order.OrderId,
+                            Order = new List<OrderVM>
+                            {
+                                new OrderVM
+                                {
+                                    OrderId = first.Order.OrderId,
+                                    OrderAmount = first.Order.TotalAmount,
+                                    CustomerId = first.Order.CustomerId,
+                                    OccupiedTime = DateTime.UtcNow - first.Order.CreatedAt
+                                }
+                            }
+                        }
+                    },
+                    CustomerTables = group
+                        .SelectMany(x => x.Table.CustomerTables.Where(ct => (bool)ct.Isactive))
+                        .Select(ct => new CustomerTable
+                        {
+                            CustomerId = ct.CustomerId
+                        })
+                        .Distinct()
+                        .ToList()
+                }
+              };
+          }
+          else
+          {
+              // Each table shown separately (either no order or unique order)
+              return group.Select(x => new OrderTableVM
+              {
+                  SectionId = x.Table.SectionId ?? 0,
+                  TableId = x.Table.TableId,
+                  TableName = x.Table.TableName,
+                  Status = x.Table.Status.StatusName,
+                  Capacity = x.Table.Capacity,
+                  OccuipiedTime = x.Order != null ? (DateTime.UtcNow - x.Order.CreatedAt) : TimeSpan.Zero,
+                  OrderTable = x.Order != null ? new List<OrderTableVM>
+                  {
+                    new OrderTableVM
+                    {
+                        OrderId = x.Order.OrderId,
+                        Order = new List<OrderVM>
+                        {
+                            new OrderVM
+                            {
+                                OrderId = x.Order.OrderId,
+                                OrderAmount = x.Order.TotalAmount,
+                                CustomerId = x.Order.CustomerId,
+                                OccupiedTime = DateTime.UtcNow - x.Order.CreatedAt
+                            }
+                        }
+                    }
+                  } : new List<OrderTableVM>(),
+                  CustomerTables = x.Table.CustomerTables
+                      .Where(ct => (bool)ct.Isactive)
+                      .Select(ct => new CustomerTable
+                      {
+                          CustomerId = ct.CustomerId
+                      })
+                      .ToList()
+              });
+          }
+      })
+      .ToList();
+
+
+        var sectionData = _context.Sections
+            .AsEnumerable()
+            .Select(section => new OrderSectionVM
+            {
+                SectionId = section.SectionId,
+                SectionName = section.SectionName,
+                Available = section.Tables.Count(t => t.Status.StatusName == "Available"),
+                Assigned = section.Tables.Count(t => t.Status.StatusName == "Assigned"),
+                Running = section.Tables.Count(t => t.Status.StatusName == "Running"),
+                Reserved = section.Tables.Count(t => t.Status.StatusName == "Reserved"),
+                Table = groupedByOrder
+                    .Where(t => t.SectionId == section.SectionId)
+                    .ToList()
+            }).ToList();
+
+
+        return sectionData;
+    }
+make this function as it it should work no chegs only conevrt into function or stored procesure
