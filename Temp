@@ -1,19 +1,25 @@
-CREATE OR REPLACE FUNCTION get_order_section()
-RETURNS TABLE (
-    section_id INT,
-    section_name TEXT,
-    table_id INT,
-    table_name TEXT,
-    status_name TEXT,
-    capacity INT,
-    customer_id INT,
-    order_id INT,
-    total_amount NUMERIC,
-    created_at TIMESTAMP
-)
+CREATE OR REPLACE FUNCTION get_order_section_json()
+RETURNS JSON
 AS $$
+DECLARE
+    result JSON;
 BEGIN
-    RETURN QUERY
+    -- Step 1: Create temp table
+    CREATE TEMP TABLE temp_order_section (
+        section_id INT,
+        section_name TEXT,
+        table_id INT,
+        table_name TEXT,
+        status_name TEXT,
+        capacity INT,
+        customer_id INT,
+        order_id INT,
+        total_amount NUMERIC,
+        created_at TIMESTAMP
+    ) ON COMMIT DROP;
+
+    -- Step 2: Insert required joined and filtered data
+    INSERT INTO temp_order_section
     SELECT
         s."SectionId",
         s."SectionName",
@@ -30,8 +36,15 @@ BEGIN
     JOIN "Statuses" st ON st."StatusId" = t."StatusId"
     LEFT JOIN "CustomerTables" ct ON ct."TableId" = t."TableId" AND ct."IsActive" = true
     LEFT JOIN "Orders" o ON o."CustomerId" = ct."CustomerId" AND o."OrderStatusId" = 6;
+
+    -- Step 3: Convert to JSON
+    SELECT json_agg(temp_order_section) INTO result
+    FROM temp_order_section;
+
+    -- Step 4: Return JSON
+    RETURN result;
 END;
 $$ LANGUAGE plpgsql;
-var result = _context.YourDbContextName
-    .FromSqlRaw("SELECT * FROM get_order_section()")
-    .ToList();
+var jsonResult = _context.Database
+    .SqlQueryRaw<string>("SELECT get_order_section_json()")
+    .FirstOrDefault();
