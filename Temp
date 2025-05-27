@@ -1,50 +1,50 @@
-CREATE OR REPLACE FUNCTION get_order_section_json()
-RETURNS JSON
-AS $$
-DECLARE
-    result JSON;
-BEGIN
-    -- Step 1: Create temp table
-    CREATE TEMP TABLE temp_order_section (
-        section_id INT,
-        section_name TEXT,
-        table_id INT,
-        table_name TEXT,
-        status_name TEXT,
-        capacity INT,
-        customer_id INT,
-        order_id INT,
-        total_amount NUMERIC,
-        created_at TIMESTAMP
-    ) ON COMMIT DROP;
+using System.ComponentModel.DataAnnotations;
+using Entities.Models;
+using X.PagedList;
 
-    -- Step 2: Insert required joined and filtered data
-    INSERT INTO temp_order_section
-    SELECT
-        s."SectionId",
-        s."SectionName",
-        t."TableId",
-        t."TableName",
-        st."StatusName",
-        t."Capacity",
-        o."CustomerId",
-        o."OrderId",
-        o."TotalAmount",
-        o."CreatedAt"
-    FROM "Sections" s
-    JOIN "Tables" t ON t."SectionId" = s."SectionId"
-    JOIN "Statuses" st ON st."StatusId" = t."StatusId"
-    LEFT JOIN "CustomerTables" ct ON ct."TableId" = t."TableId" AND ct."IsActive" = true
-    LEFT JOIN "Orders" o ON o."CustomerId" = ct."CustomerId" AND o."OrderStatusId" = 6;
+namespace Entities.ViewModel
+{
+    public class TaxVM
+    {
+        public List<Taxis> AllTaxes { get; set; } = new List<Taxis>();
 
-    -- Step 3: Convert to JSON
-    SELECT json_agg(temp_order_section) INTO result
-    FROM temp_order_section;
+        public IPagedList<Taxis>? Taxes { get; set; }
 
-    -- Step 4: Return JSON
-    RETURN result;
-END;
-$$ LANGUAGE plpgsql;
-var jsonResult = _context.Database
-    .SqlQueryRaw<string>("SELECT get_order_section_json()")
-    .FirstOrDefault();
+        [Range(1, int.MaxValue, ErrorMessage = "Tax Id must be a positive integer")]
+        public int TaxId { get; set; }
+
+        [Required(ErrorMessage = "Tax Name is required")]
+        [StringLength(50, ErrorMessage = "Tax Name cannot be longer than 50 characters")]
+        [RegularExpression(@"^[A-Za-z\s]+$", ErrorMessage = "Tax Name must contain only alphabets and spaces")]
+        public string TaxName { get; set; } = null!;
+
+        public bool IsEnabled { get; set; }
+
+        public bool IsDefault { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Tax Type Id must be a positive integer")]
+        public int? TaxTypeId { get; set; }
+
+        [Required(ErrorMessage = "Tax Type Name is required")]
+        [StringLength(50, ErrorMessage = "Tax Type Name cannot be longer than 50 characters")]
+        public string TaxTypeName { get; set; } = null!;
+
+        [Required(ErrorMessage = "Tax Amount is required")]
+        [RegularExpression(@"^\d+(\.\d{1,2})?$", ErrorMessage = "Tax Amount can contain up to two decimal places")]
+        public decimal TaxAmount { get; set; }
+
+        public bool? IsDeleted { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (TaxTypeId == 1 && (TaxAmount < 0 || TaxAmount > 100))
+            {
+                yield return new ValidationResult("Tax Amount must be between 0 and 100 for percentage type", new[] { nameof(TaxAmount) });
+            }
+        }
+
+
+
+
+    }
+}
