@@ -1,50 +1,103 @@
-using System.ComponentModel.DataAnnotations;
-using Entities.Models;
-using X.PagedList;
+Here's how you can build a Dynamic Carousel Gallery using jQuery and Owl Carousel 2 for travel destinations with full backend integration:
 
-namespace Entities.ViewModel
+1. Database Table: Destinations
+sql
+Copy code
+CREATE TABLE Destinations (
+    Id INT PRIMARY KEY IDENTITY,
+    Name NVARCHAR(100),
+    ImageName NVARCHAR(255),
+    Description NVARCHAR(255),
+    Location NVARCHAR(100),
+    LinkUrl NVARCHAR(255),
+    IsActive BIT,
+    DisplayOrder INT,
+    CreatedDate DATETIME DEFAULT GETDATE()
+);
+Sample Insert:
+
+sql
+Copy code
+INSERT INTO Destinations (Name, ImageName, Description, Location, LinkUrl, IsActive, DisplayOrder)
+VALUES 
+('Gujarat', 'dwarka.jpg', 'Spiritual Coastal Charm', 'India', 'https://www.youtube.com/Gujarattourism', 1, 1),
+('Paris', 'paris.jpg', 'Romantic capital of the world', 'France', 'https://www.parisinfo.com', 1, 2),
+-- Add 4 more...
+2. Backend (ASP.NET MVC / API Example)
+csharp
+Copy code
+public class Destination
 {
-    public class TaxVM
-    {
-        public List<Taxis> AllTaxes { get; set; } = new List<Taxis>();
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string ImageName { get; set; }
+    public string Description { get; set; }
+    public string Location { get; set; }
+    public string LinkUrl { get; set; }
+    public bool IsActive { get; set; }
+    public int DisplayOrder { get; set; }
+}
 
-        public IPagedList<Taxis>? Taxes { get; set; }
+[HttpGet]
+public JsonResult GetActiveDestinations()
+{
+    var destinations = _context.Destinations
+        .Where(d => d.IsActive)
+        .OrderBy(d => d.DisplayOrder)
+        .Select(d => new {
+            d.Name,
+            d.ImageName,
+            d.Description,
+            d.LinkUrl
+        }).ToList();
 
-        [Range(1, int.MaxValue, ErrorMessage = "Tax Id must be a positive integer")]
-        public int TaxId { get; set; }
+    return Json(destinations, JsonRequestBehavior.AllowGet);
+}
+3. HTML Structure
+html
+Copy code
+<div class="owl-carousel owl-theme" id="destination-carousel">
+    <!-- Slides added via jQuery -->
+</div>
+4. JavaScript / jQuery
+html
+Copy code
+<script>
+$(document).ready(function () {
+    $.getJSON("/ControllerName/GetActiveDestinations", function (data) {
+        $.each(data, function (i, item) {
+            $('#destination-carousel').append(`
+                <div class="item">
+                    <img src="/images/${item.ImageName}" alt="${item.Name}">
+                    <h4>${item.Name}</h4>
+                    <p>${item.Description}</p>
+                    <a href="${item.LinkUrl}" target="_blank" class="btn btn-info">View Details</a>
+                </div>
+            `);
+        });
 
-        [Required(ErrorMessage = "Tax Name is required")]
-        [StringLength(50, ErrorMessage = "Tax Name cannot be longer than 50 characters")]
-        [RegularExpression(@"^[A-Za-z\s]+$", ErrorMessage = "Tax Name must contain only alphabets and spaces")]
-        public string TaxName { get; set; } = null!;
-
-        public bool IsEnabled { get; set; }
-
-        public bool IsDefault { get; set; }
-
-        [Range(1, int.MaxValue, ErrorMessage = "Tax Type Id must be a positive integer")]
-        public int? TaxTypeId { get; set; }
-
-        [Required(ErrorMessage = "Tax Type Name is required")]
-        [StringLength(50, ErrorMessage = "Tax Type Name cannot be longer than 50 characters")]
-        public string TaxTypeName { get; set; } = null!;
-
-        [Required(ErrorMessage = "Tax Amount is required")]
-        [RegularExpression(@"^\d+(\.\d{1,2})?$", ErrorMessage = "Tax Amount can contain up to two decimal places")]
-        public decimal TaxAmount { get; set; }
-
-        public bool? IsDeleted { get; set; }
-
-        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
-        {
-            if (TaxTypeId == 1 && (TaxAmount < 0 || TaxAmount > 100))
-            {
-                yield return new ValidationResult("Tax Amount must be between 0 and 100 for percentage type", new[] { nameof(TaxAmount) });
-            }
-        }
-
-
-
-
-    }
+        $("#destination-carousel").owlCarousel({
+            items: 1,
+            loop: true,
+            margin: 10,
+            autoplay: true,
+            autoplayTimeout: 3000,
+            autoplayHoverPause: true,
+            nav: true,
+            dots: true
+        });
+    });
+});
+</script>
+5. CSS Example
+css
+Copy code
+.owl-carousel .item {
+    text-align: center;
+    padding: 15px;
+}
+.owl-carousel img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
 }
