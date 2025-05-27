@@ -1,64 +1,101 @@
-Santorini, Greece
+@{
+    ViewData["Title"] = "Home Page";
+}
 
-Image URL: https://images.unsplash.com/photo-1507525428034-b723cf961d3e
+<!-- Bootstrap CSS -->
+<link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
 
-Source: Unsplash
+<!-- jQuery (must be before Bootstrap 4) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-Paris, France
-
-Image URL: https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg
-
-Source: Pexels
-
-Bora Bora, French Polynesia
-
-Image URL: https://cdn.pixabay.com/photo/2015/03/26/09/54/bora-bora-690293_1280.jpg
-
-Source: Pixabay
-
-Kyoto, Japan
-
-Image URL: https://images.unsplash.com/photo-1549692520-acc6669e2f0c
-
-Source: Unsplash
-
-New York City, USA
-
-Image URL: https://images.pexels.com/photos/374710/pexels-photo-374710.jpeg
-
-Source: Pexels
-
-🗂️ How to Use These Images
-Database Storage: Store the image URLs in your database under a field like ImageUrl.
-
-Carousel Integration: In your frontend code, use the stored URLs to display images dynamically in your carousel.
-
-Example:
-
-html
-Copy code
-<img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e" alt="Santorini, Greece">
-Note: Always ensure to check the licensing terms on the respective platforms to confirm that the images are free for your intended use.
-
-If you need more images or assistance with integrating these into your project, feel free to ask!
-
-
-Sources
+<!-- Bootstrap 4 -->
+@* <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" rel="stylesheet"> *@
+@* <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script> *@
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
 
 
+<!-- FontAwesome Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 
 
+<!-- Toastr CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
 
+@* <!-- jQuery (required for Toastr) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script> *@
 
+<!-- Toastr JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
+<!-- Bootstrap JS (with Popper.js) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+<style>
+    .owl-carousel .item {
+        text-align: center;
+        padding: 15px;
+    }
 
+    .owl-carousel img {
+        width: 100%;
+        height: auto;
+        border-radius: 10px;
+    }
+</style>
 
+<div class="text-center">
 
+    <div class="owl-carousel owl-theme" id="destination-carousel">
+        <!-- Slides added via jQuery -->
+    </div>
+</div>
 
+  <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $.getJSON("/Home/GetActiveDestinations", function (data) {
+            $.each(data, function (i, item) {
+                $('#destination-carousel').append(`
+                <div class="item">
+                    <img src="/images/${item.ImageName}" alt="${item.Name}">
+                    <h4>${item.Name}</h4>
+                    <p>${item.Description}</p>
+                    <a href="${item.LinkUrl}" target="_blank" class="btn btn-info">View Details</a>
+                </div>
+            `);
+            });
 
+            $("#destination-carousel").owlCarousel({
+                items: 1,
+                loop: true,
+                margin: 10,
+                autoplay: true,
+                autoplayTimeout: 3000,
+                autoplayHoverPause: true,
+                nav: true,
+                dots: true
+            });
+        });
+    });
+</script>
 
+in controller [HttpGet]
+    public JsonResult GetActiveDestinations()
+    {
+        var destinations = _context.Destinations
+            .AsEnumerable()
+            .Where(d => d.Isactive.Length > 0 && d.Isactive[0])
+            .OrderBy(d => d.Displayorder)
+            .Select(d => new
+            {
+            d.Name,
+            d.Imagename,
+            d.Description,
+            d.Linkurl
+            }).ToList();
 
-
-
-ChatGPT can make mistakes. Ch
+        return Json(destinations);
+    } what is the error can u tell me why am i not getting the image
