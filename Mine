@@ -1,63 +1,76 @@
-<style>
-    .owl-carousel .item {
-        padding: 15px;
-        text-align: center;
-    }
+  <form method="get" class="d-flex align-items-center me-3">
+                <span class="me-2">Items per page:</span>
+                <select name="pageSize" class="form-select form-select-sm w-auto me-3" onchange="this.form.submit()">
+                    <option value="5" selected="@(Context.Request.Query["pageSize"] == "5")">5</option>
+                    <option value="10" selected="@(Context.Request.Query["pageSize"] == "10")">10</option>
+                    <option value="15" selected="@(Context.Request.Query["pageSize"] == "15")">15</option>
+                    <option value="20" selected="@(Context.Request.Query["pageSize"] == "20")">20</option>
+                </select>
 
-    .owl-carousel img {
-        width: 100%;
-        height: 250px; /* fixed height */
-        object-fit: cover; /* crops evenly to fit */
-        border-radius: 10px;
-    }
+  {
+        filterOptions.Page ??= 1;
+        filterOptions.PageSize = filterOptions.PageSize != 0 ? filterOptions.PageSize : 10; // Default page size
 
-    .owl-carousel h4 {
-        margin-top: 10px;
-        font-size: 1.25rem;
-    }
+        ViewBag.PageSize = filterOptions.PageSize;
 
-    .owl-carousel p {
-        font-size: 1rem;
-        color: #555;
-    }
+        // Fetch paginated and filtered users from the service
+        X.PagedList.IPagedList<UserViewModel> userViewModels = _userService.GetFilteredUsers(filterOptions);
 
-    .owl-carousel .btn {
-        margin-top: 10px;
-    }
-</style>
-<script>
-    $(document).ready(function () {
-        $.getJSON("/Home/GetActiveDestinations", function (data) {
-            $.each(data, function (i, item) {
-                $('#destination-carousel').append(`
-                    <div class="item">
-                        <img src="/images/${item.ImageName}" alt="${item.Name}">
-                        <h4>${item.Name}</h4>
-                        <p>${item.Description}</p>
-                        <a href="${item.LinkUrl}" target="_blank" class="btn btn-primary">View Details</a>
-                    </div>
-                `);
-            });
+        ViewBag.SortBy = filterOptions.SortBy;
+        ViewBag.IsAsc = filterOptions.IsAsc;
 
-            $('#destination-carousel').owlCarousel({
-                items: 1,
-                loop: true,
-                margin: 10,
-                autoplay: true,
-                autoplayTimeout: 3000,
-                autoplayHoverPause: true, // Pause on hover
-                nav: true, // Next/Prev arrows
-                dots: true, // Manual dots
-                navText: [
-                    "<i class='fa fa-chevron-left'></i>",
-                    "<i class='fa fa-chevron-right'></i>"
-                ],
-                responsive: {
-                    0: { items: 1 },
-                    600: { items: 2 },
-                    1000: { items: 3 }
-                }
-            });
-        });
-    });
-</script>
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        {
+            return PartialView("_UserList", userViewModels);
+        }
+
+        return View(userViewModels);
+    }
+
+ public IPagedList<UserViewModel> GetFilteredUsers(UserFilterOptions filterOptions)
+    {
+        var users = _genericRepository.GetAll().AsQueryable().Where(t => t.IsDeleted == false);
+
+        // if (!string.IsNullOrEmpty(filterOptions.FilterBy))
+        // {
+        //     users = filterOptions.FilterBy switch
+        //     {
+        //         "Active" => users.Where(u => u.IsActive),
+        //         "Inactive" => users.Where(u => !u.IsActive),
+        //         _ => users
+        //     };
+        // }
+
+        if (!string.IsNullOrEmpty(filterOptions.Search))
+        {
+            string searchLower = filterOptions.Search?.Trim().ToLower();
+            users = users.Where(u => u.FirstName.Trim().ToLower().Contains(searchLower));
+
+        }
+
+        users = filterOptions.SortBy?.ToLower() switch
+        {
+            "name" => filterOptions.IsAsc == true ? users.OrderBy(u => u.FirstName) : users.OrderByDescending(u => u.FirstName),
+            "role" => filterOptions.IsAsc == true ? users.OrderBy(u => u.Role.RoleName) : users.OrderByDescending(u => u.Role.RoleName),
+            _ => users.OrderBy(u => u.UserId)
+        };
+
+        // Preserve PageSize when paginating or sorting
+        int pageSize = filterOptions.PageSize > 0 ? filterOptions.PageSize : 10; // Default to 10
+
+        var userViewModels = users.Select(u => new UserViewModel
+        {
+            UserId = u.UserId,
+            FirstName = u.FirstName,
+            LastName = u.LastName,
+            Email = u.Email,
+            Phone = u.Phone,
+            Address = u.Address,
+            Password = u.Password,
+            IsActive = u.IsActive,
+            ProfilePhoto = u.ProfilePhoto,
+            RoleName = u.RoleId.HasValue ? GetRoleNameById(u.RoleId.Value) : "No Role"
+        }).ToPagedList(filterOptions.Page ?? 1, pageSize);
+
+        return userViewModels;
+    } here what happens that the paegsize is always 20 whyy pls fixed it 
