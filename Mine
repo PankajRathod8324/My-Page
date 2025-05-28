@@ -30,7 +30,6 @@ namespace Entities.ViewModel
         public string TaxTypeName { get; set; } = null!;
 
         [Required(ErrorMessage = "Tax Amount is required")]
-        [RegularExpression(@"^\d+(\.\d{1,2})?$", ErrorMessage = "Tax Amount can contain up to two decimal places")]
         public decimal TaxAmount { get; set; }
 
         public bool? IsDeleted { get; set; }
@@ -51,35 +50,7 @@ namespace Entities.ViewModel
 
     }
 }
-
- <div class="modal" id="newtaxModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-        <div class="modal-dialog  modal-dialog-centered">
-            <div class="modal-content">
-                <form id="AddTax">
-                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                    <div class="modal-header border-bottom-0">
-                        <h5 class="modal-title text-secondary" id="exampleModalLabel">Add New Tax</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-
-                    <div class="modal-body">
-
-
-                        <!-- Category Dropdown -->
-                        <div class="row d-flex justify-space-between">
-                            <div class="row">
-                                <div class="col">
-                                    <div class="form-floating mb-3">
-                                        <input type="text" asp-for="TaxName" class="form-control" id="floatingInput">
-                                        <label for="floatingInput" asp-for="TaxName">Name*</label>
-                                        <span asp-validation-for="TaxName" class="text-danger"></span>
-                                    </div>
-                                </div>
-                            </div>
-
-
-                            <div class="row">
-                                <div class="col">
+ <div class="col">
                                     <div class="form-floating"> <select class="form-select" asp-for="TaxTypeId"
                                             asp-items="ViewBag.Taxtypes" id="floatingSelect"
                                             aria-label="Floating label select example">
@@ -96,41 +67,4 @@ namespace Entities.ViewModel
                                         <span asp-validation-for="TaxAmount" class="text-danger"></span>
                                     </div>
                                 </div>
-
-                            </div>
-                            <div class="row">
-                                <!-- Switch Toggles -->
-                                <div class="col-4">
-                                    <div class=" form-switch d-flex align-item-center justify-space-between gap-2 ">
-                                        <input class="form-check-input" type="checkbox" id="toggleSwitch"
-                                            name="IsEnabled" asp-for="IsEnabled"
-                                            style="border-radius: 1rem !important;">
-                                        <label for="floatingInput" asp-for="IsEnabled"
-                                            class="form-label mt-1 ms-3">IsEnabled</label>
-                                    </div>
-                                </div>
-
-                                <div class="col-4">
-                                    <div class=" form-switch d-flex align-item-center justify-space-between gap-2 ">
-                                        <input class="form-check-input" type="checkbox" id="toggleSwitch"
-                                            name="IsDefault" asp-for="IsDefault"
-                                            style="border-radius: 1rem !important;">
-                                        <label for="floatingInput" asp-for="IsDefault"
-                                            class="form-label mt-1 ms-3">Default</label>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                    <div class="modal-footer border-top-0">
-                        <button type="submit" class="btn  webybg fs-6 fw-bold text-white px-4">Save</button>
-                        <button type="button" class="btn  webyborder webybtn fw-bold px-4"
-                            data-bs-dismiss="modal">Cancel</button>
-                    </div>
-                </form>
-            </div>
-
-        </div>
-    </div>
-</div> why it is not working like the vadiate function
+pls see whyy it is not working see my code first and tell me what is i am doing wrong here
