@@ -1,92 +1,89 @@
-FIXES AND RECOMMENDATIONS
-✅ 1. Search Input id Mismatch
-Bug: Your JavaScript looks for #searchBox, but your input field has no id.
+ <div id="accordionExample" class="accordion">
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between" id="headingOne"
+                    style="text-decoration: none;">
+                    <div>
+                        <div class="btn" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true"
+                            aria-controls="collapseOne">
+                            <div class="">
+                                <h3 class=" fs-3 webybtn">Category </h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="webybtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="currentColor"
+                            class="bi bi-plus-square" data-bs-toggle="modal" data-bs-target="#addCategoryModal"
+                            viewBox="0 0 16 16">
+                            <path
+                                d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z" />
+                            <path
+                                d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4" />
+                        </svg>
+                    </div>
 
-Fix: Add id="searchBox" to the search input.
+                </div>
 
-html
-Copy code
-<input class="form-control" type="search" name="search" id="searchBox" placeholder="Search by First Name"
-    value="@Context.Request.Query["search"]" style="height: 60px; padding-right: 40px;">
-✅ 2. Duplicate <option> Tags in Items Per Page Dropdown
-You currently repeat the same logic and values. Replace it with a loop:
+                <div id="collapseOne" class="collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+                    <div class="card-body">
+                        <div class="overflow-y-scroll  mt-3" style="max-width: 1000px; max-height: 600px;">
+                            @foreach (var category in Model.menuCategories)
+                            {
+                                var modalId = "deleteModal" + category.CategoryId;
+                                <div class="d-flex justify-content-between align-items-center hoverCategoryDiv"
+                                    data-id="@category.CategoryId">
+                                    <div class="">
+                                        <p class="fs-5" data-id="@category.CategoryId">
+                                            <i class=" fa-solid fa-grip-vertical me-2"></i>@category.CategoryName
+                                        </p>
 
-cshtml
-Copy code
-@{
-    var sizes = new List<int> { 5, 10, 15 };
-    var selectedSize = Convert.ToInt32(Context.Request.Query["pageSize"].FirstOrDefault() ?? "10");
-}
-<select name="pageSize" class="form-select form-select-sm w-auto me-3" onchange="this.form.submit()">
-    @foreach (var size in sizes)
-    {
-        <option value="@size" selected="@(selectedSize == size ? "selected" : null)">@size</option>
-    }
-</select>
-✅ 3. Fix: Sorting Route Has Extra Space in asp-action=" Userpage"
-Bug:
 
-html
-Copy code
-<a asp-action=" Userpage" ...>
-That extra space before Userpage may break the route.
+                                    </div>
+                                    <div class="hoverIcon">
+                                        <a class="text-black edit-btn" data-id="@category.CategoryId"
+                                            data-name="@category.CategoryName"
+                                            data-description="@category.CategoryDescription"> <i
+                                                class="fa-solid fa-marker "></i></a>
+                                        <a class="text-black" data-bs-toggle="modal" data-bs-target="#@modalId"><i
+                                                class="fa-regular fa-trash-can ms-4 "></i></a>
+                                        @* <i class="fa-regular fa-trash-can ms-4 text-black" data-bs-toggle="modal"
+                                data-bs-target="#@modalId"></i> *@
 
-Fix:
+                                        <div class="modal fade" id="@modalId" tabindex="-1"
+                                            aria-labelledby="exampleModalLabel" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="exampleModalLabel">Delete Confirmation
+                                                        </h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                            aria-label="Close"></button>
+                                                    </div>
+                                                    <div
+                                                        class="modal-body d-flex flex-column align-items-center justify-content-center">
+                                                        <img class="img-fluid"
+                                                            src="~/assest/toppng.com-warning-icon-2400x2400.png" alt=""
+                                                            style="width: 50px;">
+                                                        <div class="fs-4">Are you sure you want to delete category?</div>
+                                                    </div>
+                                                    <div
+                                                        class="modal-footer d-flex align-items-center justify-content-center">
+                                                        <form asp-controller="Menu" asp-action="DeleteCategory"
+                                                            method="post" asp-route-id="@category.CategoryId">
+                                                            <button type="submit" class="btn btn-primary">Yes</button>
+                                                        </form>
+                                                        <button type="button" class="btn btn-secondary"
+                                                            data-bs-dismiss="modal">No</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-html
-Copy code
-<a asp-action="Userpage" ...>
-✅ 4. Handle Null Role in Sorting
-In your service:
+                            }
 
-csharp
-Copy code
-"role" => filterOptions.IsAsc == true 
-    ? users.OrderBy(u => u.Role.RoleName) 
-    : users.OrderByDescending(u => u.Role.RoleName),
-If Role can be null, you should handle it:
-
-csharp
-Copy code
-"role" => filterOptions.IsAsc == true 
-    ? users.OrderBy(u => u.Role != null ? u.Role.RoleName : "") 
-    : users.OrderByDescending(u => u.Role != null ? u.Role.RoleName : ""),
-✅ 5. Complete Missing ViewModel Mapping in Service Layer
-You ended at:
-
-csharp
-Copy code
-var userViewModels = users...
-You need to project the query to your UserViewModel, like:
-
-csharp
-Copy code
-var userViewModels = users.Select(u => new UserViewModel
-{
-    UserId = u.UserId,
-    FirstName = u.FirstName,
-    Email = u.Email,
-    Phone = u.Phone,
-    IsActive = u.IsActive,
-    RoleName = u.Role.RoleName
-}).ToPagedList(filterOptions.Page.Value, pageSize);
-✅ 6. AJAX Search Handling — Also Send PageSize and Sort Parameters
-In JS:
-
-js
-Copy code
-fetch(`/User/Userpage?search=${searchValue}`)
-You should send other parameters like pageSize, sortBy, isAsc too to preserve state.
-
-Better approach:
-
-js
-Copy code
-const searchValue = document.getElementById("searchBox").value;
-const pageSize = new URLSearchParams(window.location.search).get("pageSize") || 10;
-const sortBy = new URLSearchParams(window.location.search).get("sortBy") || "";
-const isAsc = new URLSearchParams(window.location.search).get("isAsc") || "";
-
-fetch(`/User/Userpage?search=${searchValue}&pageSize=${pageSize}&sortBy=${sortBy}&isAsc=${isAsc}`)
-✅ 7. Optional: Enable Sorting Icons Only if Clickable
-To improve UX, add .disabled to icons when sorting isn't available (optional).
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
