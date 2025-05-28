@@ -1,70 +1,30 @@
-using System.ComponentModel.DataAnnotations;
-using Entities.Models;
-using X.PagedList;
+<select class="form-select" asp-for="TaxTypeId" asp-items="ViewBag.Taxtypes"
+        id="TaxTypeId" aria-label="Tax Type">
+    <option value="">Tax Type</option>
+</select>
 
-namespace Entities.ViewModel
-{
-    public class TaxVM : IValidatableObject
-    {
-        public List<Taxis> AllTaxes { get; set; } = new List<Taxis>();
+<input type="number" asp-for="TaxAmount" class="form-control" id="TaxAmount">
+<span class="text-danger" id="taxAmountError"></span>
+<script>
+    $(document).ready(function () {
+        $('form').on('submit', function (e) {
+            var taxTypeId = $('#TaxTypeId').val();
+            var taxAmount = parseFloat($('#TaxAmount').val());
+            var isValid = true;
 
-        public IPagedList<Taxis>? Taxes { get; set; }
+            $('#taxAmountError').text(""); // Clear previous error
 
-        [Range(1, int.MaxValue, ErrorMessage = "Tax Id must be a positive integer")]
-        public int TaxId { get; set; }
-
-        [Required(ErrorMessage = "Tax Name is required")]
-        [StringLength(50, ErrorMessage = "Tax Name cannot be longer than 50 characters")]
-        [RegularExpression(@"^[A-Za-z\s]+$", ErrorMessage = "Tax Name must contain only alphabets and spaces")]
-        public string TaxName { get; set; } = null!;
-
-        public bool IsEnabled { get; set; }
-
-        public bool IsDefault { get; set; }
-
-        [Range(1, int.MaxValue, ErrorMessage = "Tax Type Id must be a positive integer")]
-        public int? TaxTypeId { get; set; }
-
-        [Required(ErrorMessage = "Tax Type Name is required")]
-        [StringLength(50, ErrorMessage = "Tax Type Name cannot be longer than 50 characters")]
-        public string TaxTypeName { get; set; } = null!;
-
-        [Required(ErrorMessage = "Tax Amount is required")]
-        public decimal TaxAmount { get; set; }
-
-        public bool? IsDeleted { get; set; }
-
-        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
-        {
-            if (TaxTypeId == 1)
-            {
-                if(TaxAmount < 0 || TaxAmount > 100)
-                {
-                    yield return new ValidationResult("Tax Amount must be between 0 and 100 for percentage type", new[] { nameof(TaxAmount) });
+            // Validate if tax type is percentage (1)
+            if (taxTypeId === "1") {
+                if (isNaN(taxAmount) || taxAmount < 0 || taxAmount > 100) {
+                    $('#taxAmountError').text("Tax Amount must be between 0 and 100 for percentage type.");
+                    isValid = false;
                 }
             }
-        }
 
-
-
-
-    }
-}
- <div class="col">
-                                    <div class="form-floating"> <select class="form-select" asp-for="TaxTypeId"
-                                            asp-items="ViewBag.Taxtypes" id="floatingSelect"
-                                            aria-label="Floating label select example">
-                                            <option selected>Tax Type</option>
-                                        </select>
-                                        <label for="floatingSelect">Type*</label>
-                                        <span asp-validation-for="TaxTypeId" class="text-danger"></span>
-                                    </div>
-                                </div>
-                                <div class="col">
-                                    <div class="form-floating mb-3">
-                                        <input type="number" asp-for="TaxAmount" class="form-control" id="floatingInput">
-                                        <label for="floatingInput" asp-for="TaxName">Tax Amount*</label>
-                                        <span asp-validation-for="TaxAmount" class="text-danger"></span>
-                                    </div>
-                                </div>
-pls see whyy it is not working see my code first and tell me what is i am doing wrong here
+            if (!isValid) {
+                e.preventDefault(); // Stop form submission
+            }
+        });
+    });
+</script>
