@@ -1,30 +1,54 @@
-<select class="form-select" asp-for="TaxTypeId" asp-items="ViewBag.Taxtypes"
-        id="TaxTypeId" aria-label="Tax Type">
-    <option value="">Tax Type</option>
-</select>
+Here’s how you do it without interrupting other logic:
+1. Create a Hub class
+csharp
+Copy code
+public class KOTHub : Hub
+{
+    // You can keep this empty if you only push messages from server
+}
+2. Register the hub in Program.cs
+csharp
+Copy code
+app.MapHub<KOTHub>("/kothub");
+3. Inject SignalR in your existing controller
+In your OrderController or wherever you save orders:
 
-<input type="number" asp-for="TaxAmount" class="form-control" id="TaxAmount">
-<span class="text-danger" id="taxAmountError"></span>
+csharp
+Copy code
+private readonly IHubContext<KOTHub> _hubContext;
+
+public OrderController(IHubContext<KOTHub> hubContext)
+{
+    _hubContext = hubContext;
+}
+4. After order save, send update to KOT
+csharp
+Copy code
+await _hubContext.Clients.All.SendAsync("ReceiveNewKOT", orderData);
+✅ This won't affect other controller logic — it's just an extra push message after saving the order.
+
+5. Client-Side (KOT Page)
+In your Razor view or HTML page with JavaScript:
+
+html
+Copy code
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
 <script>
-    $(document).ready(function () {
-        $('form').on('submit', function (e) {
-            var taxTypeId = $('#TaxTypeId').val();
-            var taxAmount = parseFloat($('#TaxAmount').val());
-            var isValid = true;
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/kothub")
+        .build();
 
-            $('#taxAmountError').text(""); // Clear previous error
+    connection.start().then(() => {
+        console.log("SignalR connected to KOT hub");
+    });
 
-            // Validate if tax type is percentage (1)
-            if (taxTypeId === "1") {
-                if (isNaN(taxAmount) || taxAmount < 0 || taxAmount > 100) {
-                    $('#taxAmountError').text("Tax Amount must be between 0 and 100 for percentage type.");
-                    isValid = false;
-                }
-            }
-
-            if (!isValid) {
-                e.preventDefault(); // Stop form submission
-            }
-        });
+    connection.on("ReceiveNewKOT", function(orderData) {
+        // Dynamically add order to KOT
+        console.log(orderData);
+        // You can append HTML here based on orderData
     });
 </script>
+🔒 It’s Safe:
+SignalR just adds broadcast capability, doesn’t interfere with your controller.
+
+No separate controller need
