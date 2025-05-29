@@ -1,54 +1,16 @@
-Here’s how you do it without interrupting other logic:
-1. Create a Hub class
-csharp
-Copy code
-public class KOTHub : Hub
-{
-    // You can keep this empty if you only push messages from server
-}
-2. Register the hub in Program.cs
-csharp
-Copy code
-app.MapHub<KOTHub>("/kothub");
-3. Inject SignalR in your existing controller
-In your OrderController or wherever you save orders:
+// After saving order:
+int categoryId = orderItem.CategoryId; // get category of new item
 
-csharp
-Copy code
-private readonly IHubContext<KOTHub> _hubContext;
+// Render partial view of KOT cards for that category
+var categoryKOTHtml = await this.RenderViewAsync("_KOTCategoryPartial", categoryOrders, true);
 
-public OrderController(IHubContext<KOTHub> hubContext)
-{
-    _hubContext = hubContext;
-}
-4. After order save, send update to KOT
-csharp
-Copy code
-await _hubContext.Clients.All.SendAsync("ReceiveNewKOT", orderData);
-✅ This won't affect other controller logic — it's just an extra push message after saving the order.
-
-5. Client-Side (KOT Page)
-In your Razor view or HTML page with JavaScript:
-
-html
-Copy code
-<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
-<script>
-    const connection = new signalR.HubConnectionBuilder()
-        .withUrl("/kothub")
-        .build();
-
-    connection.start().then(() => {
-        console.log("SignalR connected to KOT hub");
-    });
-
-    connection.on("ReceiveNewKOT", function(orderData) {
-        // Dynamically add order to KOT
-        console.log(orderData);
-        // You can append HTML here based on orderData
-    });
-</script>
-🔒 It’s Safe:
-SignalR just adds broadcast capability, doesn’t interfere with your controller.
-
-No separate controller need
+// Send category id + html to clients
+await _hubContext.Clients.All.SendAsync("UpdateCategoryKOT", categoryId, categoryKOTHtml);
+connection.on("UpdateCategoryKOT", function(categoryId, html) {
+    // Find the container for the specific category tab, e.g., with id="category-5"
+    const categoryContainer = document.getElementById(`category-${categoryId}`);
+    if (categoryContainer) {
+        // Replace inner HTML with updated partial HTML
+        categoryContainer.innerHTML = html;
+    }
+});
