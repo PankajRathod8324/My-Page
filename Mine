@@ -1,16 +1,135 @@
-// After saving order:
-int categoryId = orderItem.CategoryId; // get category of new item
+Models/Product.cs
+csharp
+Copy code
+public class Product
+{
+    public int Id { get; set; }
+    public string Title { get; set; }
+    public decimal Price { get; set; }
+    public string Description { get; set; }
+}
+📄 ViewModels/ProductVM.cs
+csharp
+Copy code
+public class ProductVM
+{
+    public int Id { get; set; }
+    public string Title { get; set; }
+    public decimal Price { get; set; }
+    public string Description { get; set; }
 
-// Render partial view of KOT cards for that category
-var categoryKOTHtml = await this.RenderViewAsync("_KOTCategoryPartial", categoryOrders, true);
-
-// Send category id + html to clients
-await _hubContext.Clients.All.SendAsync("UpdateCategoryKOT", categoryId, categoryKOTHtml);
-connection.on("UpdateCategoryKOT", function(categoryId, html) {
-    // Find the container for the specific category tab, e.g., with id="category-5"
-    const categoryContainer = document.getElementById(`category-${categoryId}`);
-    if (categoryContainer) {
-        // Replace inner HTML with updated partial HTML
-        categoryContainer.innerHTML = html;
+    // These will be ignored if not found in the Model
+    public string ExtraField1 { get; set; }
+    public string ExtraField2 { get; set; }
+}
+🔁 Helpers/ViewModelToModelMapper.cs
+csharp
+Copy code
+public static class ViewModelToModelMapper
+{
+    public static TModel Map<TVM, TModel>(TVM viewModel)
+        where TModel : class, new()
+    {
+        TModel model = new TModel();
+        foreach (var vmProp in typeof(TVM).GetProperties())
+        {
+            var modelProp = typeof(TModel).GetProperty(vmProp.Name);
+            if (modelProp != null && modelProp.CanWrite)
+            {
+                var value = vmProp.GetValue(viewModel);
+                modelProp.SetValue(model, value);
+            }
+        }
+        return model;
     }
-});
+}
+📦 Repositories/IGenericRepository.cs
+csharp
+Copy code
+public interface IGenericRepository<TModel> where TModel : class, new()
+{
+    void Add(TModel entity);
+    TModel GetById(int id);
+    void Update(TModel entity);
+    void Delete(int id);
+}
+📦 Repositories/GenericRepository.cs
+csharp
+Copy code
+public class GenericRepository<TModel> : IGenericRepository<TModel> where TModel : class, new()
+{
+    private static readonly List<TModel> _db = new(); // Simulated DB
+
+    public void Add(TModel entity) => _db.Add(entity);
+
+    public TModel GetById(int id)
+    {
+        var prop = typeof(TModel).GetProperty("Id");
+        return _db.FirstOrDefault(x => (int)prop.GetValue(x) == id);
+    }
+
+    public void Update(TModel entity)
+    {
+        Delete((int)typeof(TModel).GetProperty("Id")?.GetValue(entity));
+        Add(entity);
+    }
+
+    public void Delete(int id)
+    {
+        var prop = typeof(TModel).GetProperty("Id");
+        var item = _db.FirstOrDefault(x => (int)prop.GetValue(x) == id);
+        if (item != null)
+            _db.Remove(item);
+    }
+}
+🧠 Services/IGenericService.cs
+csharp
+Copy code
+public interface IGenericService
+{
+    void Add<TVM, TModel>(TVM viewModel)
+        where TVM : class
+        where TModel : class, new();
+}
+🧠 Services/GenericService.cs
+csharp
+Copy code
+public class GenericService : IGenericService
+{
+    public void Add<TVM, TModel>(TVM viewModel)
+        where TVM : class
+        where TModel : class, new()
+    {
+        var model = ViewModelToModelMapper.Map<TVM, TModel>(viewModel);
+        var repo = new GenericRepository<TModel>();
+        repo.Add(model);
+    }
+}
+🌐 Controllers/GenericController.cs
+csharp
+Copy code
+[ApiController]
+[Route("api/[controller]")]
+public class GenericController : ControllerBase
+{
+    private readonly IGenericService _service;
+
+    public GenericController(IGenericService service)
+    {
+        _service = service;
+    }
+
+    [HttpPost("add-user")]
+    public IActionResult AddUser([FromBody] UserVM userVM)
+    {
+        _service.Add<UserVM, User>(userVM);
+        return Ok("User added");
+    }
+
+    [HttpPost("add-product")]
+    public IActionResult AddProduct([FromBody] ProductVM productVM)
+    {
+        _service.Add<ProductVM, Product>(productVM);
+        return Ok("Product added");
+    }
+}
