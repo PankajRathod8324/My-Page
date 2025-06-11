@@ -1,135 +1,66 @@
-Models/Product.cs
-csharp
-Copy code
-public class Product
-{
-    public int Id { get; set; }
-    public string Title { get; set; }
-    public decimal Price { get; set; }
-    public string Description { get; set; }
-}
-📄 ViewModels/ProductVM.cs
-csharp
-Copy code
-public class ProductVM
-{
-    public int Id { get; set; }
-    public string Title { get; set; }
-    public decimal Price { get; set; }
-    public string Description { get; set; }
+ document.getElementById("fileInputAdd").addEventListener("change", function (event) {
+        const file = event.target.files[0];
 
-    // These will be ignored if not found in the Model
-    public string ExtraField1 { get; set; }
-    public string ExtraField2 { get; set; }
-}
-🔁 Helpers/ViewModelToModelMapper.cs
-csharp
-Copy code
-public static class ViewModelToModelMapper
-{
-    public static TModel Map<TVM, TModel>(TVM viewModel)
-        where TModel : class, new()
-    {
-        TModel model = new TModel();
-        foreach (var vmProp in typeof(TVM).GetProperties())
-        {
-            var modelProp = typeof(TModel).GetProperty(vmProp.Name);
-            if (modelProp != null && modelProp.CanWrite)
-            {
-                var value = vmProp.GetValue(viewModel);
-                modelProp.SetValue(model, value);
+        if (file) {
+            const validExtensions = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+
+            if (!validExtensions.includes(file.type)) {
+                toastr.error("Only image files (JPEG, PNG, GIF, WebP, SVG) are allowed!");
+                event.target.value = ""; // Clear the input field
+                return;
             }
+
+            // Display the image preview
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const preview = document.getElementById("profilePreviewAdd");
+                preview.src = e.target.result;
+                preview.style.display = "block";
+                document.getElementsByClassName("preview-container")[0].classList.remove("d-none");
+                document.getElementById("removeImageAdd").style.display = "block";
+            };
+            reader.readAsDataURL(file);
         }
-        return model;
-    }
-}
-📦 Repositories/IGenericRepository.cs
-csharp
-Copy code
-public interface IGenericRepository<TModel> where TModel : class, new()
-{
-    void Add(TModel entity);
-    TModel GetById(int id);
-    void Update(TModel entity);
-    void Delete(int id);
-}
-📦 Repositories/GenericRepository.cs
-csharp
-Copy code
-public class GenericRepository<TModel> : IGenericRepository<TModel> where TModel : class, new()
-{
-    private static readonly List<TModel> _db = new(); // Simulated DB
+    });
 
-    public void Add(TModel entity) => _db.Add(entity);
-
-    public TModel GetById(int id)
-    {
-        var prop = typeof(TModel).GetProperty("Id");
-        return _db.FirstOrDefault(x => (int)prop.GetValue(x) == id);
-    }
-
-    public void Update(TModel entity)
-    {
-        Delete((int)typeof(TModel).GetProperty("Id")?.GetValue(entity));
-        Add(entity);
-    }
-
-    public void Delete(int id)
-    {
-        var prop = typeof(TModel).GetProperty("Id");
-        var item = _db.FirstOrDefault(x => (int)prop.GetValue(x) == id);
-        if (item != null)
-            _db.Remove(item);
-    }
-}
-🧠 Services/IGenericService.cs
-csharp
-Copy code
-public interface IGenericService
-{
-    void Add<TVM, TModel>(TVM viewModel)
-        where TVM : class
-        where TModel : class, new();
-}
-🧠 Services/GenericService.cs
-csharp
-Copy code
-public class GenericService : IGenericService
-{
-    public void Add<TVM, TModel>(TVM viewModel)
-        where TVM : class
-        where TModel : class, new()
-    {
-        var model = ViewModelToModelMapper.Map<TVM, TModel>(viewModel);
-        var repo = new GenericRepository<TModel>();
-        repo.Add(model);
-    }
-}
-🌐 Controllers/GenericController.cs
-csharp
-Copy code
-[ApiController]
-[Route("api/[controller]")]
-public class GenericController : ControllerBase
-{
-    private readonly IGenericService _service;
-
-    public GenericController(IGenericService service)
-    {
-        _service = service;
-    }
-
-    [HttpPost("add-user")]
-    public IActionResult AddUser([FromBody] UserVM userVM)
-    {
-        _service.Add<UserVM, User>(userVM);
-        return Ok("User added");
-    }
-
-    [HttpPost("add-product")]
-    public IActionResult AddProduct([FromBody] ProductVM productVM)
-    {
-        _service.Add<ProductVM, Product>(productVM);
-        return Ok("Product added");
-    }
-}
+    // Remove image preview
+    document.getElementById("removeImageAdd").addEventListener("click", function () {
+        document.getElementById("profilePreviewAdd").style.display = "none";
+        document.getElementById("removeImageAdd").style.display = "none";
+        document.getElementById("fileInputAdd").value = "";
+    });
+    $(document).on("click", "#removeImageAdd", function (e) {
+        e.preventDefault();
+        document.getElementsByClassName("preview-container")[0].classList.add("d-none");
+        $("#profilePreviewAdd").attr("src", "").hide();
+        $("#fileInputAdd").val("");
+        $("#removeImageAdd").hide();
+    });
+ <div class="border d-flex col justify-content-center mb-3 p-3">
+                                <div class="file-upload d-flex align-items-center gap-2">
+                                    <div class="preview-container d-none">
+                                        <img id="profilePreviewAdd" src="" alt="Profile Image"
+                                            style="display: none; max-width: 100px;">
+                                        <span class="remove-image" id="removeImageAdd"
+                                            style="display: none;">&times;</span>
+                                    </div>
+                                    <div>
+                                        <div>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                fill="currentColor" class="bi bi-cloud-arrow-up" viewBox="0 0 16 16">
+                                                <path fill-rule="evenodd"
+                                                    d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708z" />
+                                                <path
+                                                    d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383m.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <label class="mt-2">Browse File
+                                                <input type="file" id="fileInputAdd" name="ProfileImage"
+                                                    accept="image/*" multiple>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" asp-for="Images" id="ProfilePictureAdd">
+                                </div>
+                            </div>
