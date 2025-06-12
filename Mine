@@ -65,3 +65,47 @@ public async Task<IActionResult> Edit(ProductEditVM model, IFormFile[] NewImages
     await _context.SaveChangesAsync();
     return RedirectToAction("Index");
 }
+document.addEventListener("DOMContentLoaded", function () {
+    const fileInput = document.getElementById("fileInputAdd") || document.getElementById("fileInputEdit");
+    const previewContainer = document.getElementById("previewContainer");
+    const removedImageIdsInput = document.getElementById("removedImageIds");
+
+    let removedImageIds = [];
+
+    if (fileInput) {
+        fileInput.addEventListener("change", function (e) {
+            previewContainer.innerHTML = ""; // Clear previews
+
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    const imageWrapper = document.createElement("div");
+                    imageWrapper.classList.add("position-relative", "me-2", "mb-2");
+
+                    const img = document.createElement("img");
+                    img.src = event.target.result;
+                    img.style = "width: 100px; height: 100px; object-fit: cover;";
+                    imageWrapper.appendChild(img);
+
+                    previewContainer.appendChild(imageWrapper);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+    }
+
+    // Handle removal of existing images in Edit page
+    document.addEventListener("click", function (e) {
+        if (e.target && e.target.classList.contains("remove-existing")) {
+            const id = e.target.getAttribute("data-id");
+            if (id) {
+                removedImageIds.push(id);
+                if (removedImageIdsInput) {
+                    removedImageIdsInput.value = removedImageIds.join(",");
+                }
+                e.target.closest(".position-relative").remove();
+            }
+        }
+    });
+});
