@@ -1,111 +1,62 @@
-<div class="border d-flex flex-column gap-3 justify-content-center mb-3 p-3">
-
-    <!-- Existing Images -->
-    <div id="existingImages" class="d-flex gap-2 flex-wrap">
-        @foreach (var img in Model.Images) {
-            <div class="position-relative">
-                <img src="@img.ImagePath" style="width: 100px; height: 100px; object-fit: cover;" />
-                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 remove-existing" data-id="@img.Id">&times;</button>
-            </div>
-        }
+<form id="filterForm" class="row mb-4">
+    <!-- Category Dropdown -->
+    <div class="col-md-3">
+        <select class="form-select" name="CategoryId">
+            <option value="">All Categories</option>
+            @foreach (var category in ViewBag.Categories)
+            {
+                <option value="@category.Id">@category.Name</option>
+            }
+        </select>
     </div>
 
-    <!-- New Image Previews -->
-    <div id="previewContainer" class="d-flex gap-2 flex-wrap"></div>
-
-    <!-- Upload New Images -->
-    <div>
-        <label class="mt-2">Browse Files
-            <input type="file" id="fileInputEdit" name="NewImages" accept="image/*" multiple>
-        </label>
+    <!-- Price Range -->
+    <div class="col-md-3">
+        <input type="number" name="MinPrice" class="form-control" placeholder="Min Price" />
+    </div>
+    <div class="col-md-3">
+        <input type="number" name="MaxPrice" class="form-control" placeholder="Max Price" />
     </div>
 
-    <!-- Hidden field to store IDs of removed images -->
-    <input type="hidden" id="removedImageIds" name="RemovedImageIds" />
-</div>
-const removedImageIds = [];
+    <!-- Search by Name -->
+    <div class="col-md-3">
+        <input type="text" name="ProductName" class="form-control" placeholder="Search by Name" />
+    </div>
 
-document.getElementById("fileInputEdit").addEventListener("change", function (e) {
-    const previewContainer = document.getElementById("previewContainer");
-    previewContainer.innerHTML = "";
-
-    Array.from(e.target.files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const img = document.createElement("img");
-            img.src = e.target.result;
-            img.style = "width: 100px; height: 100px; object-fit: cover;";
-            previewContainer.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-    });
-});
-
-// Remove existing image
-$(document).on("click", ".remove-existing", function () {
-    const imgId = $(this).data("id");
-    removedImageIds.push(imgId);
-    $("#removedImageIds").val(removedImageIds.join(","));
-    $(this).closest("div.position-relative").remove();
-});
-[HttpPost]
-public async Task<IActionResult> Edit(ProductEditVM model, IFormFile[] NewImages, string RemovedImageIds)
+    <div class="col-12 mt-2">
+        <button type="submit" class="btn btn-primary">Apply Filters</button>
+    </div>
+</form>
+public IActionResult Products(int? CategoryId, decimal? MinPrice, decimal? MaxPrice, string ProductName)
 {
-    // 1. Remove deleted images
-    var removeIds = RemovedImageIds?.Split(',').Select(int.Parse).ToList() ?? new List<int>();
-    var imagesToRemove = _context.ProductImages.Where(i => removeIds.Contains(i.Id));
-    _context.ProductImages.RemoveRange(imagesToRemove);
+    var products = _context.Products
+        .Include(p => p.Category)
+        .Where(p => !p.IsDeleted); // Optional
 
-    // 2. Save new uploaded images
-    foreach (var img in NewImages ?? Enumerable.Empty<IFormFile>())
-    {
-        // Save logic (to disk/cloud + DB entry)
-    }
+    if (CategoryId.HasValue)
+        products = products.Where(p => p.CategoryId == CategoryId.Value);
 
-    await _context.SaveChangesAsync();
-    return RedirectToAction("Index");
+    if (MinPrice.HasValue)
+        products = products.Where(p => p.Price >= MinPrice.Value);
+
+    if (MaxPrice.HasValue)
+        products = products.Where(p => p.Price <= MaxPrice.Value);
+
+    if (!string.IsNullOrEmpty(ProductName))
+        products = products.Where(p => p.ProductName.Contains(ProductName));
+
+    ViewBag.Categories = _context.Categories.ToList();
+
+    return View(products.ToList());
 }
-document.addEventListener("DOMContentLoaded", function () {
-    const fileInput = document.getElementById("fileInputAdd") || document.getElementById("fileInputEdit");
-    const previewContainer = document.getElementById("previewContainer");
-    const removedImageIdsInput = document.getElementById("removedImageIds");
-
-    let removedImageIds = [];
-
-    if (fileInput) {
-        fileInput.addEventListener("change", function (e) {
-            previewContainer.innerHTML = ""; // Clear previews
-
-            const files = Array.from(e.target.files);
-            files.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function (event) {
-                    const imageWrapper = document.createElement("div");
-                    imageWrapper.classList.add("position-relative", "me-2", "mb-2");
-
-                    const img = document.createElement("img");
-                    img.src = event.target.result;
-                    img.style = "width: 100px; height: 100px; object-fit: cover;";
-                    imageWrapper.appendChild(img);
-
-                    previewContainer.appendChild(imageWrapper);
-                };
-                reader.readAsDataURL(file);
-            });
-        });
-    }
-
-    // Handle removal of existing images in Edit page
-    document.addEventListener("click", function (e) {
-        if (e.target && e.target.classList.contains("remove-existing")) {
-            const id = e.target.getAttribute("data-id");
-            if (id) {
-                removedImageIds.push(id);
-                if (removedImageIdsInput) {
-                    removedImageIdsInput.value = removedImageIds.join(",");
-                }
-                e.target.closest(".position-relative").remove();
-            }
-        }
-    });
+$("#filterForm").on("submit", function (e) {
+    e.preventDefault();
+    $.ajax({
+        url: '/Product/Products',
+        data: $(this).serialize(),
+        type: 'GET',
+        success: function (result) {
+            $("#productList").html($(result).find("#productList").html());
+        }
+    });
 });
