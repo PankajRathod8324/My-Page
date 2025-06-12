@@ -1,28 +1,65 @@
- <div class="col-md-6">
-            <div id="productCarousel" class="carousel slide" data-bs-ride="carousel">
-                <div class="carousel-indicators">
-                     @for (var item = 0; item < @Model.Image.Count; item++)
-                    {
-                             <button type="button" data-bs-target="#productCarousel" data-bs-slide-to="item"  class="@(item == 0 ? "active" : "")"
-                        aria-current="@(item == 0 ? "true" : "")" aria-label="Slide @item"></button>
-                    }
-                </div>
-                <div class="carousel-inner">
-                      @foreach (var item in @Model.Image)
-                    {
-                        <div class="carousel-item @(Model.Image.IndexOf(item) == 0 ? "active" : "")">
-                            <img class="d-block w-100" src="@item.Imaegpath" alt="Product Image"
-                                style="width: 45px; height: 405px; object-fit: cover;">
-                        </div>
-                    }
-                </div>
-                <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel"
-                    data-bs-slide="prev">
-                    <span class="carousel-control-prev-icon"></span>
-                </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#productCarousel"
-                    data-bs-slide="next">
-                    <span class="carousel-control-next-icon"></span>
-                </button>
-            </div>
-        </div>
+[Route("api/[controller]")]
+[ApiController]
+public class RecentlyViewedController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+    private readonly UserManager<IdentityUser> _userManager;
+
+    public RecentlyViewedController(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+    {
+        _context = context;
+        _userManager = userManager;
+    }
+
+    [HttpPost("Add")]
+    public async Task<IActionResult> AddView([FromBody] int productId)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+
+        var existing = _context.RecentlyViewedProducts
+            .FirstOrDefault(r => r.UserId == user.Id && r.ProductId == productId);
+
+        if (existing != null)
+        {
+            existing.ViewedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            _context.RecentlyViewedProducts.Add(new RecentlyViewedProduct
+            {
+                ProductId = productId,
+                UserId = user.Id,
+                ViewedAt = DateTime.UtcNow
+            });
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
+}
+public async Task<IActionResult> ProductDetails(int id)
+{
+    var product = await _context.Products.FindAsync(id);
+
+    var user = await _userManager.GetUserAsync(User);
+    var recentlyViewed = new List<Product>();
+
+    if (user != null)
+    {
+        recentlyViewed = await _context.RecentlyViewedProducts
+            .Where(r => r.UserId == user.Id && r.ProductId != id)
+            .OrderByDescending(r => r.ViewedAt)
+            .Take(5)
+            .Select(r => r.Product)
+            .ToListAsync();
+    }
+
+    var model = new ProductDetailsVM
+    {
+        Product = product,
+        RecentlyViewed = recentlyViewed
+    };
+
+    return View(model);
+}
