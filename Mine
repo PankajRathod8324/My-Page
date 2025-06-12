@@ -1,65 +1,67 @@
-[Route("api/[controller]")]
-[ApiController]
-public class RecentlyViewedController : ControllerBase
+<div class="border d-flex flex-column gap-3 justify-content-center mb-3 p-3">
+
+    <!-- Existing Images -->
+    <div id="existingImages" class="d-flex gap-2 flex-wrap">
+        @foreach (var img in Model.Images) {
+            <div class="position-relative">
+                <img src="@img.ImagePath" style="width: 100px; height: 100px; object-fit: cover;" />
+                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 remove-existing" data-id="@img.Id">&times;</button>
+            </div>
+        }
+    </div>
+
+    <!-- New Image Previews -->
+    <div id="previewContainer" class="d-flex gap-2 flex-wrap"></div>
+
+    <!-- Upload New Images -->
+    <div>
+        <label class="mt-2">Browse Files
+            <input type="file" id="fileInputEdit" name="NewImages" accept="image/*" multiple>
+        </label>
+    </div>
+
+    <!-- Hidden field to store IDs of removed images -->
+    <input type="hidden" id="removedImageIds" name="RemovedImageIds" />
+</div>
+const removedImageIds = [];
+
+document.getElementById("fileInputEdit").addEventListener("change", function (e) {
+    const previewContainer = document.getElementById("previewContainer");
+    previewContainer.innerHTML = "";
+
+    Array.from(e.target.files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const img = document.createElement("img");
+            img.src = e.target.result;
+            img.style = "width: 100px; height: 100px; object-fit: cover;";
+            previewContainer.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+    });
+});
+
+// Remove existing image
+$(document).on("click", ".remove-existing", function () {
+    const imgId = $(this).data("id");
+    removedImageIds.push(imgId);
+    $("#removedImageIds").val(removedImageIds.join(","));
+    $(this).closest("div.position-relative").remove();
+});
+[HttpPost]
+public async Task<IActionResult> Edit(ProductEditVM model, IFormFile[] NewImages, string RemovedImageIds)
 {
-    private readonly ApplicationDbContext _context;
-    private readonly UserManager<IdentityUser> _userManager;
+    // 1. Remove deleted images
+    var removeIds = RemovedImageIds?.Split(',').Select(int.Parse).ToList() ?? new List<int>();
+    var imagesToRemove = _context.ProductImages.Where(i => removeIds.Contains(i.Id));
+    _context.ProductImages.RemoveRange(imagesToRemove);
 
-    public RecentlyViewedController(ApplicationDbContext context, UserManager<IdentityUser> userManager)
-    {
-        _context = context;
-        _userManager = userManager;
-    }
+    // 2. Save new uploaded images
+    foreach (var img in NewImages ?? Enumerable.Empty<IFormFile>())
+    {
+        // Save logic (to disk/cloud + DB entry)
+    }
 
-    [HttpPost("Add")]
-    public async Task<IActionResult> AddView([FromBody] int productId)
-    {
-        var user = await _userManager.GetUserAsync(User);
-        if (user == null) return Unauthorized();
-
-        var existing = _context.RecentlyViewedProducts
-            .FirstOrDefault(r => r.UserId == user.Id && r.ProductId == productId);
-
-        if (existing != null)
-        {
-            existing.ViewedAt = DateTime.UtcNow;
-        }
-        else
-        {
-            _context.RecentlyViewedProducts.Add(new RecentlyViewedProduct
-            {
-                ProductId = productId,
-                UserId = user.Id,
-                ViewedAt = DateTime.UtcNow
-            });
-        }
-
-        await _context.SaveChangesAsync();
-        return Ok();
-    }
-}
-public async Task<IActionResult> ProductDetails(int id)
-{
-    var product = await _context.Products.FindAsync(id);
-
-    var user = await _userManager.GetUserAsync(User);
-    var recentlyViewed = new List<Product>();
-
-    if (user != null)
-    {
-        recentlyViewed = await _context.RecentlyViewedProducts
-            .Where(r => r.UserId == user.Id && r.ProductId != id)
-            .OrderByDescending(r => r.ViewedAt)
-            .Take(5)
-            .Select(r => r.Product)
-            .ToListAsync();
-    }
-
-    var model = new ProductDetailsVM
-    {
-        Product = product,
-        RecentlyViewed = recentlyViewed
-    };
-
-    return View(model);
+    await _context.SaveChangesAsync();
+    return RedirectToAction("Index");
 }
