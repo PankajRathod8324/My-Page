@@ -1,77 +1,164 @@
-  <div class="mb-4">
-                                    <label class="form-label fw-semibold">Main Cover Image</label>
+<script>
+$(document).on("submit", "#EditProduct", function (event) {
+    event.preventDefault();
 
-                                    <!-- Existing Main Image -->
-                                    <div id="existingMainImage" class="mb-2">
-                                        @if (!string.IsNullOrEmpty(Model.Images))
-                                        {
-                                            <div class="thumb-wrapper">
-                                                <img src="@Model.Images" class="thumb-img" />
-                                                <button type="button" class="remove-btn remove-existing-main">&times;</button>
-                                            </div>
-                                        }
-                                    </div>
+    var form = $(this)[0];
+    var formData = new FormData();
 
-                                    <div class="border rounded bg-light p-3 text-center"
-                                        onclick="document.getElementById('mainImageInput').click()"
-                                        style="cursor: pointer;">
-                                        <div class="text-muted">📁 Click here to upload Cover Image</div>
-                                        <input type="file" class="d-none" id="mainImageInput" name="MainImage"
-                                            accept="image/*">
-                                        <div id="mainImagePreview"
-                                            class="mt-3 d-flex flex-wrap gap-3 justify-content-start"></div>
-                                    </div>
-                                </div>
+    // 1. Append form fields
+    $(form).serializeArray().forEach(function (field) {
+        formData.append(field.name, field.value);
+    });
 
-                                <!-- GALLERY IMAGES (Existing + New Upload) -->
-                                <div class="mb-4">
-                                    <label class="form-label fw-semibold">Gallery Images</label>
+    // 2. Main Image: Check if a new one is selected
+    var mainImageInput = document.getElementById("mainImageInput");
+    if (mainImageInput.files.length > 0) {
+        formData.append("MainImage", mainImageInput.files[0]);
+    } else {
+        // If not replaced, include the path of existing image
+        var existingMain = $("#existingMainImage img").attr("src");
+        if (existingMain) {
+            formData.append("ExistingMainImage", existingMain);
+        }
+    }
 
-                                    <!-- Existing Gallery Images -->
-                                    <div id="existingGalleryImages" class="d-flex flex-wrap gap-2 mb-3">
-                                        @foreach (var img in Model.Image)
-                                        {
-                                            <div class="thumb-wrapper">
-                                                <img src="@img.Imaegpath" class="thumb-img" />
-                                                <button type="button" class="remove-btn remove-existing" data-id="@img.Productimageid">&times;</button>
-                                            </div>
-                                        }
-                                    </div>
+    // 3. Gallery Images
 
-                                    <!-- Upload New Gallery Images -->
-                                     <div class="border rounded bg-light p-3 text-center"
-                                        onclick="document.getElementById('galleryImagesInput').click()"
-                                        style="cursor: pointer;">
-                                        <div class="text-muted">📸 Click here to upload multiple Product Images</div>
-                                        <input type="file" class="d-none" id="galleryImagesInput" name="GalleryImages"
-                                            accept="image/*" multiple>
-                                        <div id="galleryPreview" class="mt-3 d-flex flex-wrap gap-3 justify-content-start">
-                                        </div>
-                                    </div>
-                                </div> i have these code for edit now i have do like that here  i wnat that first u get that existing main image and gallery image so we append it in IFOrmFIle of Main Image and Gallery Image Okay  $(document).on("submit", "#EditProduct", function (event) {
-        event.preventDefault();
-        var formData = $(this)[0];
-        var submissionData = new FormData(formData);
-        if ($(this).valid()) {
-            $.ajax({
-                url: '/Product/UpdateProduct',
-                type: 'POST',
-                data: submissionData,
-                processData: false,
-                contentType: false,
-                success: function (response) {
-                    console.log(response.success);
-                    if (response.success === true) {
-                        toastr.success('Product Edited Successfully!', "Success");
-                        $('#EditProductModal').modal('hide');
-                        loadProduct(pageNumber);
-                    } else {
-                        toastr.warning("Invalid Product data.", "Warning");
-                    }
-                },
-                error: function (xhr, status, error) {
-                    console.error('Error:', xhr.responseText);
-                }
-            });
-        }
-    });
+    // a. Add new files
+    var galleryInput = document.getElementById("galleryImagesInput");
+    if (galleryInput.files.length > 0) {
+        for (let i = 0; i < galleryInput.files.length; i++) {
+            formData.append("GalleryImages", galleryInput.files[i]);
+        }
+    }
+
+    // b. Include all not-removed existing gallery images by ID
+    $("#existingGalleryImages .thumb-wrapper").each(function () {
+        if (!$(this).find(".remove-existing").hasClass("removed")) {
+            var imgId = $(this).find(".remove-existing").data("id");
+            formData.append("ExistingGalleryImageIds", imgId);
+        }
+    });
+
+    // 4. AJAX submit
+    if ($(form).valid()) {
+        $.ajax({
+            url: '/Product/UpdateProduct',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function (response) {
+                if (response.success === true) {
+                    toastr.success('Product Edited Successfully!', "Success");
+                    $('#EditProductModal').modal('hide');
+                    loadProduct(pageNumber);
+                } else {
+                    toastr.warning("Invalid Product data.", "Warning");
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error:', xhr.responseText);
+            }
+        });
+    }
+});
+</script>
+// Mark gallery image for removal
+$(document).on("click", ".remove-existing", function () {
+    $(this).addClass("removed"); // So it's not sent
+    $(this).closest(".thumb-wrapper").hide(); // Optional hide
+});
+public void UpdateProduct(ProductDTO model, IFormFile MainImage, List<IFormFile> GalleryImages, string ExistingMainImage, List<int> ExistingGalleryImageIds)
+{
+    try
+    {
+        var product = _productRepository.GetProductById(model.Productid);
+        if (product == null)
+            throw new Exception("Product not found.");
+
+        // Update basic fields
+        product.Name = model.Name;
+        product.Categoryid = model.Categoryid;
+        product.Price = model.Price;
+        product.Details = model.Details;
+        product.Active = model.Active;
+        product.Modifiedby = _userRepository.GetUserByEmail(
+            _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Email)?.Value)?.Userid ?? 0;
+        product.Modifieddate = DateTime.Now;
+
+        // ========== MAIN IMAGE LOGIC ==========
+        if (MainImage != null && MainImage.Length > 0)
+        {
+            var mainImageFileName = Guid.NewGuid().ToString() + "_" + MainImage.FileName;
+            var mainImagePath = Path.Combine(_imageFolderPath, mainImageFileName);
+            Directory.CreateDirectory(_imageFolderPath);
+
+            using (var stream = new FileStream(mainImagePath, FileMode.Create))
+            {
+                MainImage.CopyTo(stream);
+            }
+
+            product.Imagepath = "/images/" + mainImageFileName;
+        }
+        else if (!string.IsNullOrEmpty(ExistingMainImage))
+        {
+            product.Imagepath = ExistingMainImage; // Use old one
+        }
+        else
+        {
+            product.Imagepath = null; // In case removed
+        }
+
+        // ========== UPDATE PRODUCT ==========
+        _productRepository.UpdateProduct(product);
+
+        // ========== GALLERY IMAGE LOGIC ==========
+
+        // 1. Delete removed gallery images
+        var existingImages = _productRepository.GetProductImages(model.Productid);
+        foreach (var image in existingImages)
+        {
+            if (ExistingGalleryImageIds == null || !ExistingGalleryImageIds.Contains(image.Productimageid))
+            {
+                _productRepository.DeleteProductImage(image.Productimageid);
+                // Optional: delete physical file too
+                var fullPath = Path.Combine(_imageFolderPath, Path.GetFileName(image.Imaegpath));
+                if (System.IO.File.Exists(fullPath))
+                    System.IO.File.Delete(fullPath);
+            }
+        }
+
+        // 2. Add new gallery images
+        if (GalleryImages != null && GalleryImages.Count > 0)
+        {
+            foreach (var image in GalleryImages)
+            {
+                if (image.Length > 0)
+                {
+                    var uniqueFileName = Guid.NewGuid().ToString() + "_" + image.FileName;
+                    var filePath = Path.Combine(_imageFolderPath, uniqueFileName);
+
+                    Directory.CreateDirectory(_imageFolderPath);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        image.CopyTo(stream);
+                    }
+
+                    var galleryImage = new Productimage
+                    {
+                        Productid = product.Productid,
+                        Imaegpath = "/images/" + uniqueFileName
+                    };
+
+                    _productRepository.AddProductImage(galleryImage);
+                }
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        throw new Exception("Error updating product: " + ex.Message);
+    }
+}
