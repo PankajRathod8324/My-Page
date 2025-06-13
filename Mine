@@ -1,164 +1,115 @@
-<script>
-$(document).on("submit", "#EditProduct", function (event) {
-    event.preventDefault();
+ <div class="table-responsive " style="max-height: 500px; overflow-y: auto;scrollbar-width: none;">
+        <table class="table align-bottom text-center">
+            <thead style="position: sticky; top: 0; z-index: 10;">
+                <tr>
+                    <th class="text-start text-secondary border-top-0 ms-2 fs-5">
+                        Name
+                    </th>
+                    <th class="text-secondary border-top-0 fs-5">Category</th>
+                    <th class="text-secondary border-top-0 fs-5">Price</th>
+                    <th class="text-secondary border-top-0 fs-5">Active</th>
+                    <th class="text-secondary border-top-0 fs-5">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Any(product => product.Productid != null))
+                {
+                    @foreach (var product in Model)
+                    {
+                        if (product.Productid != null)
+                        {
+                            <tr class="tblclass " data-id="@product.Productid">
+                                <td class="text-start ">
+                                    <div class="d-flex align-items-center">
+                                        <a  asp-action="ViewProduct" asp-controller="Product" asp-route-productId = "@product.Productid">
+                                            <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : @product.Images)"
+                                            alt="Menu Icon" class="rounded-circle"
+                                            style="width: 45px; height: 45px; object-fit: cover;" />
+                                        </a>
+                                        
+                                        <div class="ms-2">
+                                            <p class="text-secondary mb-0 fw-bold">@product.Name</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                  <td class="fw-bold text-secondary align-items-center">
+                                    @product.CategoryName
+                                </td>
+                                <td class="fw-bold text-secondary align-items-center">
+                                    @product.Price
+                                </td>
+                                
+                                <td>
+                                    <div class="form-check form-switch d-flex justify-content-center">
+                                        <input class="form-check-input toggleSwitch canView" type="checkbox" 
+                                            @(product.Active ? "checked" : "") style="border-radius: 1rem !important;"
+                                            disabled>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex justify-content-center">
 
-    var form = $(this)[0];
-    var formData = new FormData();
+                                    <a class="btn editIcon" title="Edit" placement="top" data-id="@product.Productid">
+                                        <i class="bi bi-pen"></i>
+                                    </a>
 
-    // 1. Append form fields
-    $(form).serializeArray().forEach(function (field) {
-        formData.append(field.name, field.value);
-    });
 
-    // 2. Main Image: Check if a new one is selected
-    var mainImageInput = document.getElementById("mainImageInput");
-    if (mainImageInput.files.length > 0) {
-        formData.append("MainImage", mainImageInput.files[0]);
-    } else {
-        // If not replaced, include the path of existing image
-        var existingMain = $("#existingMainImage img").attr("src");
-        if (existingMain) {
-            formData.append("ExistingMainImage", existingMain);
-        }
-    }
+                                    <a class="btn deletebtn" title="Delete" placement="top" data-id="@product.Productid">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">
+                            <p class="mb-0">No Products found!</p>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+         <div class="d-flex justify-content-end align-items-center my-3 gap-2">
+        <form id="paginationForm" method="get" class="d-flex align-items-center me-3">
+            <span class="me-2">Items per page:</span>
+            <select id="pageSizeDropdown" class="form-select form-select-sm w-auto me-3">
+                <option value="5" selected="@(ViewBag.PageSize == 5)">5</option>
+                <option value="10" selected="@(ViewBag.PageSize == 10)">10</option>
+                <option value="15" selected="@(ViewBag.PageSize == 15)">15</option>
+            </select>
 
-    // 3. Gallery Images
 
-    // a. Add new files
-    var galleryInput = document.getElementById("galleryImagesInput");
-    if (galleryInput.files.length > 0) {
-        for (let i = 0; i < galleryInput.files.length; i++) {
-            formData.append("GalleryImages", galleryInput.files[i]);
-        }
-    }
+            <span id="pagination-summary" class="text-muted">
+                Showing @(Model.PageSize * (Model.PageNumber - 1) + 1) -
+                @((Model.PageSize * Model.PageNumber) > Model.TotalItemCount ? Model.TotalItemCount :
+                                (Model.PageSize *
+                                Model.PageNumber))
+                of @Model.TotalItemCount results
+            </span>
+        </form>
 
-    // b. Include all not-removed existing gallery images by ID
-    $("#existingGalleryImages .thumb-wrapper").each(function () {
-        if (!$(this).find(".remove-existing").hasClass("removed")) {
-            var imgId = $(this).find(".remove-existing").data("id");
-            formData.append("ExistingGalleryImageIds", imgId);
-        }
-    });
+        <div id="paginationContainer">
+            @if (Model.HasPreviousPage)
+            {
+                <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber - 1)">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+            }
 
-    // 4. AJAX submit
-    if ($(form).valid()) {
-        $.ajax({
-            url: '/Product/UpdateProduct',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function (response) {
-                if (response.success === true) {
-                    toastr.success('Product Edited Successfully!', "Success");
-                    $('#EditProductModal').modal('hide');
-                    loadProduct(pageNumber);
-                } else {
-                    toastr.warning("Invalid Product data.", "Warning");
-                }
-            },
-            error: function (xhr, status, error) {
-                console.error('Error:', xhr.responseText);
-            }
-        });
-    }
-});
-</script>
-// Mark gallery image for removal
-$(document).on("click", ".remove-existing", function () {
-    $(this).addClass("removed"); // So it's not sent
-    $(this).closest(".thumb-wrapper").hide(); // Optional hide
-});
-public void UpdateProduct(ProductDTO model, IFormFile MainImage, List<IFormFile> GalleryImages, string ExistingMainImage, List<int> ExistingGalleryImageIds)
-{
-    try
-    {
-        var product = _productRepository.GetProductById(model.Productid);
-        if (product == null)
-            throw new Exception("Product not found.");
+            <span class="mx-2" id="pageNumber">Page @Model.PageNumber of @Model.PageCount</span>
 
-        // Update basic fields
-        product.Name = model.Name;
-        product.Categoryid = model.Categoryid;
-        product.Price = model.Price;
-        product.Details = model.Details;
-        product.Active = model.Active;
-        product.Modifiedby = _userRepository.GetUserByEmail(
-            _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Email)?.Value)?.Userid ?? 0;
-        product.Modifieddate = DateTime.Now;
+            @if (Model.HasNextPage)
+            {
+                <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber + 1)">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            }
+        </div>
 
-        // ========== MAIN IMAGE LOGIC ==========
-        if (MainImage != null && MainImage.Length > 0)
-        {
-            var mainImageFileName = Guid.NewGuid().ToString() + "_" + MainImage.FileName;
-            var mainImagePath = Path.Combine(_imageFolderPath, mainImageFileName);
-            Directory.CreateDirectory(_imageFolderPath);
-
-            using (var stream = new FileStream(mainImagePath, FileMode.Create))
-            {
-                MainImage.CopyTo(stream);
-            }
-
-            product.Imagepath = "/images/" + mainImageFileName;
-        }
-        else if (!string.IsNullOrEmpty(ExistingMainImage))
-        {
-            product.Imagepath = ExistingMainImage; // Use old one
-        }
-        else
-        {
-            product.Imagepath = null; // In case removed
-        }
-
-        // ========== UPDATE PRODUCT ==========
-        _productRepository.UpdateProduct(product);
-
-        // ========== GALLERY IMAGE LOGIC ==========
-
-        // 1. Delete removed gallery images
-        var existingImages = _productRepository.GetProductImages(model.Productid);
-        foreach (var image in existingImages)
-        {
-            if (ExistingGalleryImageIds == null || !ExistingGalleryImageIds.Contains(image.Productimageid))
-            {
-                _productRepository.DeleteProductImage(image.Productimageid);
-                // Optional: delete physical file too
-                var fullPath = Path.Combine(_imageFolderPath, Path.GetFileName(image.Imaegpath));
-                if (System.IO.File.Exists(fullPath))
-                    System.IO.File.Delete(fullPath);
-            }
-        }
-
-        // 2. Add new gallery images
-        if (GalleryImages != null && GalleryImages.Count > 0)
-        {
-            foreach (var image in GalleryImages)
-            {
-                if (image.Length > 0)
-                {
-                    var uniqueFileName = Guid.NewGuid().ToString() + "_" + image.FileName;
-                    var filePath = Path.Combine(_imageFolderPath, uniqueFileName);
-
-                    Directory.CreateDirectory(_imageFolderPath);
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        image.CopyTo(stream);
-                    }
-
-                    var galleryImage = new Productimage
-                    {
-                        Productid = product.Productid,
-                        Imaegpath = "/images/" + uniqueFileName
-                    };
-
-                    _productRepository.AddProductImage(galleryImage);
-                }
-            }
-        }
-    }
-    catch (Exception ex)
-    {
-        throw new Exception("Error updating product: " + ex.Message);
-    }
-}
+    </div>
+</div>
+here it is in table form for admin but i want for user it is form of like how the product is in the amazon or any ecommerce that form i want the product so give in that like 
