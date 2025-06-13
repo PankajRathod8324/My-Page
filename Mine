@@ -1,4 +1,12 @@
-<div class="col d-flex flex-wrap  justify-content-end gap-3">
+<div class="row gx-3 gy-2 mb-3 align-items-center justify-content-end mx-0 rounded">
+            <div class="col-md-2 d-flex flex-wrap align-items-center justify-content-start gap-3">
+                <!-- Search Box -->
+                <div class="position-relative " style="max-width: 300px;">
+                    <input class="form-control form-control-lg" type="text" name="search" placeholder="Search"
+                        id="searchInput" style="height: 60px;">
+                </div>
+            </div>
+            <div class="col d-flex flex-wrap  justify-content-end gap-3">
                 <div class="col-12 col-sm-12" style="max-width: 200px;">
                     <select class="form-select modal-field" id="filter" name="filter" asp-for="Categoryid"
                         asp-items="ViewBag.Categories" id="floatingSelect" aria-label="Floating label select example"
@@ -19,4 +27,5 @@
                                 <span>₹<span id="maxValueText">200000</span></span>
                             </div>
                 </div>
-            </div> both should be align okay here
+            </div>
+        </div>both should be align okay here and start shoul;d, be in left okay and \the filter in right and perfectyle align and look good okay
