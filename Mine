@@ -1,109 +1,22 @@
-HTML: Simple Rounded Slider (No UI Lib)
-We’ll use an <input type="range"> for both min and max values (simple and customizable).
+<div class="col d-flex flex-wrap  justify-content-end gap-3">
+                <div class="col-12 col-sm-12" style="max-width: 200px;">
+                    <select class="form-select modal-field" id="filter" name="filter" asp-for="Categoryid"
+                        asp-items="ViewBag.Categories" id="floatingSelect" aria-label="Floating label select example"
+                        style="height: 60px;">
+                    </select>
+                </div>
 
-html
-Copy code
-<div class="mb-3">
-    <label class="form-label fw-bold">Price Range (₹)</label>
-    <div class="d-flex align-items-center gap-2">
-        <input type="range" class="form-range" id="minPrice" min="0" max="10000" step="100" value="0">
-        <input type="range" class="form-range" id="maxPrice" min="0" max="10000" step="100" value="10000">
-    </div>
-    <div class="d-flex justify-content-between mt-1">
-        <span>Min: ₹<span id="minValueText">0</span></span>
-        <span>Max: ₹<span id="maxValueText">10000</span></span>
-    </div>
-</div>
-✅ 2. JavaScript (Access Min/Max & Trigger AJAX on .saveBtn)
-html
-Copy code
-<script>
-    $(document).on("input", "#minPrice, #maxPrice", function () {
-        let min = parseInt($("#minPrice").val());
-        let max = parseInt($("#maxPrice").val());
-
-        if (min > max) {
-            // Swap if min exceeds max
-            [min, max] = [max, min];
-        }
-
-        $("#minValueText").text(min);
-        $("#maxValueText").text(max);
-    });
-
-    $(document).on("click", ".saveBtn", function (event) {
-        event.preventDefault();
-
-        var filter = $('#filter').val(); // category id or any filter
-        var search = $('#search').val(); // if you have a search input
-        var minPrice = parseInt($("#minPrice").val());
-        var maxPrice = parseInt($("#maxPrice").val());
-
-        let pageNumber = 1; // or maintain your current page state
-
-        $.ajax({
-            url: '/Product/FilteredList',
-            type: 'GET',
-            data: {
-                pageNumber: pageNumber,
-                pageSize: 10,
-                search: search,
-                filterBy: filter,
-                minPrice: minPrice,
-                maxPrice: maxPrice
-            },
-            success: function (result) {
-                $("#productContainer").html(result);
-            },
-            error: function () {
-                alert("Failed to load products.");
-            }
-        });
-    });
-</script>
-✅ 3. Backend: Update PaginationOptions to Accept Min/Max
-🟦 PaginationOptions.cs
-csharp
-Copy code
-public class PaginationOptions
-{
-    public int PageNumber { get; set; } = 1;
-    public int PageSize { get; set; } = 10;
-    public string? Search { get; set; }
-    public string? FilterBy { get; set; } // categoryId or any filter
-    public decimal? MinPrice { get; set; }
-    public decimal? MaxPrice { get; set; }
-}
-✅ 4. Backend: Update GetFilteredProducts Method
-🟦 ProductService.cs
-csharp
-Copy code
-public IPagedList<ProductDTO> GetFilteredProducts(PaginationOptions filterOptions)
-{
-    var products = _productRepository.GetAllProducts().AsQueryable();
-
-    if (!string.IsNullOrEmpty(filterOptions.Search))
-    {
-        string searchLower = filterOptions.Search.ToLower();
-        products = products.Where(u => u.Name.ToLower().Contains(searchLower));
-    }
-
-    if (!string.IsNullOrEmpty(filterOptions.FilterBy) &&
-        int.TryParse(filterOptions.FilterBy, out int categoryId))
-    {
-        products = products.Where(p => p.Categoryid == categoryId);
-    }
-
-    if (filterOptions.MinPrice.HasValue)
-    {
-        products = products.Where(p => p.Price >= filterOptions.MinPrice.Value);
-    }
-
-    if (filterOptions.MaxPrice.HasValue)
-    {
-        products = products.Where(p => p.Price <= filterOptions.MaxPrice.Value);
-    }
-
-    return products.ToPagedList(filterOptions.PageNumber, filterOptions.PageSize);
-}
-✅ 5. Controller Endpo
+                <div class="flex-grow-1  form-floating bg-white py-2 mx-2"  style="max-width: 200px;">
+                    <span class="form-label fw-bold">Price Range (₹)</span>
+                        <div class="d-flex align-items-center gap-2">
+                                <input type="range" class="form-range" id="minPrice" min="0" max="200000" step="1000"
+                            value="0">
+                                <input type="range" class="form-range" id="maxPrice" min="0" max="200000" step="1000"
+                            value="200000">
+                            </div>
+                        <div class="d-flex justify-content-between mt-1">
+                                <span>₹<span id="minValueText">0</span></span>
+                                <span>₹<span id="maxValueText">200000</span></span>
+                            </div>
+                </div>
+            </div> both should be align okay here
