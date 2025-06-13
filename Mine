@@ -1,118 +1,95 @@
-Update Your Controller
-Create a method that returns a partial view:
+HTML + Slider UI
+Put this above your product grid:
 
-csharp
-Copy code
-public IActionResult LoadMoreProducts(int page = 1, int pageSize = 12)
-{
-    var products = _productService.GetAllPaged(page, pageSize); // Paged data
-    return PartialView("_ProductCardsPartial", products);
-}
-✅ 2. Create Partial View: _ProductCardsPartial.cshtml
 html
 Copy code
-@model IEnumerable<ProductVM>
-
-@foreach (var product in Model)
-{
-    <div class="col-md-3 mb-4">
-        <div class="card h-100 shadow-sm">
-            <img src="@product.Images" class="card-img-top" alt="@product.Name" style="height: 200px; object-fit: cover;">
-            <div class="card-body">
-                <h5 class="card-title">@product.Name</h5>
-                <p class="card-text">₹@product.Price</p>
-                <p class="text-muted">@product.CategoryName</p>
+<div class="container mb-4">
+    <div class="row">
+        <div class="col-md-12">
+            <label for="priceRange" class="form-label fw-bold">Filter by Price</label>
+            <input type="range" class="form-range" id="minPrice" min="0" max="10000" value="0">
+            <input type="range" class="form-range" id="maxPrice" min="0" max="10000" value="10000">
+            <div class="d-flex justify-content-between">
+                <span>₹<span id="minValue">0</span></span>
+                <span>₹<span id="maxValue">10000</span></span>
             </div>
         </div>
     </div>
-}
-✅ 3. Main View (Initial Layout + Scroll Logic)
-html
-Copy code
-@{
-    ViewBag.Title = "All Products";
-    Layout = "~/Views/Shared/_Layout.cshtml";
-    int initialPage = 1;
-}
-<div class="container my-4">
-    <div class="row" id="productContainer">
-        @await Html.PartialAsync("_ProductCardsPartial", Model)
-    </div>
-
-    <div id="loading" class="text-center mt-4" style="display:none;">
-        <span class="spinner-border text-primary" role="status"></span>
-        <p>Loading more products...</p>
-    </div>
 </div>
 
+<div id="productContainer" class="row">
+    @await Html.PartialAsync("_ProductCardsPartial", Model)
+</div>
+
+<div id="loading" style="display:none;" class="text-center my-3">
+    <span class="spinner-border text-primary"></span>
+    <p>Loading...</p>
+</div>
+✅ 2. 🔁 JavaScript for Range + AJAX
+html
+Copy code
 @section Scripts {
     <script>
-        let page = @initialPage + 1;
-        let isLoading = false;
+        const minSlider = document.getElementById("minPrice");
+        const maxSlider = document.getElementById("maxPrice");
+        const minVal = document.getElementById("minValue");
+        const maxVal = document.getElementById("maxValue");
 
-        window.onscroll = function () {
-            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 && !isLoading) {
-                isLoading = true;
-                document.getElementById("loading").style.display = "block";
+        // Update label values
+        minSlider.oninput = maxSlider.oninput = function () {
+            let min = parseInt(minSlider.value);
+            let max = parseInt(maxSlider.value);
 
-                $.ajax({
-                    url: '/Product/LoadMoreProducts?page=' + page,
-                    type: 'GET',
-                    success: function (data) {
-                        if (data.trim() !== "") {
-                            $('#productContainer').append(data);
-                            page++;
-                            isLoading = false;
-                            document.getElementById("loading").style.display = "none";
-                        } else {
-                            $('#loading').html('<p class="text-muted">No more products to load.</p>');
-                        }
-                    },
-                    error: function () {
-                        $('#loading').html('<p class="text-danger">Error loading products.</p>');
-                    }
-                });
+            if (min > max) {
+                [min, max] = [max, min]; // Swap if min > max
             }
+
+            minVal.innerText = min;
+            maxVal.innerText = max;
+
+            filterByPrice(min, max);
         };
+
+        function filterByPrice(min, max) {
+            $("#loading").show();
+            $.ajax({
+                url: '/Product/FilterByPrice',
+                type: 'GET',
+                data: { minPrice: min, maxPrice: max },
+                success: function (result) {
+                    $('#productContainer').html(result);
+                    $("#loading").hide();
+                },
+                error: function () {
+                    $('#productContainer').html('<p class="text-danger">Failed to load products.</p>');
+                    $("#loading").hide();
+                }
+            });
+        }
     </script>
 }
-✅ 4. ProductService Logic
-Your service or repository method should support pagination:
-
+✅ 3. 🧠 Backend Controller (C#)
 csharp
 Copy code
-public IEnumerable<ProductVM> GetAllPaged(int page, int pageSize)
+public IActionResult FilterByPrice(decimal minPrice, decimal maxPrice)
 {
-    return _db.Products
-              .Where(p => p.Active)
-              .OrderBy(p => p.Productid)
-              .Skip((page - 1) * pageSize)
-              .Take(pageSize)
-              .Select(p => new ProductVM {
-                  Name = p.Name,
-                  Images = p.Images,
-                  CategoryName = p.Category.Name,
-                  Price = p.Price
-              }).ToList();
+    var products = _productService.GetProductsByPrice(minPrice, maxPrice);
+    return PartialView("_ProductCardsPartial", products);
 }
-✅ Final Output
-You see 12 products initially.
-
-Scroll to bottom → new products auto-load.
-
-Seamless experience just like Amazon or Flipkart.
-
-Do you want me to create a working sample with your exact structure (controller + viewmodel + layout)?
-
-
-
-
-
-
-
-
-Tools
-
-
-
-ChatGPT can make mistakes. 
+✅ 4. 🔄 Service or Repository Layer
+csharp
+Copy code
+public IEnumerable<ProductVM> GetProductsByPrice(decimal min, decimal max)
+{
+    return _context.Products
+        .Where(p => p.Price >= min && p.Price <= max && p.Active)
+        .OrderBy(p => p.Price)
+        .Select(p => new ProductVM
+        {
+            Productid = p.Productid,
+            Name = p.Name,
+            Images = p.Images,
+            CategoryName = p.Category.CategoryName,
+            Price = p.Price
+        }).ToList();
+}
