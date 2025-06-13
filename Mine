@@ -1,115 +1,25 @@
- <div class="table-responsive " style="max-height: 500px; overflow-y: auto;scrollbar-width: none;">
-        <table class="table align-bottom text-center">
-            <thead style="position: sticky; top: 0; z-index: 10;">
-                <tr>
-                    <th class="text-start text-secondary border-top-0 ms-2 fs-5">
-                        Name
-                    </th>
-                    <th class="text-secondary border-top-0 fs-5">Category</th>
-                    <th class="text-secondary border-top-0 fs-5">Price</th>
-                    <th class="text-secondary border-top-0 fs-5">Active</th>
-                    <th class="text-secondary border-top-0 fs-5">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.Any(product => product.Productid != null))
-                {
-                    @foreach (var product in Model)
-                    {
-                        if (product.Productid != null)
-                        {
-                            <tr class="tblclass " data-id="@product.Productid">
-                                <td class="text-start ">
-                                    <div class="d-flex align-items-center">
-                                        <a  asp-action="ViewProduct" asp-controller="Product" asp-route-productId = "@product.Productid">
-                                            <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : @product.Images)"
-                                            alt="Menu Icon" class="rounded-circle"
-                                            style="width: 45px; height: 45px; object-fit: cover;" />
-                                        </a>
-                                        
-                                        <div class="ms-2">
-                                            <p class="text-secondary mb-0 fw-bold">@product.Name</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                  <td class="fw-bold text-secondary align-items-center">
-                                    @product.CategoryName
-                                </td>
-                                <td class="fw-bold text-secondary align-items-center">
-                                    @product.Price
-                                </td>
-                                
-                                <td>
-                                    <div class="form-check form-switch d-flex justify-content-center">
-                                        <input class="form-check-input toggleSwitch canView" type="checkbox" 
-                                            @(product.Active ? "checked" : "") style="border-radius: 1rem !important;"
-                                            disabled>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="d-flex justify-content-center">
+@model IEnumerable<YourNamespace.Models.ProductVM>
 
-                                    <a class="btn editIcon" title="Edit" placement="top" data-id="@product.Productid">
-                                        <i class="bi bi-pen"></i>
-                                    </a>
-
-
-                                    <a class="btn deletebtn" title="Delete" placement="top" data-id="@product.Productid">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
-                                </div>
-                                </td>
-                            </tr>
-                        }
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">
-                            <p class="mb-0">No Products found!</p>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-         <div class="d-flex justify-content-end align-items-center my-3 gap-2">
-        <form id="paginationForm" method="get" class="d-flex align-items-center me-3">
-            <span class="me-2">Items per page:</span>
-            <select id="pageSizeDropdown" class="form-select form-select-sm w-auto me-3">
-                <option value="5" selected="@(ViewBag.PageSize == 5)">5</option>
-                <option value="10" selected="@(ViewBag.PageSize == 10)">10</option>
-                <option value="15" selected="@(ViewBag.PageSize == 15)">15</option>
-            </select>
-
-
-            <span id="pagination-summary" class="text-muted">
-                Showing @(Model.PageSize * (Model.PageNumber - 1) + 1) -
-                @((Model.PageSize * Model.PageNumber) > Model.TotalItemCount ? Model.TotalItemCount :
-                                (Model.PageSize *
-                                Model.PageNumber))
-                of @Model.TotalItemCount results
-            </span>
-        </form>
-
-        <div id="paginationContainer">
-            @if (Model.HasPreviousPage)
-            {
-                <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber - 1)">
-                    <i class="fa-solid fa-chevron-left"></i>
-                </button>
-            }
-
-            <span class="mx-2" id="pageNumber">Page @Model.PageNumber of @Model.PageCount</span>
-
-            @if (Model.HasNextPage)
-            {
-                <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber + 1)">
-                    <i class="fa-solid fa-chevron-right"></i>
-                </button>
-            }
-        </div>
-
+<div class="container my-4">
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+        @foreach (var product in Model)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0">
+                    <a asp-controller="Product" asp-action="ViewProduct" asp-route-productId="@product.Productid">
+                        <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : product.Images)"
+                             class="card-img-top" style="height: 200px; object-fit: cover;" alt="@product.Name" />
+                    </a>
+                    <div class="card-body d-flex flex-column">
+                        <h6 class="card-title fw-bold text-truncate">@product.Name</h6>
+                        <p class="card-text text-muted mb-1">@product.CategoryName</p>
+                        <p class="card-text fw-bold text-primary mb-3">₹@product.Price</p>
+                        <a asp-controller="Product" asp-action="ViewProduct" asp-route-productId="@product.Productid" class="btn btn-sm btn-dark mt-auto">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 </div>
-here it is in table form for admin but i want for user it is form of like how the product is in the amazon or any ecommerce that form i want the product so give in that like 
