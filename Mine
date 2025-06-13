@@ -1,90 +1,69 @@
-<script>
-    const validImageTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+ public void AddProduct(ProductDTO model, IFormFile MainImage, List<IFormFile> GalleryImages)
+    {
+        try
+        {
+            var product = new Product
+            {
+                Name = model.Name,
+                Categoryid = model.Categoryid,
+                Price = model.Price,
+                Details = model.Details,
+                Active = model.Active,
+                Createdby = _userRepository.GetUserByEmail(
+                    _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Email)?.Value)?.Userid ?? 0
+            };
 
-    function createImagePreview(file, container) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const previewCard = document.createElement("div");
-            previewCard.classList.add("position-relative");
 
-            previewCard.innerHTML = `
-                <div style="width: 100px; height: 100px; border: 2px solid #ccc; border-radius: 8px; overflow: hidden; position: relative;">
-                    <img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">
-                    <span class="remove-image"
-                        style="position: absolute; top: 2px; right: 6px; color: white; background: red; border-radius: 50%; padding: 2px 7px; font-weight: bold; cursor: pointer;">&times;</span>
-                </div>
-            `;
 
-            container.appendChild(previewCard);
+            // Handle Main Cover Image
+            if (MainImage != null && MainImage.Length > 0)
+            {
+                var mainImageFileName = Guid.NewGuid().ToString() + "_" + MainImage.FileName;
+                var mainImagePath = Path.Combine(_imageFolderPath, mainImageFileName);
+                Directory.CreateDirectory(_imageFolderPath);
 
-            previewCard.querySelector(".remove-image").addEventListener("click", () => {
-                previewCard.remove();
-            });
-        };
-        reader.readAsDataURL(file);
+                using (var stream = new FileStream(mainImagePath, FileMode.Create))
+                {
+                    MainImage.CopyTo(stream); // use CopyTo instead of CopyToAsync if you're not awaiting
+                }
+
+
+                product.Imagepath = "/images/" + mainImageFileName;
+
+
+                _productRepository.AddProduct(product);
+            }
+
+            // Handle Gallery Images
+            if (GalleryImages != null && GalleryImages.Count > 0)
+            {
+                foreach (var image in GalleryImages)
+                {
+                    if (image.Length > 0)
+                    {
+                        var uniqueFileName = Guid.NewGuid().ToString() + "_" + image.FileName;
+                        var filePath = Path.Combine(_imageFolderPath, uniqueFileName);
+
+                        Directory.CreateDirectory(_imageFolderPath);
+
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            image.CopyTo(stream);
+                        }
+
+                        var galleryImage = new Productimage
+                        {
+                            Productid = product.Productid,
+                            Imaegpath = "/images/" + uniqueFileName
+                        };
+
+                        _productRepository.AddProductImage(galleryImage);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error adding product: " + ex.Message);
+        }
     }
-
-    // Handle Main Image
-    document.getElementById("mainImageInput").addEventListener("change", function (event) {
-        const file = event.target.files[0];
-        const previewContainer = document.getElementById("mainImagePreview");
-        previewContainer.innerHTML = "";
-
-        if (file && validImageTypes.includes(file.type)) {
-            createImagePreview(file, previewContainer);
-
-            // Remove the existing image (if shown)
-            const existingMainImage = document.getElementById("existingMainImage");
-            if (existingMainImage) {
-                existingMainImage.innerHTML = "";
-            }
-        } else {
-            toastr.error("Invalid file type for main image.");
-        }
-    });
-
-    // Handle Gallery Images
-    document.getElementById("galleryImagesInput").addEventListener("change", function (event) {
-        const files = event.target.files;
-        const previewContainer = document.getElementById("galleryPreview");
-
-        if (!files || files.length === 0) {
-            return;
-        }
-
-        for (let i = 0; i < files.length; i++) {
-            if (validImageTypes.includes(files[i].type)) {
-                createImagePreview(files[i], previewContainer);
-            } else {
-                toastr.error(`${files[i].name} is not a valid image file.`);
-            }
-        }
-    });
-
-    // Remove existing main image on click (if needed)
-    document.querySelectorAll(".remove-existing-main").forEach(btn => {
-        btn.addEventListener("click", function () {
-            const existingMain = document.getElementById("existingMainImage");
-            if (existingMain) existingMain.innerHTML = "";
-        });
-    });
-
-    // Remove existing gallery images on click (you may also mark them for deletion)
-    document.querySelectorAll(".remove-existing").forEach(btn => {
-        btn.addEventListener("click", function () {
-            const parent = this.closest(".thumb-wrapper");
-            if (parent) parent.remove();
-
-            // Optionally add logic here to track removed images by ID
-            // e.g., store removed IDs in a hidden input for backend processing
-        });
-    });
-
-    // Optional Reset on Modal Close
-    $('#editProductModal').on('hidden.bs.modal', function () {
-        $('#mainImageInput').val('');
-        $('#galleryImagesInput').val('');
-        $('#mainImagePreview').empty();
-        $('#galleryPreview').empty();
-    });
-</script>
