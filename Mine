@@ -1,31 +1,37 @@
-<div class="row gx-3 gy-2 mb-3 align-items-center justify-content-end mx-0 rounded">
-            <div class="col-md-2 d-flex flex-wrap align-items-center justify-content-start gap-3">
-                <!-- Search Box -->
-                <div class="position-relative " style="max-width: 300px;">
-                    <input class="form-control form-control-lg" type="text" name="search" placeholder="Search"
-                        id="searchInput" style="height: 60px;">
-                </div>
-            </div>
-            <div class="col d-flex flex-wrap  justify-content-end gap-3">
-                <div class="col-12 col-sm-12" style="max-width: 200px;">
-                    <select class="form-select modal-field" id="filter" name="filter" asp-for="Categoryid"
-                        asp-items="ViewBag.Categories" id="floatingSelect" aria-label="Floating label select example"
-                        style="height: 60px;">
-                    </select>
-                </div>
+<div class="row gx-3 gy-2 mb-3 align-items-center justify-content-between mx-0 rounded">
 
-                <div class="flex-grow-1  form-floating bg-white py-2 mx-2"  style="max-width: 200px;">
-                    <span class="form-label fw-bold">Price Range (₹)</span>
-                        <div class="d-flex align-items-center gap-2">
-                                <input type="range" class="form-range" id="minPrice" min="0" max="200000" step="1000"
-                            value="0">
-                                <input type="range" class="form-range" id="maxPrice" min="0" max="200000" step="1000"
-                            value="200000">
-                            </div>
-                        <div class="d-flex justify-content-between mt-1">
-                                <span>₹<span id="minValueText">0</span></span>
-                                <span>₹<span id="maxValueText">200000</span></span>
-                            </div>
-                </div>
+    <!-- Left: Search Input -->
+    <div class="col-md-auto">
+        <div class="position-relative" style="max-width: 300px;">
+            <input class="form-control form-control-lg" type="text" name="search" placeholder="Search"
+                id="searchInput" style="height: 60px;">
+        </div>
+    </div>
+
+    <!-- Right: Filter and Price Range -->
+    <div class="col d-flex flex-wrap justify-content-end gap-3 align-items-end">
+
+        <!-- Category Filter -->
+        <div class="form-group" style="max-width: 200px;">
+            <label for="filter" class="form-label fw-bold">Category</label>
+            <select class="form-select modal-field" id="filter" name="filter"
+                asp-for="Categoryid" asp-items="ViewBag.Categories"
+                aria-label="Select Category" style="height: 60px;">
+            </select>
+        </div>
+
+        <!-- Price Range -->
+        <div class="bg-white p-3 rounded border shadow-sm" style="max-width: 300px;">
+            <label class="form-label fw-bold">Price Range (₹)</label>
+            <div class="d-flex align-items-center gap-2">
+                <input type="range" class="form-range" id="minPrice" min="0" max="200000" step="1000" value="0">
+                <input type="range" class="form-range" id="maxPrice" min="0" max="200000" step="1000" value="200000">
             </div>
-        </div>both should be align okay here and start shoul;d, be in left okay and \the filter in right and perfectyle align and look good okay
+            <div class="d-flex justify-content-between mt-1">
+                <span>₹<span id="minValueText">0</span></span>
+                <span>₹<span id="maxValueText">200000</span></span>
+            </div>
+        </div>
+
+    </div>
+</div>
