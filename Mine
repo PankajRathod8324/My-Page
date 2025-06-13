@@ -1,39 +1,109 @@
- $(document).on("click", ".saveBtn", function (event) {
-        event.preventDefault();
-        var filer = $('#filter').val();
-        var min = $('#minValue').innerText;
-        console.log(min);
-        console.log(filter);
-        // var startDate = $("#startDate").val();
-        // var endDate = $("#endDate").val();
-        // if (startDate || endDate) {
+HTML: Simple Rounded Slider (No UI Lib)
+We’ll use an <input type="range"> for both min and max values (simple and customizable).
 
-        //     if ((!startDate || !endDate)) {
-        //         toastr.warning("Please select a date range.", "Warning");
-        //         return;
-        //     }
-        // }
+html
+Copy code
+<div class="mb-3">
+    <label class="form-label fw-bold">Price Range (₹)</label>
+    <div class="d-flex align-items-center gap-2">
+        <input type="range" class="form-range" id="minPrice" min="0" max="10000" step="100" value="0">
+        <input type="range" class="form-range" id="maxPrice" min="0" max="10000" step="100" value="10000">
+    </div>
+    <div class="d-flex justify-content-between mt-1">
+        <span>Min: ₹<span id="minValueText">0</span></span>
+        <span>Max: ₹<span id="maxValueText">10000</span></span>
+    </div>
+</div>
+✅ 2. JavaScript (Access Min/Max & Trigger AJAX on .saveBtn)
+html
+Copy code
+<script>
+    $(document).on("input", "#minPrice, #maxPrice", function () {
+        let min = parseInt($("#minPrice").val());
+        let max = parseInt($("#maxPrice").val());
 
-        loadProduct(pageNumber);
-    }); 
+        if (min > max) {
+            // Swap if min exceeds max
+            [min, max] = [max, min];
+        }
 
-give me slider simple rounded pointer slider that have here in savebtn ajax i can acces the min and max value 
+        $("#minValueText").text(min);
+        $("#maxValueText").text(max);
+    });
 
+    $(document).on("click", ".saveBtn", function (event) {
+        event.preventDefault();
+
+        var filter = $('#filter').val(); // category id or any filter
+        var search = $('#search').val(); // if you have a search input
+        var minPrice = parseInt($("#minPrice").val());
+        var maxPrice = parseInt($("#maxPrice").val());
+
+        let pageNumber = 1; // or maintain your current page state
+
+        $.ajax({
+            url: '/Product/FilteredList',
+            type: 'GET',
+            data: {
+                pageNumber: pageNumber,
+                pageSize: 10,
+                search: search,
+                filterBy: filter,
+                minPrice: minPrice,
+                maxPrice: maxPrice
+            },
+            success: function (result) {
+                $("#productContainer").html(result);
+            },
+            error: function () {
+                alert("Failed to load products.");
+            }
+        });
+    });
+</script>
+✅ 3. Backend: Update PaginationOptions to Accept Min/Max
+🟦 PaginationOptions.cs
+csharp
+Copy code
+public class PaginationOptions
+{
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+    public string? Search { get; set; }
+    public string? FilterBy { get; set; } // categoryId or any filter
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+}
+✅ 4. Backend: Update GetFilteredProducts Method
+🟦 ProductService.cs
+csharp
+Copy code
 public IPagedList<ProductDTO> GetFilteredProducts(PaginationOptions filterOptions)
-    {
-        var products = _productRepository.GetAllProducts().AsQueryable();
+{
+    var products = _productRepository.GetAllProducts().AsQueryable();
 
-        if (!string.IsNullOrEmpty(filterOptions.Search))
-        {
-            string searchLower = filterOptions.Search.ToLower();
-            products = products.Where(u => u.Name.ToString().ToLower().Contains(searchLower));
-        }
-        if (!string.IsNullOrEmpty(filterOptions.FilterBy))
-        {
-            if (int.TryParse(filterOptions.FilterBy, out int categoryId))
-            {
-                products = products.Where(p => p.Categoryid == categoryId);
-            }
-        }
+    if (!string.IsNullOrEmpty(filterOptions.Search))
+    {
+        string searchLower = filterOptions.Search.ToLower();
+        products = products.Where(u => u.Name.ToLower().Contains(searchLower));
+    }
 
-her give me code for backedn okay 
+    if (!string.IsNullOrEmpty(filterOptions.FilterBy) &&
+        int.TryParse(filterOptions.FilterBy, out int categoryId))
+    {
+        products = products.Where(p => p.Categoryid == categoryId);
+    }
+
+    if (filterOptions.MinPrice.HasValue)
+    {
+        products = products.Where(p => p.Price >= filterOptions.MinPrice.Value);
+    }
+
+    if (filterOptions.MaxPrice.HasValue)
+    {
+        products = products.Where(p => p.Price <= filterOptions.MaxPrice.Value);
+    }
+
+    return products.ToPagedList(filterOptions.PageNumber, filterOptions.PageSize);
+}
+✅ 5. Controller Endpo
