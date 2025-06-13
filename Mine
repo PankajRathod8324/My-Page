@@ -1,25 +1,118 @@
-@model IEnumerable<YourNamespace.Models.ProductVM>
+Update Your Controller
+Create a method that returns a partial view:
 
-<div class="container my-4">
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-        @foreach (var product in Model)
-        {
-            <div class="col">
-                <div class="card h-100 shadow-sm border-0">
-                    <a asp-controller="Product" asp-action="ViewProduct" asp-route-productId="@product.Productid">
-                        <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : product.Images)"
-                             class="card-img-top" style="height: 200px; object-fit: cover;" alt="@product.Name" />
-                    </a>
-                    <div class="card-body d-flex flex-column">
-                        <h6 class="card-title fw-bold text-truncate">@product.Name</h6>
-                        <p class="card-text text-muted mb-1">@product.CategoryName</p>
-                        <p class="card-text fw-bold text-primary mb-3">₹@product.Price</p>
-                        <a asp-controller="Product" asp-action="ViewProduct" asp-route-productId="@product.Productid" class="btn btn-sm btn-dark mt-auto">
-                            View Details
-                        </a>
-                    </div>
-                </div>
+csharp
+Copy code
+public IActionResult LoadMoreProducts(int page = 1, int pageSize = 12)
+{
+    var products = _productService.GetAllPaged(page, pageSize); // Paged data
+    return PartialView("_ProductCardsPartial", products);
+}
+✅ 2. Create Partial View: _ProductCardsPartial.cshtml
+html
+Copy code
+@model IEnumerable<ProductVM>
+
+@foreach (var product in Model)
+{
+    <div class="col-md-3 mb-4">
+        <div class="card h-100 shadow-sm">
+            <img src="@product.Images" class="card-img-top" alt="@product.Name" style="height: 200px; object-fit: cover;">
+            <div class="card-body">
+                <h5 class="card-title">@product.Name</h5>
+                <p class="card-text">₹@product.Price</p>
+                <p class="text-muted">@product.CategoryName</p>
             </div>
-        }
+        </div>
+    </div>
+}
+✅ 3. Main View (Initial Layout + Scroll Logic)
+html
+Copy code
+@{
+    ViewBag.Title = "All Products";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    int initialPage = 1;
+}
+<div class="container my-4">
+    <div class="row" id="productContainer">
+        @await Html.PartialAsync("_ProductCardsPartial", Model)
+    </div>
+
+    <div id="loading" class="text-center mt-4" style="display:none;">
+        <span class="spinner-border text-primary" role="status"></span>
+        <p>Loading more products...</p>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        let page = @initialPage + 1;
+        let isLoading = false;
+
+        window.onscroll = function () {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 && !isLoading) {
+                isLoading = true;
+                document.getElementById("loading").style.display = "block";
+
+                $.ajax({
+                    url: '/Product/LoadMoreProducts?page=' + page,
+                    type: 'GET',
+                    success: function (data) {
+                        if (data.trim() !== "") {
+                            $('#productContainer').append(data);
+                            page++;
+                            isLoading = false;
+                            document.getElementById("loading").style.display = "none";
+                        } else {
+                            $('#loading').html('<p class="text-muted">No more products to load.</p>');
+                        }
+                    },
+                    error: function () {
+                        $('#loading').html('<p class="text-danger">Error loading products.</p>');
+                    }
+                });
+            }
+        };
+    </script>
+}
+✅ 4. ProductService Logic
+Your service or repository method should support pagination:
+
+csharp
+Copy code
+public IEnumerable<ProductVM> GetAllPaged(int page, int pageSize)
+{
+    return _db.Products
+              .Where(p => p.Active)
+              .OrderBy(p => p.Productid)
+              .Skip((page - 1) * pageSize)
+              .Take(pageSize)
+              .Select(p => new ProductVM {
+                  Name = p.Name,
+                  Images = p.Images,
+                  CategoryName = p.Category.Name,
+                  Price = p.Price
+              }).ToList();
+}
+✅ Final Output
+You see 12 products initially.
+
+Scroll to bottom → new products auto-load.
+
+Seamless experience just like Amazon or Flipkart.
+
+Do you want me to create a working sample with your exact structure (controller + viewmodel + layout)?
+
+
+
+
+
+
+
+
+Tools
+
+
+
+ChatGPT can make mistakes. 
