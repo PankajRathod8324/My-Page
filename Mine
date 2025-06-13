@@ -1,54 +1,4 @@
-<div class="mb-4">
-                                    <label class="form-label fw-semibold">Main Cover Image</label>
-
-                                    <!-- Existing Main Image -->
-                                    <div id="existingMainImage" class="mb-2">
-                                        @if (!string.IsNullOrEmpty(Model.Images))
-                                        {
-                                            <div class="thumb-wrapper">
-                                                <img src="@Model.Images" class="thumb-img" />
-                                                <button type="button" class="remove-btn remove-existing-main">&times;</button>
-                                            </div>
-                                        }
-                                    </div>
-
-                                    <div class="border rounded bg-light p-3 text-center"
-                                        onclick="document.getElementById('mainImageInput').click()"
-                                        style="cursor: pointer;">
-                                        <div class="text-muted">📁 Click here to upload Cover Image</div>
-                                        <input type="file" class="d-none" id="mainImageInput" name="MainImage"
-                                            accept="image/*">
-                                        <div id="mainImagePreview"
-                                            class="mt-3 d-flex flex-wrap gap-3 justify-content-start"></div>
-                                    </div>
-                                </div>
-
-                                <!-- GALLERY IMAGES (Existing + New Upload) -->
-                                <div class="mb-4">
-                                    <label class="form-label fw-semibold">Gallery Images</label>
-
-                                    <!-- Existing Gallery Images -->
-                                    <div id="existingGalleryImages" class="d-flex flex-wrap gap-2 mb-3">
-                                        @foreach (var img in Model.Image)
-                                        {
-                                            <div class="thumb-wrapper">
-                                                <img src="@img.Imaegpath" class="thumb-img" />
-                                                <button type="button" class="remove-btn remove-existing" data-id="@img.Productimageid">&times;</button>
-                                            </div>
-                                        }
-                                    </div>
-
-                                    <!-- Upload New Gallery Images -->
-                                     <div class="border rounded bg-light p-3 text-center"
-                                        onclick="document.getElementById('galleryImagesInput').click()"
-                                        style="cursor: pointer;">
-                                        <div class="text-muted">📸 Click here to upload multiple Product Images</div>
-                                        <input type="file" class="d-none" id="galleryImagesInput" name="GalleryImages"
-                                            accept="image/*" multiple>
-                                        <div id="galleryPreview" class="mt-3 d-flex flex-wrap gap-3 justify-content-start">
-                                        </div>
-                                    </div>
-                                </div>
+<script>
     const validImageTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
 
     function createImagePreview(file, container) {
@@ -58,12 +8,12 @@
             previewCard.classList.add("position-relative");
 
             previewCard.innerHTML = `
-            <div style="width: 100px; height: 100px; border: 2px solid #ccc; border-radius: 8px; overflow: hidden; position: relative;">
-                <img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">
-                <span class="remove-image" 
-                    style="position: absolute; top: 2px; right: 6px; color: white; background: red; border-radius: 50%; padding: 2px 7px; font-weight: bold; cursor: pointer;">&times;</span>
-            </div>
-        `;
+                <div style="width: 100px; height: 100px; border: 2px solid #ccc; border-radius: 8px; overflow: hidden; position: relative;">
+                    <img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">
+                    <span class="remove-image"
+                        style="position: absolute; top: 2px; right: 6px; color: white; background: red; border-radius: 50%; padding: 2px 7px; font-weight: bold; cursor: pointer;">&times;</span>
+                </div>
+            `;
 
             container.appendChild(previewCard);
 
@@ -74,7 +24,7 @@
         reader.readAsDataURL(file);
     }
 
-    // Main Cover Image (unchanged)
+    // Handle Main Image
     document.getElementById("mainImageInput").addEventListener("change", function (event) {
         const file = event.target.files[0];
         const previewContainer = document.getElementById("mainImagePreview");
@@ -82,20 +32,24 @@
 
         if (file && validImageTypes.includes(file.type)) {
             createImagePreview(file, previewContainer);
+
+            // Remove the existing image (if shown)
+            const existingMainImage = document.getElementById("existingMainImage");
+            if (existingMainImage) {
+                existingMainImage.innerHTML = "";
+            }
         } else {
             toastr.error("Invalid file type for main image.");
         }
     });
 
-    // Gallery Images (modified)
+    // Handle Gallery Images
     document.getElementById("galleryImagesInput").addEventListener("change", function (event) {
         const files = event.target.files;
         const previewContainer = document.getElementById("galleryPreview");
 
-        // Don't clear the container here - this preserves existing previews
-
         if (!files || files.length === 0) {
-            return; // Do nothing if no files selected
+            return;
         }
 
         for (let i = 0; i < files.length; i++) {
@@ -105,5 +59,32 @@
                 toastr.error(`${files[i].name} is not a valid image file.`);
             }
         }
-    }); here i wnat that write js like it should first it is edit form it ahouls display which is existingfor product then in mian image like only one imagew is there hen if i select another then it should replace in main image but in gallery is should can accept multiple of and give me complete code which should work perfectly here okay
+    });
 
+    // Remove existing main image on click (if needed)
+    document.querySelectorAll(".remove-existing-main").forEach(btn => {
+        btn.addEventListener("click", function () {
+            const existingMain = document.getElementById("existingMainImage");
+            if (existingMain) existingMain.innerHTML = "";
+        });
+    });
+
+    // Remove existing gallery images on click (you may also mark them for deletion)
+    document.querySelectorAll(".remove-existing").forEach(btn => {
+        btn.addEventListener("click", function () {
+            const parent = this.closest(".thumb-wrapper");
+            if (parent) parent.remove();
+
+            // Optionally add logic here to track removed images by ID
+            // e.g., store removed IDs in a hidden input for backend processing
+        });
+    });
+
+    // Optional Reset on Modal Close
+    $('#editProductModal').on('hidden.bs.modal', function () {
+        $('#mainImageInput').val('');
+        $('#galleryImagesInput').val('');
+        $('#mainImagePreview').empty();
+        $('#galleryPreview').empty();
+    });
+</script>
