@@ -1,40 +1,52 @@
-<div class="row gx-3 gy-2 mb-3 align-items-center justify-content-between mx-0 rounded">
+Include JS & jQuery
+Put this in your view (_Layout.cshtml or specific View file):
 
-    <!-- Left: Search Input -->
-    <div class="col-md-auto">
-        <div class="position-relative" style="max-width: 300px;">
-            <input class="form-control" type="text" name="search" placeholder="Search"
-                id="searchInput" style="height: 60px; font-size: 1rem;">
-        </div>
-    </div>
+html
+Copy code
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    <!-- Right: Filter and Price Range -->
-    <div class="col d-flex flex-wrap justify-content-end align-items-center gap-3">
+<!-- ElevateZoom -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/elevatezoom/3.0.8/jquery.elevatezoom.min.js"></script>
+✅ 2. Add HTML Image Markup
+Make sure your image has a data-zoom-image attribute pointing to the high-resolution image:
 
-        <!-- Category Filter -->
-        <div class="form-group d-flex flex-column" style="max-width: 200px; width: 100%;">
-            <label for="filter" class="form-label fw-bold mb-1">Category</label>
-            <select class="form-select" id="filter" name="filter"
-                asp-for="Categoryid" asp-items="ViewBag.Categories"
-                aria-label="Select Category" style="height: 60px; font-size: 1rem;">
-            </select>
-        </div>
-
-        <!-- Price Range -->
-        <div class="d-flex flex-column justify-content-center bg-white p-3 rounded border shadow-sm"
-            style="max-width: 300px; width: 100%; height: 100%; min-height: 100px;">
-
-            <label class="form-label fw-bold mb-2">Price Range (₹)</label>
-
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <input type="range" class="form-range" id="minPrice" min="0" max="200000" step="1000" value="0">
-                <input type="range" class="form-range" id="maxPrice" min="0" max="200000" step="1000" value="200000">
-            </div>
-
-            <div class="d-flex justify-content-between">
-                <span>₹<span id="minValueText">0</span></span>
-                <span>₹<span id="maxValueText">200000</span></span>
-            </div>
-        </div>
-    </div>
+html
+Copy code
+<div class="text-center">
+    <img id="zoomImage" src="/images/products/sample.jpg" 
+         data-zoom-image="/images/products/sample-large.jpg"
+         class="img-fluid" alt="Product Image" style="max-width: 300px;" />
 </div>
+✅ 3. Initialize the Plugin
+Place this script after the image or in $(document).ready():
+
+html
+Copy code
+<script>
+    $(document).ready(function () {
+        $("#zoomImage").elevateZoom({
+            zoomType: "lens",
+            lensShape: "round",
+            lensSize: 150
+        });
+    });
+</script>
+🛠 Zoom Types You Can Try:
+zoomType: "lens" (Lens zoom)
+
+zoomType: "inner" (Zooms inside image box)
+
+zoomType: "window" (Zooms in a separate box)
+
+✅ 4. Optional Styling
+css
+Copy code
+.elevatezoom { z-index: 999; }
+✅ Example Usage in ASP.NET View (Razor):
+html
+Copy code
+<img id="zoomImage" src="~/images/@Model.ImageUrl" 
+     data-zoom-image="~/images/@Model.HighResImageUrl"
+     class="img-fluid" style="max-width: 300px;" />
+Let me know if you want a thumbna
