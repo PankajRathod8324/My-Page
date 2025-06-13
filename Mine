@@ -1,101 +1,39 @@
-Use noUiSlider (best modern dual-handle slider)
-📦 Add these to your HTML (CDN-based):
-Put in your <head> or layout file:
+ $(document).on("click", ".saveBtn", function (event) {
+        event.preventDefault();
+        var filer = $('#filter').val();
+        var min = $('#minValue').innerText;
+        console.log(min);
+        console.log(filter);
+        // var startDate = $("#startDate").val();
+        // var endDate = $("#endDate").val();
+        // if (startDate || endDate) {
 
-html
-Copy code
-<link href="https://cdn.jsdelivr.net/npm/nouislider@15.6.1/dist/nouislider.min.css" rel="stylesheet">
-Put before your closing </body> tag:
+        //     if ((!startDate || !endDate)) {
+        //         toastr.warning("Please select a date range.", "Warning");
+        //         return;
+        //     }
+        // }
 
-html
-Copy code
-<script src="https://cdn.jsdelivr.net/npm/nouislider@15.6.1/dist/nouislider.min.js"></script>
-✅ 2. HTML: Price Range Container
-html
-Copy code
-<div class="container mb-4">
-    <label class="form-label fw-bold">Filter by Price (₹)</label>
-    <div id="priceSlider"></div>
-    <div class="d-flex justify-content-between mt-2">
-        <span>₹<span id="minValue">0</span></span>
-        <span>₹<span id="maxValue">10000</span></span>
-    </div>
-</div>
+        loadProduct(pageNumber);
+    }); 
 
-<div id="productContainer" class="row">
-    @await Html.PartialAsync("_ProductCardsPartial", Model)
-</div>
+give me slider simple rounded pointer slider that have here in savebtn ajax i can acces the min and max value 
 
-<div id="loading" style="display:none;" class="text-center my-3">
-    <span class="spinner-border text-primary"></span>
-    <p>Loading...</p>
-</div>
-✅ 3. JavaScript: Initialize and Handle Slider
-html
-Copy code
-@section Scripts {
-<script>
-    var priceSlider = document.getElementById('priceSlider');
-    noUiSlider.create(priceSlider, {
-        start: [0, 10000],
-        connect: true,
-        range: {
-            'min': 0,
-            'max': 10000
-        },
-        step: 100,
-        tooltips: [true, true],
-        format: {
-            to: function (value) {
-                return Math.round(value);
-            },
-            from: function (value) {
-                return Number(value);
+public IPagedList<ProductDTO> GetFilteredProducts(PaginationOptions filterOptions)
+    {
+        var products = _productRepository.GetAllProducts().AsQueryable();
+
+        if (!string.IsNullOrEmpty(filterOptions.Search))
+        {
+            string searchLower = filterOptions.Search.ToLower();
+            products = products.Where(u => u.Name.ToString().ToLower().Contains(searchLower));
+        }
+        if (!string.IsNullOrEmpty(filterOptions.FilterBy))
+        {
+            if (int.TryParse(filterOptions.FilterBy, out int categoryId))
+            {
+                products = products.Where(p => p.Categoryid == categoryId);
             }
         }
-    });
 
-    priceSlider.noUiSlider.on('update', function (values, handle) {
-        const min = values[0];
-        const max = values[1];
-
-        document.getElementById("minValue").innerText = min;
-        document.getElementById("maxValue").innerText = max;
-    });
-
-    priceSlider.noUiSlider.on('change', function (values, handle) {
-        const min = values[0];
-        const max = values[1];
-
-        $("#loading").show();
-        $.ajax({
-            url: '/Product/FilterByPrice',
-            type: 'GET',
-            data: { minPrice: min, maxPrice: max },
-            success: function (result) {
-                $('#productContainer').html(result);
-                $("#loading").hide();
-            },
-            error: function () {
-                $('#productContainer').html('<p class="text-danger">Failed to load products.</p>');
-                $("#loading").hide();
-            }
-        });
-    });
-</script>
-}
-✅ 4. C# Controller (Same as Before)
-csharp
-Copy code
-public IActionResult FilterByPrice(decimal minPrice, decimal maxPrice)
-{
-    var products = _productService.GetProductsByPrice(minPrice, maxPrice);
-    return PartialView("_ProductCardsPartial", products);
-}
-✅ 5. Styling (Optional Custom)
-You can customize the slider track or handle via CSS if needed. noUiSlider is very flexible.
-
-✅ Final Result
-🎯 Single price bar with 2 handles
-💨 Auto-updates products on slider change via AJAX
-📱 Responsive & user-frie
+her give me code for backedn okay 
