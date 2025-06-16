@@ -1,49 +1,25 @@
-<div id="productCarousel" class="carousel slide" data-bs-ride="carousel">
-    <div class="carousel-inner">
-        @foreach (var item in Model.Image)
-        {
-            <div class="carousel-item @(Model.Image.IndexOf(item) == 0 ? "active" : "")">
-                <img class="d-block zoomImage w-100 img-fluid"
-                     src="@item.Imaegpath"
-                     data-zoom-image="@item.Imaegpath"
-                     alt="Product Image" />
-            </div>
-        }
-    </div>
-    <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
-        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Previous</span>
-    </button>
-    <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
-        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Next</span>
-    </button>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/elevatezoom/3.0.8/jquery.elevatezoom.min.js"></script>
-<script>
-    function initZoom() {
-        $('.zoomImage').each(function () {
-            // Remove existing zoom if any
-            $.removeData(this, 'elevateZoom');
-            $('.zoomContainer').remove(); // remove zoom UI container
-        });
+ <div class="col d-flex flex-wrap justify-content-end gap-3 align-items-end">
 
-        // Initialize only on active image
-        $('.carousel-item.active .zoomImage').elevateZoom({
-            zoomType: "inner",
-            lensShape: "round",
-            lensSize: 450,
-            scrollZoom: true
-        });
-    }
+                <!-- Category Filter -->
+                <div class="form-group" style="max-width: 200px;">
+                    <select class="form-select modal-field" id="filter" name="filter" asp-for="Categoryid"
+                        asp-items="ViewBag.Categories" aria-label="Select Category" style="height: 60px;">
+                    </select>
+                </div>
 
-    // Call on page load
-    $(document).ready(function () {
-        initZoom();
+                <!-- Price Range -->
+                <div class="bg-white px-2 rounded border shadow-sm" style="max-width: 300px;min-height: 60px;">
+                    @* <label class="form-label fw-bold">Price Range (₹)</label> *@
+                    <div class="d-flex align-items-center">
+                        <input type="range" class="form-range" id="minPrice" min="0" max="200000" step="1000" value="0">
+                        <input type="range" class="form-range" id="maxPrice" min="0" max="200000" step="1000"
+                            value="200000">
+                    </div>
+                    <div class="d-flex justify-content-between mt-1 gap-3">
+                        <span>₹<span id="minValueText">0</span></span>
+                        @* <span>Price Range<span> *@
+                        <span>₹<span id="maxValueText">200000</span></span>
+                    </div>
+                </div>
 
-        // Call every time the carousel changes slide
-        $('#productCarousel').on('slid.bs.carousel', function () {
-            initZoom();
-        });
-    });
-</script>
+            </div> make it proper like thre price range is look weird but doesn't chg the alignment okay the straucture would be same just make little beutifule
