@@ -1,134 +1,57 @@
-@using System.Security.Claims
-@using X.PagedList.Mvc.Core
-@model X.PagedList.IPagedList<Entities.ViewModels.ProductDTO>
+Modify the user-side section (in your code):
+Replace:
 
-@{
-    var Role = @ViewBag.Role;
-    var role = User.FindFirst(ClaimTypes.Role)?.Value;
-}
+csharp
+Copy code
+@await Html.PartialAsync("_ProductCardsPartial", Model)
+With:
 
- <div class="table-responsive " style="max-height: 500px; overflow-y: auto;scrollbar-width: none;">
-    @if(role == "Admin")
-    {
-        <table class="table align-bottom text-center">
-            <thead style="position: sticky; top: 0; z-index: 10;">
-                <tr>
-                    <th class="text-start text-secondary border-top-0 ms-2 fs-5">
-                        Name
-                    </th>
-                    <th class="text-secondary border-top-0 fs-5">Category</th>
-                    <th class="text-secondary border-top-0 fs-5">Price</th>
-                    <th class="text-secondary border-top-0 fs-5">Active</th>
-                    <th class="text-secondary border-top-0 fs-5">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.Any(product => product.Productid != null))
-                {
-                    @foreach (var product in Model)
-                    {
-                        if (product.Productid != null)
-                        {
-                            <tr class="tblclass " data-id="@product.Productid">
-                                <td class="text-start ">
-                                    <div class="d-flex align-items-center">
-                                        <a  asp-action="ViewProduct" asp-controller="Product" asp-route-productId = "@product.Productid">
-                                            <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : @product.Images)"
-                                            alt="Menu Icon" class="rounded-circle"
-                                            style="width: 45px; height: 45px; object-fit: cover;" />
-                                        </a>
-                                        
-                                        <div class="ms-2">
-                                            <p class="text-secondary mb-0 fw-bold">@product.Name</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                  <td class="fw-bold text-secondary align-items-center">
-                                    @product.CategoryName
-                                </td>
-                                <td class="fw-bold text-secondary align-items-center">
-                                    @product.Price
-                                </td>
-                                
-                                <td>
-                                    <div class="form-check form-switch d-flex justify-content-center">
-                                        <input class="form-check-input toggleSwitch canView" type="checkbox" 
-                                            @(product.Active ? "checked" : "") style="border-radius: 1rem !important;"
-                                            disabled>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="d-flex justify-content-center">
-
-                                    <a class="btn editIcon" title="Edit" placement="top" data-id="@product.Productid">
-                                        <i class="bi bi-pen"></i>
-                                    </a>
-
-
-                                    <a class="btn deletebtn" title="Delete" placement="top" data-id="@product.Productid">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
-                                </div>
-                                </td>
-                            </tr>
-                        }
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">
-                            <p class="mb-0">No Products found!</p>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-  
-         <div class="d-flex justify-content-end align-items-center my-3 gap-2">
-        <form id="paginationForm" method="get" class="d-flex align-items-center me-3">
-            <span class="me-2">Items per page:</span>
-            <select id="pageSizeDropdown" class="form-select form-select-sm w-auto me-3">
-                <option value="5" selected="@(ViewBag.PageSize == 5)">5</option>
-                <option value="10" selected="@(ViewBag.PageSize == 10)">10</option>
-                <option value="15" selected="@(ViewBag.PageSize == 15)">15</option>
-            </select>
-
-
-            <span id="pagination-summary" class="text-muted">
-                Showing @(Model.PageSize * (Model.PageNumber - 1) + 1) -
-                @((Model.PageSize * Model.PageNumber) > Model.TotalItemCount ? Model.TotalItemCount :
-                                (Model.PageSize *
-                                Model.PageNumber))
-                of @Model.TotalItemCount results
-            </span>
-        </form>
-
-        <div id="paginationContainer">
-            @if (Model.HasPreviousPage)
-            {
-                <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber - 1)">
-                    <i class="fa-solid fa-chevron-left"></i>
-                </button>
-            }
-
-            <span class="mx-2" id="pageNumber">Page @Model.PageNumber of @Model.PageCount</span>
-
-            @if (Model.HasNextPage)
-            {
-                <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber + 1)">
-                    <i class="fa-solid fa-chevron-right"></i>
-                </button>
-            }
-        </div>
-
-    </div>
-      }
-    else{
-    <div class="ms-5 my-4" style="max-height: 500px; overflow-y: auto;scrollbar-width: none;">
-        <div class="row" id="productContainer">
-            @await Html.PartialAsync("_ProductCardsPartial", Model)
-        </div>
-    </div>
-    }
+html
+Copy code
+<div class="row" id="productContainer">
+    @await Html.PartialAsync("_ProductCardsPartial", Model)
 </div>
+<div class="text-center mt-3" id="loadingSpinner" style="display:none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+<input type="hidden" id="currentPage" value="@Model.PageNumber" />
+<input type="hidden" id="totalPages" value="@Model.PageCount" />
+✅ 2. Add JavaScript for infinite scroll:
+html
+Copy code
+@section Scripts {
+<script>
+    let isLoading = false;
+
+    $(window).on('scroll', function () {
+        if (isLoading) return;
+
+        const scrollTop = $(this).scrollTop();
+        const scrollHeight = $(document).height();
+        const clientHeight = $(this).height();
+
+        if (scrollTop + clientHeight >= scrollHeight - 100) {
+            let currentPage = parseInt($('#currentPage').val());
+            let totalPages = parseInt($('#totalPages').val());
+
+            if (currentPage < totalPages) {
+                loadMoreProducts(currentPage + 1);
+            }
+        }
+    });
+
+    function loadMoreProducts(page) {
+        isLoading = true;
+        $('#loadingSpinner').show();
+
+        $.get('@Url.Action("UserProductListPartial", "Product")', { page: page }, function (data) {
+            $('#productContainer').append(data);
+            $('#currentPage').val(page);
+            $('#loadingSpinner').hide();
+            isLoading = false;
+        });
+    }
+</script>
+}
