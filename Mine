@@ -1,16 +1,49 @@
- <div class="carousel-inner">
-                    @foreach (var item in @Model.Image)
-                    {
+<div id="productCarousel" class="carousel slide" data-bs-ride="carousel">
+    <div class="carousel-inner">
+        @foreach (var item in Model.Image)
+        {
+            <div class="carousel-item @(Model.Image.IndexOf(item) == 0 ? "active" : "")">
+                <img class="d-block zoomImage w-100 img-fluid"
+                     src="@item.Imaegpath"
+                     data-zoom-image="@item.Imaegpath"
+                     alt="Product Image" />
+            </div>
+        }
+    </div>
+    <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Next</span>
+    </button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/elevatezoom/3.0.8/jquery.elevatezoom.min.js"></script>
+<script>
+    function initZoom() {
+        $('.zoomImage').each(function () {
+            // Remove existing zoom if any
+            $.removeData(this, 'elevateZoom');
+            $('.zoomContainer').remove(); // remove zoom UI container
+        });
 
-                        <div class="carousel-item @(Model.Image.IndexOf(item) == 0 ? "active" : "")">
-                            <img class="d-block zoomImage w-100 img-fluid" src="@item.Imaegpath" data-zoom-image="@item.Imaegpath" alt="Product Image"
-                                >
-                        </div>
-                    }
-                </div> $('.zoomImage').each(function () {
-        $(this).elevateZoom({
-            zoomType: "inner",
-            lensShape: "round",
-            lensSize: 450
-        });
-    }); but here only my  first image has applied zoom plugin other has not whyy
+        // Initialize only on active image
+        $('.carousel-item.active .zoomImage').elevateZoom({
+            zoomType: "inner",
+            lensShape: "round",
+            lensSize: 450,
+            scrollZoom: true
+        });
+    }
+
+    // Call on page load
+    $(document).ready(function () {
+        initZoom();
+
+        // Call every time the carousel changes slide
+        $('#productCarousel').on('slid.bs.carousel', function () {
+            initZoom();
+        });
+    });
+</script>
