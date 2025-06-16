@@ -1,104 +1,134 @@
-<div class="col d-flex flex-wrap justify-content-end gap-3 align-items-end">
+@using System.Security.Claims
+@using X.PagedList.Mvc.Core
+@model X.PagedList.IPagedList<Entities.ViewModels.ProductDTO>
 
-    <!-- Category Filter -->
-    <div class="form-group" style="max-width: 200px;">
-        <select class="form-select modal-field" id="filter" name="filter" asp-for="Categoryid"
-                asp-items="ViewBag.Categories" aria-label="Select Category" style="height: 60px;">
-        </select>
-    </div>
-
-    <!-- Price Range -->
-    <div class="bg-white px-3 py-2 rounded border shadow-sm" style="max-width: 300px; min-height: 60px;">
-        <div class="d-flex justify-content-between mb-1">
-            <small class="fw-semibold text-muted">Price Range (₹)</small>
-            <small class="text-muted">Min: ₹<span id="minValueText">0</span> — Max: ₹<span id="maxValueText">200000</span></small>
-        </div>
-
-        <div class="d-flex align-items-center gap-2">
-            <input type="range" class="form-range" id="minPrice" min="0" max="200000" step="1000" value="0" style="flex: 1;">
-            <input type="range" class="form-range" id="maxPrice" min="0" max="200000" step="1000" value="200000" style="flex: 1;">
-        </div>
-    </div>
-
-</div>
-public IEnumerable<ProductVM> GetAllPaged(int page, int pageSize)
-{
-    return _db.Products
-              .Where(p => p.Active)
-              .OrderBy(p => p.Productid)
-              .Skip((page - 1) * pageSize)
-              .Take(pageSize)
-              .Select(p => new ProductVM {
-                  Name = p.Name,
-                  Images = p.Images,
-                  CategoryName = p.Category.Name,
-                  Price = p.Price
-              }).ToList();
-}
 @{
-    ViewBag.Title = "All Products";
-    Layout = "~/Views/Shared/_Layout.cshtml";
-    int initialPage = 1;
+    var Role = @ViewBag.Role;
+    var role = User.FindFirst(ClaimTypes.Role)?.Value;
 }
-<div class="container my-4">
-    <div class="row" id="productContainer">
-        @await Html.PartialAsync("_ProductCardsPartial", Model)
-    </div>
 
-    <div id="loading" class="text-center mt-4" style="display:none;">
-        <span class="spinner-border text-primary" role="status"></span>
-        <p>Loading more products...</p>
-    </div>
-</div>
+ <div class="table-responsive " style="max-height: 500px; overflow-y: auto;scrollbar-width: none;">
+    @if(role == "Admin")
+    {
+        <table class="table align-bottom text-center">
+            <thead style="position: sticky; top: 0; z-index: 10;">
+                <tr>
+                    <th class="text-start text-secondary border-top-0 ms-2 fs-5">
+                        Name
+                    </th>
+                    <th class="text-secondary border-top-0 fs-5">Category</th>
+                    <th class="text-secondary border-top-0 fs-5">Price</th>
+                    <th class="text-secondary border-top-0 fs-5">Active</th>
+                    <th class="text-secondary border-top-0 fs-5">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Any(product => product.Productid != null))
+                {
+                    @foreach (var product in Model)
+                    {
+                        if (product.Productid != null)
+                        {
+                            <tr class="tblclass " data-id="@product.Productid">
+                                <td class="text-start ">
+                                    <div class="d-flex align-items-center">
+                                        <a  asp-action="ViewProduct" asp-controller="Product" asp-route-productId = "@product.Productid">
+                                            <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : @product.Images)"
+                                            alt="Menu Icon" class="rounded-circle"
+                                            style="width: 45px; height: 45px; object-fit: cover;" />
+                                        </a>
+                                        
+                                        <div class="ms-2">
+                                            <p class="text-secondary mb-0 fw-bold">@product.Name</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                  <td class="fw-bold text-secondary align-items-center">
+                                    @product.CategoryName
+                                </td>
+                                <td class="fw-bold text-secondary align-items-center">
+                                    @product.Price
+                                </td>
+                                
+                                <td>
+                                    <div class="form-check form-switch d-flex justify-content-center">
+                                        <input class="form-check-input toggleSwitch canView" type="checkbox" 
+                                            @(product.Active ? "checked" : "") style="border-radius: 1rem !important;"
+                                            disabled>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex justify-content-center">
 
-@section Scripts {
-    <script>
-        let page = @initialPage + 1;
-        let isLoading = false;
+                                    <a class="btn editIcon" title="Edit" placement="top" data-id="@product.Productid">
+                                        <i class="bi bi-pen"></i>
+                                    </a>
 
-        window.onscroll = function () {
-            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 && !isLoading) {
-                isLoading = true;
-                document.getElementById("loading").style.display = "block";
 
-                $.ajax({
-                    url: '/Product/LoadMoreProducts?page=' + page,
-                    type: 'GET',
-                    success: function (data) {
-                        if (data.trim() !== "") {
-                            $('#productContainer').append(data);
-                            page++;
-                            isLoading = false;
-                            document.getElementById("loading").style.display = "none";
-                        } else {
-                            $('#loading').html('<p class="text-muted">No more products to load.</p>');
+                                    <a class="btn deletebtn" title="Delete" placement="top" data-id="@product.Productid">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                                </td>
+                            </tr>
                         }
-                    },
-                    error: function () {
-                        $('#loading').html('<p class="text-danger">Error loading products.</p>');
                     }
-                });
-            }
-        };
-    </script>
-}
-@model IEnumerable<ProductVM>
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">
+                            <p class="mb-0">No Products found!</p>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+  
+         <div class="d-flex justify-content-end align-items-center my-3 gap-2">
+        <form id="paginationForm" method="get" class="d-flex align-items-center me-3">
+            <span class="me-2">Items per page:</span>
+            <select id="pageSizeDropdown" class="form-select form-select-sm w-auto me-3">
+                <option value="5" selected="@(ViewBag.PageSize == 5)">5</option>
+                <option value="10" selected="@(ViewBag.PageSize == 10)">10</option>
+                <option value="15" selected="@(ViewBag.PageSize == 15)">15</option>
+            </select>
 
-@foreach (var product in Model)
-{
-    <div class="col-md-3 mb-4">
-        <div class="card h-100 shadow-sm">
-            <img src="@product.Images" class="card-img-top" alt="@product.Name" style="height: 200px; object-fit: cover;">
-            <div class="card-body">
-                <h5 class="card-title">@product.Name</h5>
-                <p class="card-text">₹@product.Price</p>
-                <p class="text-muted">@product.CategoryName</p>
-            </div>
+
+            <span id="pagination-summary" class="text-muted">
+                Showing @(Model.PageSize * (Model.PageNumber - 1) + 1) -
+                @((Model.PageSize * Model.PageNumber) > Model.TotalItemCount ? Model.TotalItemCount :
+                                (Model.PageSize *
+                                Model.PageNumber))
+                of @Model.TotalItemCount results
+            </span>
+        </form>
+
+        <div id="paginationContainer">
+            @if (Model.HasPreviousPage)
+            {
+                <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber - 1)">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+            }
+
+            <span class="mx-2" id="pageNumber">Page @Model.PageNumber of @Model.PageCount</span>
+
+            @if (Model.HasNextPage)
+            {
+                <button class="btn btn-outline-dark pagination-btn" data-page="@(Model.PageNumber + 1)">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            }
+        </div>
+
+    </div>
+      }
+    else{
+    <div class="ms-5 my-4" style="max-height: 500px; overflow-y: auto;scrollbar-width: none;">
+        <div class="row" id="productContainer">
+            @await Html.PartialAsync("_ProductCardsPartial", Model)
         </div>
     </div>
-}
-public IActionResult LoadMoreProducts(int page = 1, int pageSize = 12)
-{
-    var products = _productService.GetAllPaged(page, pageSize); // Paged data
-    return PartialView("_ProductCardsPartial", products);
-}
+    }
+</div>
