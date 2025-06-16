@@ -1,52 +1,16 @@
-Include JS & jQuery
-Put this in your view (_Layout.cshtml or specific View file):
+ <div class="carousel-inner">
+                    @foreach (var item in @Model.Image)
+                    {
 
-html
-Copy code
-<!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<!-- ElevateZoom -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/elevatezoom/3.0.8/jquery.elevatezoom.min.js"></script>
-✅ 2. Add HTML Image Markup
-Make sure your image has a data-zoom-image attribute pointing to the high-resolution image:
-
-html
-Copy code
-<div class="text-center">
-    <img id="zoomImage" src="/images/products/sample.jpg" 
-         data-zoom-image="/images/products/sample-large.jpg"
-         class="img-fluid" alt="Product Image" style="max-width: 300px;" />
-</div>
-✅ 3. Initialize the Plugin
-Place this script after the image or in $(document).ready():
-
-html
-Copy code
-<script>
-    $(document).ready(function () {
-        $("#zoomImage").elevateZoom({
-            zoomType: "lens",
+                        <div class="carousel-item @(Model.Image.IndexOf(item) == 0 ? "active" : "")">
+                            <img class="d-block zoomImage w-100 img-fluid" src="@item.Imaegpath" data-zoom-image="@item.Imaegpath" alt="Product Image"
+                                >
+                        </div>
+                    }
+                </div> $('.zoomImage').each(function () {
+        $(this).elevateZoom({
+            zoomType: "inner",
             lensShape: "round",
-            lensSize: 150
+            lensSize: 450
         });
-    });
-</script>
-🛠 Zoom Types You Can Try:
-zoomType: "lens" (Lens zoom)
-
-zoomType: "inner" (Zooms inside image box)
-
-zoomType: "window" (Zooms in a separate box)
-
-✅ 4. Optional Styling
-css
-Copy code
-.elevatezoom { z-index: 999; }
-✅ Example Usage in ASP.NET View (Razor):
-html
-Copy code
-<img id="zoomImage" src="~/images/@Model.ImageUrl" 
-     data-zoom-image="~/images/@Model.HighResImageUrl"
-     class="img-fluid" style="max-width: 300px;" />
-Let me know if you want a thumbna
+    }); but here only my  first image has applied zoom plugin other has not whyy
