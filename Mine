@@ -1,199 +1,86 @@
-JavaScript (cart.js – dynamically calculate total & handle Place Order)
-javascript
-Copy code
-function updateCartSummary() {
-    let totalPrice = 0;
-    let itemCount = 0;
-
-    $(".cart-item").each(function () {
-        const qty = parseInt($(this).find(".qty-input").val());
-        const price = parseFloat($(this).find(".item-total").text().replace("₹", "").trim());
-        itemCount += qty;
-        totalPrice += price;
-    });
-
-    $(".summary-item-count").text(`Items (${itemCount})`);
-    $(".summary-total-price").text(`₹${totalPrice}`);
-}
-
-$(document).on("input", ".qty-input", function () {
-    const qty = parseInt($(this).val());
-    const pricePerUnit = parseFloat($(this).closest(".cart-item").find("p.mb-1").text().replace("Price: ₹", "").trim());
-    const newTotal = pricePerUnit * qty;
-    $(this).closest(".cart-item").find(".item-total").text(`₹${newTotal}`);
-    updateCartSummary();
-});
-
-$(document).on("click", ".finalsavebtn", function () {
-    let cartItems = [];
-
-    $(".cart-item").each(function () {
-        const productId = $(this).find(".qty-input").data("itemid");
-        const qty = parseInt($(this).find(".qty-input").val());
-
-        cartItems.push({
-            ProductId: productId,
-            Quantity: qty
-        });
-    });
-
-    $.ajax({
-        type: "POST",
-        url: "/Order/PlaceOrder",
-        data: JSON.stringify({ CartItems: cartItems }),
-        contentType: "application/json",
-        success: function (response) {
-            toastr.success("Order placed successfully!");
-            // Optional: Redirect or refresh
-        },
-        error: function () {
-            toastr.error("Error placing order.");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Orders</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <style>
+        .order-card {
+            border-radius: 1rem;
+            border: 1px solid #e0e0e0;
         }
-    });
-});
-✅ ViewModel for Order
-csharp
-Copy code
-public class CartItemVM
-{
-    public int ProductId { get; set; }
-    public int Quantity { get; set; }
-}
-
-public class OrderRequestVM
-{
-    public List<CartItemVM> CartItems { get; set; }
-}
-✅ Controller
-csharp
-Copy code
-public class OrderController : Controller
-{
-    private readonly IOrderService _orderService;
-
-    public OrderController(IOrderService orderService)
-    {
-        _orderService = orderService;
-    }
-
-    [HttpPost]
-    public IActionResult PlaceOrder([FromBody] OrderRequestVM orderRequest)
-    {
-        if (orderRequest == null || orderRequest.CartItems == null || !orderRequest.CartItems.Any())
-            return BadRequest("No items to place order.");
-
-        var result = _orderService.PlaceOrder(orderRequest.CartItems);
-
-        if (result)
-            return Ok(new { success = true });
-        else
-            return StatusCode(500, new { success = false, message = "Order failed" });
-    }
-}
-✅ Service Layer
-csharp
-Copy code
-public interface IOrderService
-{
-    bool PlaceOrder(List<CartItemVM> cartItems);
-}
-
-public class OrderService : IOrderService
-{
-    private readonly IOrderRepository _orderRepository;
-
-    public OrderService(IOrderRepository orderRepository)
-    {
-        _orderRepository = orderRepository;
-    }
-
-    public bool PlaceOrder(List<CartItemVM> cartItems)
-    {
-        return _orderRepository.CreateOrder(cartItems);
-    }
-}
-✅ Repository Layer
-csharp
-Copy code
-public interface IOrderRepository
-{
-    bool CreateOrder(List<CartItemVM> cartItems);
-}
-
-public class OrderRepository : IOrderRepository
-{
-    private readonly AppDbContext _context;
-
-    public OrderRepository(AppDbContext context)
-    {
-        _context = context;
-    }
-
-    public bool CreateOrder(List<CartItemVM> cartItems)
-    {
-        using var transaction = _context.Database.BeginTransaction();
-        try
-        {
-            var order = new Order
-            {
-                OrderDate = DateTime.Now,
-                TotalAmount = cartItems.Sum(x =>
-                    _context.Products.First(p => p.ProductId == x.ProductId).Price * x.Quantity),
-                Status = "Placed"
-            };
-
-            _context.Orders.Add(order);
-            _context.SaveChanges();
-
-            foreach (var item in cartItems)
-            {
-                var product = _context.Products.First(p => p.ProductId == item.ProductId);
-
-                var orderItem = new OrderItem
-                {
-                    OrderId = order.OrderId,
-                    ProductId = product.ProductId,
-                    Quantity = item.Quantity,
-                    Price = product.Price
-                };
-
-                _context.OrderItems.Add(orderItem);
-            }
-
-            _context.SaveChanges();
-            transaction.Commit();
-            return true;
+        .order-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 1rem;
+            border-radius: 1rem 1rem 0 0;
         }
-        catch (Exception)
-        {
-            transaction.Rollback();
-            return false;
+        .order-status {
+            font-size: 0.875rem;
         }
-    }
-}
-✅ Entity Sample
-csharp
-Copy code
-public class Order
-{
-    public int OrderId { get; set; }
-    public DateTime OrderDate { get; set; }
-    public decimal TotalAmount { get; set; }
-    public string Status { get; set; }
+        .product-img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+        }
+        .order-actions button {
+            margin-right: 0.5rem;
+        }
+        .order-body {
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
 
-    public ICollection<OrderItem> OrderItems { get; set; }
-}
+    <div class="container py-5">
+        <h2 class="mb-4 text-center text-primary">My Orders</h2>
 
-public class OrderItem
-{
-    public int OrderItemId { get; set; }
-    public int OrderId { get; set; }
-    public int ProductId { get; set; }
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
+        <!-- Order Card Start -->
+        <div class="order-card mb-4 bg-white shadow-sm">
+            <div class="order-header d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">Order ID: <span class="fw-semibold">#ORD123456</span></div>
+                    <div class="text-muted small">Placed on: March 25, 2025</div>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-success order-status">Delivered</span>
+                    <div class="text-muted small mt-1">Delivered on: March 28, 2025</div>
+                </div>
+            </div>
 
-    public Order Order { get; set; }
-    public Product Product { get; set; }
-}
-✅ Lazy Load Items in Cart
-You can apply IntersectionObserver or scroll event detection in JS to load more cart i
+            <div class="order-body row align-items-center">
+                <div class="col-md-2 text-center">
+                    <img src="https://via.placeholder.com/100" class="product-img rounded" alt="Product Image">
+                </div>
+                <div class="col-md-6">
+                    <h6 class="fw-semibold mb-1">Boat Wireless Headphones</h6>
+                    <p class="mb-1 text-muted small">Category: Electronics</p>
+                    <p class="mb-1 text-muted small">Qty: 2</p>
+                </div>
+                <div class="col-md-2 text-end">
+                    <p class="fw-semibold mb-1">₹2,998</p>
+                    <p class="text-muted small">Payment: Prepaid</p>
+                </div>
+                <div class="col-md-2 text-end order-actions">
+                    <button class="btn btn-outline-primary btn-sm">View Details</button>
+                    <button class="btn btn-primary btn-sm">Buy Again</button>
+                </div>
+            </div>
+        </div>
+        <!-- Order Card End -->
+
+        <!-- Repeat the above order-card div for each order -->
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
