@@ -1,71 +1,33 @@
-@model IPagedList<Entities.ViewModels.ProductDTO>
-
-@foreach (var product in Model)
-{
-    <div class="wishlist-item card shadow-sm p-3 mb-4 col-md-4 col-sm-6 col-12">
-        <div class="d-flex justify-content-between align-items-start">
-            <i class="fas fa-trash-alt remove-icon" data-productid="@product.Productid"></i>
-            <span class="text-muted small">Added on: @product.Createdat.ToString("MMMM d, yyyy")</span>
-        </div>
-
-        <div class="d-flex align-items-center mt-2">
-            <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : @product.Images)"
-                 alt="@product.Name" class="product-img me-3" />
-            <div>
-                <div class="product-name">@product.Name</div>
-                <div class="price-new">₹ @product.Price</div>
-                <div class="text-success small">In Stock</div>
-            </div>
-        </div>
-
-        <div class="text-end mt-3">
-            <button class="btn btn-sm btn-add" onclick="addToCart(@product.Productid)">Add to cart</button>
-        </div>
-    </div>
-}
-.wishlist-item {
-    background-color: #fff;
-    border-radius: 10px;
-    padding: 15px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-    margin: 10px;
-}
-
+Final Updated CSS for Responsive, Same-Size Images:
+css
+Copy code
 .product-img {
-    width: 60px;
-    height: auto;
-    border-radius: 6px;
+  width: 100%;
+  height: 100%;
+  max-width: 70px;
+  max-height: 70px;
+  object-fit: cover;
+  border-radius: 6px;
 }
+✅ Wrap Your Image in a Fixed Container:
+Update your Razor code inside the card like this:
 
-.product-name {
-    font-size: 16px;
-    font-weight: 600;
-}
+html
+Copy code
+<div class="d-flex align-items-center">
+    <div class="img-wrapper me-3">
+        <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : product.Images)"
+             alt="@product.Name"
+             class="product-img">
+    </div>
+    <span>@product.Name</span>
+</div>
+And add this CSS to style the wrapper:
 
-.price-new {
-    font-size: 15px;
-    color: #c4a300;
-    font-weight: 600;
-}
-
-.btn-add {
-    background-color: #3c9;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-}
-
-.btn-add:hover {
-    background-color: #34b88a;
-}
-
-.remove-icon {
-    color: #888;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-.remove-icon:hover {
-    color: #e74c3c;
+css
+Copy code
+.img-wrapper {
+  width: 70px;
+  height: 70px;
+  flex-shrink: 0;
 }
