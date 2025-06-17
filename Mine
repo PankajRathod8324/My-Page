@@ -1,195 +1,187 @@
+Updated Wishlist UI (Razor View - Wishlist.cshtml)
+cshtml
+Copy code
 @using System.Security.Claims
 @model Entities.ViewModels.ProductDTO
 @{
     Layout = "_Layout";
-    ViewData["Title"] = "Category Page";
+    ViewData["Title"] = "Wishlist";
     var role = User.FindFirst(ClaimTypes.Role)?.Value;
 }
+<link rel="stylesheet" href="~/css/wishlist.css" asp-append-version="true" />
 
-
-  <link rel="stylesheet" href="~/css/wishlist.css" asp-append-version="true" />
-
-  <div class="wishlist-container">
-    <div class="wishlist-header">
-      <div><i class="far fa-heart"></i></div>
-      <h2>My Wishlist</h2>
+<div class="wishlist-container">
+    <div class="wishlist-header text-center">
+        <i class="far fa-heart"></i>
+        <h2>My Wishlist</h2>
     </div>
-    <div id="WishlistTable" class="bg-white p-4"></div>
-  
-  </div>
-
-
-
+    <div id="WishlistItems" class="wishlist-grid row g-4"></div>
+    <div class="text-center my-3" id="loading-spinner" style="display: none;">
+        <div class="spinner-border text-primary"></div>
+    </div>
+</div>
 
 @section Scripts {
     <script src="~/js/wishlist.js" asp-append-version="true"></script>
 }
+✅ 2. CSS (wishlist.css)
+Use this updated CSS:
 
-these is css code 
+css
+Copy code
 body {
     background-color: #f9f9f9;
     font-family: 'Segoe UI', sans-serif;
-  }
+}
 
-  .wishlist-container {
-    max-width: 1000px;
+.wishlist-container {
+    max-width: 1200px;
     margin: 40px auto;
-    background-color: #fff;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-  }
+    padding: 20px;
+}
 
-  .wishlist-header {
-    text-align: center;
-    margin-bottom: 30px;
-  }
-
-  .wishlist-header h2 {
+.wishlist-header h2 {
     font-size: 32px;
     font-weight: bold;
-  }
+}
 
-  .wishlist-header i {
-    font-size: 32px;
-    color: #555;
-  }
+.wishlist-grid {
+    display: flex;
+    flex-wrap: wrap;
+}
 
-  .wishlist-table th {
-    color: #333;
-    font-weight: 600;
+.wishlist-item {
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    width: 100%;
+    max-width: 300px;
+    margin: 10px;
+}
+
+.wishlist-item img {
+    width: 100%;
+    border-radius: 8px;
+}
+
+.wishlist-item .product-name {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.wishlist-item .price {
     font-size: 16px;
-  }
+    color: #c4a300;
+}
 
-  .product-img {
-    width: 60px;
-    height: auto;
-    border-radius: 5px;
-  }
-
-  .price-old {
+.old-price {
     text-decoration: line-through;
     color: #999;
     margin-right: 5px;
-  }
+}
 
-  .price-new {
-    color: #c4a300;
-    font-weight: 600;
-  }
-
-  .btn-add {
+.btn-add {
+    margin-top: 10px;
     background-color: #3c9;
     color: white;
-  }
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
 
-  .btn-add:hover {
+.btn-add:hover {
     background-color: #34b88a;
-  }
+}
 
-  .remove-icon {
+.remove-icon {
     color: #888;
+    float: right;
     cursor: pointer;
-  }
+}
 
-  .remove-icon:hover {
+.remove-icon:hover {
     color: #e74c3c;
-  }
+}
+✅ 3. Partial View (_Wishlist.cshtml)
+c
+Copy code
+@model IPagedList<Entities.ViewModels.ProductDTO>
 
-   @media (max-width: 768px) {
-    .wishlist-table thead {
-      display: none;
-    }
+@foreach (var item in Model)
+{
+    <div class="wishlist-item col-md-4">
+        <div class="remove-icon" onclick="removeFromWishlist(@item.Productid)">
+            <i class="fas fa-trash-alt"></i>
+        </div>
+        <img src="@item.Images" alt="@item.Name" />
+        <div class="product-name">@item.Name</div>
+        <div>
+            @if(item.OldPrice != null)
+            {
+                <span class="old-price">₹@item.OldPrice</span>
+            }
+            <span class="price">₹@item.Price</span>
+        </div>
+        <button class="btn-add" onclick="addToCart(@item.Productid)">Add to Cart</button>
+    </div>
+}
+✅ 4. JavaScript (wishlist.js) with Lazy Loading
+javascript
+Copy code
+let page = 1;
+let loading = false;
 
-    .wishlist-table tr {
-      display: block;
-      margin-bottom: 20px;
-      border: 1px solid #eee;
-      padding: 10px;
-      border-radius: 8px;
-    }
+function loadMoreWishlistItems() {
+    if (loading) return;
+    loading = true;
+    $('#loading-spinner').show();
 
-    .wishlist-table td {
-      display: flex;
-      justify-content: space-between;
-      padding: 5px 0;
-    }
-
-    .wishlist-table td::before {
-      content: attr(data-label);
-      font-weight: bold;
-    }
-  } 
-
-these is my wishlist.cs and these is 
-my ajax where i call 
-function loadWishlist(pageNumber) {
-    var pageSize = $("#pageSizeDropdown").val();
     $.ajax({
         url: '/Product/GetWishlist',
         type: 'GET',
-        data: {
-            page: pageNumber,
-            pageSize: pageSize
-        },
+        data: { page: page },
         success: function (data) {
-            $("#WishlistTable").html(data);
+            $('#WishlistItems').append(data);
+            page++;
+            loading = false;
+            $('#loading-spinner').hide();
         },
-        error: function (xhr, status, error) {
-            console.error('Error fetching items:', error);
+        error: function () {
+            console.error('Failed to load wishlist items.');
+            $('#loading-spinner').hide();
         }
     });
-
 }
-these ius controller 
+
+// Load on scroll
+$(window).scroll(function () {
+    if ($(window).scrollTop() + $(window).height() >= $(document).height() - 300) {
+        loadMoreWishlistItems();
+    }
+});
+
+// Initial load
+$(document).ready(function () {
+    loadMoreWishlistItems();
+});
+✅ 5. Controller
+No change needed except remove ViewBag.PageSize if not used:
+
+csharp
+Copy code
 public IActionResult GetWishlist(PaginationOptions filterOptions)
-    {
-        filterOptions.Page ??= 1;
-        filterOptions.PageSize = filterOptions.PageSize != 0 ? filterOptions.PageSize : 10;
+{
+    filterOptions.Page ??= 1;
+    filterOptions.PageSize = 6;
 
-        ViewBag.PageSize = filterOptions.PageSize;
-        var products = _productService.GetWishlist(filterOptions);
-        return PartialView("_Wishlist", products);
+    var products = _productService.GetWishlist(filterOptions);
+    return PartialView("_Wishlist", products);
+}
+✅ 6. Service and Repository
+Your service logic is fine as-is. Just ensure that:
 
-    }
-
-thsese is service 
-
-public IPagedList<ProductDTO> GetWishlist(PaginationOptions filterOptions)
-    {
-        string useremail = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Email)?.Value;
-        var user = _userRepository.GetUserByEmail(useremail);
-        IQueryable<Wishlist> products = _productRepository.GetWishlist(user.Userid).AsQueryable();
-        int totalProduct = products.Count();
-        int pageSize = filterOptions.PageSize > 0 ? Math.Min(filterOptions.PageSize, totalProduct) : 10;
-          IPagedList<ProductDTO> paginatedProducts = products
-           .Select(product => new ProductDTO
-           {
-               Wishlistid = product.Wishlistid,
-               Productid = (int)product.Productid,
-               Name = _productRepository.GetProductById((int)product.Productid).Name,
-               Images = _productRepository.GetProductById((int)product.Productid).Imagepath,
-               Categoryid = _productRepository.GetProductById((int)product.Productid).Categoryid,
-               CategoryName = _productRepository.GetProductById(_productRepository.GetProductById((int)product.Productid).Productid).Categoryid != null && _categoryRepository.GetCategoryById((int)_productRepository.GetProductById((int)product.Productid).Categoryid) != null
-                    ? _categoryRepository.GetCategoryById((int)_productRepository.GetProductById((int)product.Productid).Categoryid).Name
-                    : "Unknown",
-               Price = _productRepository.GetProductById((int)product.Productid).Price,
-               Details = _productRepository.GetProductById((int)product.Productid).Details,
-               Active = _productRepository.GetProductById((int)product.Productid).Active,
-               Createdat = product.Createdat,
-               IsInWishlist = _productRepository.IsProductIntoWishlist(_productRepository.GetProductById((int)product.Productid).Productid, user.Userid)
-           }).ToPagedList(filterOptions.Page ?? 1, filterOptions.PageSize > 0 ? filterOptions.PageSize : 10);
-        return paginatedProducts;
-    }
-
-thsees is repo  public List<Wishlist> GetWishlist(int userId)
-    {
-        try
-        {
-            return _context.Wishlists.Where(w => w.Userid == userId).ToList();
-        }
-        catch (Exception ex)
-        {
-            throw new Exception("Error getting wishlist: " + ex.Message);
-        }
-    } so here i want that for e commerce it is very bad to show the pagination and in table form the wishlist item so just change the ui and make lazy loading like all amzone and other e-commerce website has and according to give me all required code with szero error 
+csharp
+Copy code
+int pageSize = filterOptions.PageSize > 0 ? filterOptions.PageSize : 6;
