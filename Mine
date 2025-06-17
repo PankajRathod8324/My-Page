@@ -1,36 +1,35 @@
- @if (Model.IsInWishlist == true)
-                    {
-                        <i class="bi bi-heart-fill removetowishlist" style="color: rgba(0, 102, 167, 1);" data-productid="@Model.Productid"></i>
-                    }
-                    else
-                    {
-                        <i class="bi bi-heart addtowishlist" data-productid="@Model.Productid"></i>
-                    }  when i have remove fomr the wishlist then i have bi-heasrt nad and when i add then hert-fill  $(document).on("click", ".addtowishlist", function (event) {
-        event.stopPropagation();
-        var productid = $(this).data("productid");
-        var flag = $(this).data("flag");
-        console.log(productid);
-        $.ajax({
-            type: "POST",
-            url: '/Product/AddToWishlist',
-            data: { productId: productid, flag: flag },
-            success: function (response) {
-                if (response.success) {
-                    if(flag == "add")
-                    {
-                        toastr.success('Product Added To Wishlist!', "Success");
-                    }
-                    else{
-                        toastr.success('Product Remove From Wishlist!', "Success");
-                    }
-                   
-                    loadProduct(pageNumber, recentView);
+$(document).on("click", ".addtowishlist, .removetowishlist", function (event) {
+    event.stopPropagation();
+
+    var icon = $(this);
+    var productid = icon.data("productid");
+    var flag = icon.data("flag");
+
+    $.ajax({
+        type: "POST",
+        url: '/Product/AddToWishlist',
+        data: { productId: productid, flag: flag },
+        success: function (response) {
+            if (response.success) {
+                if (flag === "add") {
+                    toastr.success('Product Added To Wishlist!', "Success");
+                    icon.removeClass("bi-heart addtowishlist")
+                        .addClass("bi-heart-fill removetowishlist")
+                        .css("color", "rgba(0, 102, 167, 1)")
+                        .data("flag", "remove");
                 } else {
-                    alert("Failed to add product to Wishlist");
+                    toastr.success('Product Removed From Wishlist!', "Success");
+                    icon.removeClass("bi-heart-fill removetowishlist")
+                        .addClass("bi-heart addtowishlist")
+                        .removeAttr("style")
+                        .data("flag", "add");
                 }
-            },
-            error: function (xhr, status, error) {
-                console.error(xhr);
+            } else {
+                alert("Failed to update Wishlist");
             }
-        });
-    }); right here 
+        },
+        error: function (xhr, status, error) {
+            console.error(xhr);
+        }
+    });
+});
