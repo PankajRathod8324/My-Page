@@ -1,360 +1,195 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>My Shopping Cart</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-  <style>
-    body {
-      background-color: #f8f9fa;
-    }
+@using System.Security.Claims
+@model Entities.ViewModels.ProductDTO
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Category Page";
+    var role = User.FindFirst(ClaimTypes.Role)?.Value;
+}
 
-    .cart-title {
-      text-align: center;
-      margin-top: 30px;
-      font-weight: bold;
-      font-size: 28px;
-      color: #0d1b2a;
-    }
 
-    .cart-table {
-      background-color: white;
-      padding: 30px;
-      border-radius: 10px;
-      margin: 30px auto;
-      max-width: 1000px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-
-    .product-img {
-      width: 60px;
-      height: auto;
-    }
-
-    .btn-qty {
-      width: 35px;
-      text-align: center;
-    }
-
-    .summary-box {
-      background-color: #f1f1f1;
-      padding: 15px;
-      border-radius: 8px;
-      margin-top: 20px;
-    }
-
-    .form-control:focus {
-      box-shadow: none;
-    }
-
-    .btn-dark {
-      background-color: #001f3f;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h2 class="cart-title">My Shopping Cart</h2>
-
-    <div class="cart-table">
-
-      <!-- Cart Table -->
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Description</th>
-              <th>Size</th>
-              <th>Quantity</th>
-              <th>Remove</th>
-              <th>Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <div class="d-flex align-items-center">
-                  <img src="https://i.imgur.com/1GrakTl.jpg" alt="Leggings" class="product-img me-2">
-                  <div>
-                    <div><strong>Streamline Leggings</strong></div>
-                    <small class="text-muted">Product Code: ML-SB</small>
-                  </div>
-                </div>
-              </td>
-              <td>S</td>
-              <td>
-                <div class="d-flex align-items-center">
-                  <button class="btn btn-sm btn-outline-secondary">+</button>
-                  <input type="text" class="form-control text-center btn-qty mx-1" value="1">
-                  <button class="btn btn-sm btn-outline-secondary">-</button>
-                </div>
-              </td>
-              <td><button class="btn btn-outline-danger"><i class="fas fa-times"></i></button></td>
-              <td>£55</td>
-            </tr>
-
-            <tr>
-              <td>
-                <div class="d-flex align-items-center">
-                  <img src="https://i.imgur.com/ba3tvGm.jpg" alt="Sports Bra" class="product-img me-2">
-                  <div>
-                    <div><strong>Streamline Sports Bra</strong></div>
-                    <small class="text-muted">Product Code: ML-SB</small>
-                  </div>
-                </div>
-              </td>
-              <td>S</td>
-              <td>
-                <div class="d-flex align-items-center">
-                  <button class="btn btn-sm btn-outline-secondary">+</button>
-                  <input type="text" class="form-control text-center btn-qty mx-1" value="1">
-                  <button class="btn btn-sm btn-outline-secondary">-</button>
-                </div>
-              </td>
-              <td><button class="btn btn-outline-danger"><i class="fas fa-times"></i></button></td>
-              <td>£55</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Summary Section -->
-      <div class="row mt-4">
-        <div class="col-md-3 col-6">
-          <div class="summary-box text-center">Discount<br><strong>£0.00</strong></div>
-        </div>
-        <div class="col-md-3 col-6">
-          <div class="summary-box text-center">Delivery<br><strong>£0.00</strong></div>
-        </div>
-        <div class="col-md-3 col-6 mt-3 mt-md-0">
-          <div class="summary-box text-center">Subtotal<br><strong>£110.00</strong></div>
-        </div>
-        <div class="col-md-3 col-6 mt-3 mt-md-0">
-          <div class="summary-box text-center">Total<br><strong>£110.00</strong></div>
-        </div>
-      </div>
-
-      <!-- Promo Code -->
-      <div class="row mt-4">
-        <div class="col-md-8">
-          <input type="text" class="form-control" placeholder="Please enter promo code">
-        </div>
-        <div class="col-md-4 mt-2 mt-md-0">
-          <button class="btn btn-dark w-100">Apply Discount</button>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="row mt-4">
-        <div class="col-md-4">
-          <button class="btn btn-outline-secondary w-100">Continue Shopping</button>
-        </div>
-        <div class="col-md-4 mt-2 mt-md-0">
-          <button class="btn btn-outline-primary w-100">Update Quantity</button>
-        </div>
-        <div class="col-md-4 mt-2 mt-md-0">
-          <button class="btn btn-dark w-100">Checkout <i class="fas fa-arrow-right ms-1"></i></button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>My Wishlist</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
-  <style>
-    body {
-      background-color: #f9f9f9;
-      font-family: 'Segoe UI', sans-serif;
-    }
-
-    .wishlist-container {
-      max-width: 1000px;
-      margin: 40px auto;
-      background-color: #fff;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    }
-
-    .wishlist-header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .wishlist-header h2 {
-      font-size: 32px;
-      font-weight: bold;
-    }
-
-    .wishlist-header i {
-      font-size: 32px;
-      color: #555;
-    }
-
-    .wishlist-table th {
-      color: #333;
-      font-weight: 600;
-      font-size: 16px;
-    }
-
-    .product-img {
-      width: 60px;
-      height: auto;
-      border-radius: 5px;
-    }
-
-    .price-old {
-      text-decoration: line-through;
-      color: #999;
-      margin-right: 5px;
-    }
-
-    .price-new {
-      color: #c4a300;
-      font-weight: 600;
-    }
-
-    .btn-add {
-      background-color: #3c9;
-      color: white;
-    }
-
-    .btn-add:hover {
-      background-color: #34b88a;
-    }
-
-    .remove-icon {
-      color: #888;
-      cursor: pointer;
-    }
-
-    .remove-icon:hover {
-      color: #e74c3c;
-    }
-
-    @media (max-width: 768px) {
-      .wishlist-table thead {
-        display: none;
-      }
-
-      .wishlist-table tr {
-        display: block;
-        margin-bottom: 20px;
-        border: 1px solid #eee;
-        padding: 10px;
-        border-radius: 8px;
-      }
-
-      .wishlist-table td {
-        display: flex;
-        justify-content: space-between;
-        padding: 5px 0;
-      }
-
-      .wishlist-table td::before {
-        content: attr(data-label);
-        font-weight: bold;
-      }
-    }
-  </style>
-</head>
-<body>
+  <link rel="stylesheet" href="~/css/wishlist.css" asp-append-version="true" />
 
   <div class="wishlist-container">
     <div class="wishlist-header">
       <div><i class="far fa-heart"></i></div>
       <h2>My Wishlist</h2>
-      <p class="text-muted">HOME / WISHLIST</p>
     </div>
-
-    <div class="table-responsive">
-      <table class="table wishlist-table align-middle">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Product name</th>
-            <th>Unit price</th>
-            <th>Stock status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-
-          <!-- Row 1 -->
-          <tr>
-            <td><i class="fas fa-trash-alt remove-icon"></i></td>
-            <td>
-              <div class="d-flex align-items-center">
-                <img src="https://i.imgur.com/1GrakTl.jpg" alt="Product" class="product-img me-2">
-                <span>Beanie with Logo</span>
-              </div>
-            </td>
-            <td>
-              <span class="price-old">$20.00</span>
-              <span class="price-new">$18.00</span>
-            </td>
-            <td>In Stock</td>
-            <td class="text-end">
-              <div class="text-muted small">Added on: December 5, 2019</div>
-              <button class="btn btn-sm btn-add mt-1">Add to cart</button>
-            </td>
-          </tr>
-
-          <!-- Row 2 -->
-          <tr>
-            <td><i class="fas fa-trash-alt remove-icon"></i></td>
-            <td>
-              <div class="d-flex align-items-center">
-                <img src="https://i.imgur.com/Uv2Yqzo.jpg" alt="Product" class="product-img me-2">
-                <span>Classy shirt</span>
-              </div>
-            </td>
-            <td>$16.00</td>
-            <td>In Stock</td>
-            <td class="text-end">
-              <div class="text-muted small">Added on: December 6, 2019</div>
-              <button class="btn btn-sm btn-add mt-1">Add to cart</button>
-            </td>
-          </tr>
-
-          <!-- Row 3 -->
-          <tr>
-            <td><i class="fas fa-trash-alt remove-icon"></i></td>
-            <td>
-              <div class="d-flex align-items-center">
-                <img src="https://i.imgur.com/XqHr4hl.jpg" alt="Product" class="product-img me-2">
-                <span>Beanie</span>
-              </div>
-            </td>
-            <td>
-              <span class="price-old">$20.00</span>
-              <span class="price-new">$18.00</span>
-            </td>
-            <td>In Stock</td>
-            <td class="text-end">
-              <div class="text-muted small">Added on: December 6, 2019</div>
-              <button class="btn btn-sm btn-add mt-1">Add to cart</button>
-            </td>
-          </tr>
-
-        </tbody>
-      </table>
-    </div>
+    <div id="WishlistTable" class="bg-white p-4"></div>
+  
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+
+
+
+@section Scripts {
+    <script src="~/js/wishlist.js" asp-append-version="true"></script>
+}
+
+these is css code 
+body {
+    background-color: #f9f9f9;
+    font-family: 'Segoe UI', sans-serif;
+  }
+
+  .wishlist-container {
+    max-width: 1000px;
+    margin: 40px auto;
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  }
+
+  .wishlist-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  .wishlist-header h2 {
+    font-size: 32px;
+    font-weight: bold;
+  }
+
+  .wishlist-header i {
+    font-size: 32px;
+    color: #555;
+  }
+
+  .wishlist-table th {
+    color: #333;
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .product-img {
+    width: 60px;
+    height: auto;
+    border-radius: 5px;
+  }
+
+  .price-old {
+    text-decoration: line-through;
+    color: #999;
+    margin-right: 5px;
+  }
+
+  .price-new {
+    color: #c4a300;
+    font-weight: 600;
+  }
+
+  .btn-add {
+    background-color: #3c9;
+    color: white;
+  }
+
+  .btn-add:hover {
+    background-color: #34b88a;
+  }
+
+  .remove-icon {
+    color: #888;
+    cursor: pointer;
+  }
+
+  .remove-icon:hover {
+    color: #e74c3c;
+  }
+
+   @media (max-width: 768px) {
+    .wishlist-table thead {
+      display: none;
+    }
+
+    .wishlist-table tr {
+      display: block;
+      margin-bottom: 20px;
+      border: 1px solid #eee;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .wishlist-table td {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+    }
+
+    .wishlist-table td::before {
+      content: attr(data-label);
+      font-weight: bold;
+    }
+  } 
+
+these is my wishlist.cs and these is 
+my ajax where i call 
+function loadWishlist(pageNumber) {
+    var pageSize = $("#pageSizeDropdown").val();
+    $.ajax({
+        url: '/Product/GetWishlist',
+        type: 'GET',
+        data: {
+            page: pageNumber,
+            pageSize: pageSize
+        },
+        success: function (data) {
+            $("#WishlistTable").html(data);
+        },
+        error: function (xhr, status, error) {
+            console.error('Error fetching items:', error);
+        }
+    });
+
+}
+these ius controller 
+public IActionResult GetWishlist(PaginationOptions filterOptions)
+    {
+        filterOptions.Page ??= 1;
+        filterOptions.PageSize = filterOptions.PageSize != 0 ? filterOptions.PageSize : 10;
+
+        ViewBag.PageSize = filterOptions.PageSize;
+        var products = _productService.GetWishlist(filterOptions);
+        return PartialView("_Wishlist", products);
+
+    }
+
+thsese is service 
+
+public IPagedList<ProductDTO> GetWishlist(PaginationOptions filterOptions)
+    {
+        string useremail = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Email)?.Value;
+        var user = _userRepository.GetUserByEmail(useremail);
+        IQueryable<Wishlist> products = _productRepository.GetWishlist(user.Userid).AsQueryable();
+        int totalProduct = products.Count();
+        int pageSize = filterOptions.PageSize > 0 ? Math.Min(filterOptions.PageSize, totalProduct) : 10;
+          IPagedList<ProductDTO> paginatedProducts = products
+           .Select(product => new ProductDTO
+           {
+               Wishlistid = product.Wishlistid,
+               Productid = (int)product.Productid,
+               Name = _productRepository.GetProductById((int)product.Productid).Name,
+               Images = _productRepository.GetProductById((int)product.Productid).Imagepath,
+               Categoryid = _productRepository.GetProductById((int)product.Productid).Categoryid,
+               CategoryName = _productRepository.GetProductById(_productRepository.GetProductById((int)product.Productid).Productid).Categoryid != null && _categoryRepository.GetCategoryById((int)_productRepository.GetProductById((int)product.Productid).Categoryid) != null
+                    ? _categoryRepository.GetCategoryById((int)_productRepository.GetProductById((int)product.Productid).Categoryid).Name
+                    : "Unknown",
+               Price = _productRepository.GetProductById((int)product.Productid).Price,
+               Details = _productRepository.GetProductById((int)product.Productid).Details,
+               Active = _productRepository.GetProductById((int)product.Productid).Active,
+               Createdat = product.Createdat,
+               IsInWishlist = _productRepository.IsProductIntoWishlist(_productRepository.GetProductById((int)product.Productid).Productid, user.Userid)
+           }).ToPagedList(filterOptions.Page ?? 1, filterOptions.PageSize > 0 ? filterOptions.PageSize : 10);
+        return paginatedProducts;
+    }
+
+thsees is repo  public List<Wishlist> GetWishlist(int userId)
+    {
+        try
+        {
+            return _context.Wishlists.Where(w => w.Userid == userId).ToList();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error getting wishlist: " + ex.Message);
+        }
+    } so here i want that for e commerce it is very bad to show the pagination and in table form the wishlist item so just change the ui and make lazy loading like all amzone and other e-commerce website has and according to give me all required code with szero error 
