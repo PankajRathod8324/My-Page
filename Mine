@@ -1,19 +1,71 @@
- <tr>
-              <td><i class="fas fa-trash-alt remove-icon" data-productid="@product.Productid"></i></td>
-              <td>
-                <div class="d-flex align-items-center">
-                  <img
-                    src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : @product.Images)"
-                    alt="Product" class="product-img me-2">
-                  <span>@product.Name</span>
-                </div>
-              </td>
-              <td>
-                <span class="price-new">₹ @product.Price</span>
-              </td>
-              <td>In Stock</td>
-              <td class="text-end">
-                <div class="text-muted small">Added on: @product.Createdat.ToString("MMMM d, yyyy")</div>
-                <button class="btn finalsavebtn btn-sm btn-add mt-1">Add to cart</button>
-              </td>
-            </tr> i have these much information on card u have to give me these much infromation and the ui should be in alignment okay here give me updated version 
+@model IPagedList<Entities.ViewModels.ProductDTO>
+
+@foreach (var product in Model)
+{
+    <div class="wishlist-item card shadow-sm p-3 mb-4 col-md-4 col-sm-6 col-12">
+        <div class="d-flex justify-content-between align-items-start">
+            <i class="fas fa-trash-alt remove-icon" data-productid="@product.Productid"></i>
+            <span class="text-muted small">Added on: @product.Createdat.ToString("MMMM d, yyyy")</span>
+        </div>
+
+        <div class="d-flex align-items-center mt-2">
+            <img src="@(string.IsNullOrEmpty(product.Images) ? Url.Content("~/assest/Default_pfp.svg.png") : @product.Images)"
+                 alt="@product.Name" class="product-img me-3" />
+            <div>
+                <div class="product-name">@product.Name</div>
+                <div class="price-new">₹ @product.Price</div>
+                <div class="text-success small">In Stock</div>
+            </div>
+        </div>
+
+        <div class="text-end mt-3">
+            <button class="btn btn-sm btn-add" onclick="addToCart(@product.Productid)">Add to cart</button>
+        </div>
+    </div>
+}
+.wishlist-item {
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    margin: 10px;
+}
+
+.product-img {
+    width: 60px;
+    height: auto;
+    border-radius: 6px;
+}
+
+.product-name {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.price-new {
+    font-size: 15px;
+    color: #c4a300;
+    font-weight: 600;
+}
+
+.btn-add {
+    background-color: #3c9;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
+.btn-add:hover {
+    background-color: #34b88a;
+}
+
+.remove-icon {
+    color: #888;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.remove-icon:hover {
+    color: #e74c3c;
+}
