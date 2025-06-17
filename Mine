@@ -1,78 +1,199 @@
-@foreach (var item in Model)
-        {
-    <div class="row align-items-center mb-4 cart-item m-2 p-2" style=" background-color: rgb(245, 245, 245) !important;">
-       
-        <div class="col-3">
-            <img src="@item.Product.Images" class="img-fluid rounded cart-img" alt="@item.Product.Name">
-        </div>
-        <div class="col-6">
-            <h6 class="fw-semibold">@item.Product.Name</h6>
-            <p class="mb-1 text-muted">Brand: @item.Product.CategoryName</p>
-            <p class="mb-1">Price: ₹@item.Price</p>
-            <div class="d-flex align-items-center mt-2">
-                <label class="me-2 mb-0">Qty:</label>
-                <input type="number" class="form-control qty-input" min="1" value="@item.Quantity" data-itemid="@item.Productid" />
-            </div>
-        </div>
-        <div class="col-3 text-end">
-            <p class="mb-1 fw-semibold item-total">₹@(item.Price * item.Quantity)</p>
-         
-            <p> <i class="fas fa-trash-alt remove-icon" data-cartitemid="@item.Cartitemid"></i></p>
-        </div>
-    </div>
-    }these is my CartItem.cs partial view
+JavaScript (cart.js – dynamically calculate total & handle Place Order)
+javascript
+Copy code
+function updateCartSummary() {
+    let totalPrice = 0;
+    let itemCount = 0;
 
-these is my parent view @{
-    int ProductId = @ViewBag.ProductId;
+    $(".cart-item").each(function () {
+        const qty = parseInt($(this).find(".qty-input").val());
+        const price = parseFloat($(this).find(".item-total").text().replace("₹", "").trim());
+        itemCount += qty;
+        totalPrice += price;
+    });
+
+    $(".summary-item-count").text(`Items (${itemCount})`);
+    $(".summary-total-price").text(`₹${totalPrice}`);
 }
 
-<style>
-    .cart-item img {
-        max-width: 100px;
-        height: auto;
+$(document).on("input", ".qty-input", function () {
+    const qty = parseInt($(this).val());
+    const pricePerUnit = parseFloat($(this).closest(".cart-item").find("p.mb-1").text().replace("Price: ₹", "").trim());
+    const newTotal = pricePerUnit * qty;
+    $(this).closest(".cart-item").find(".item-total").text(`₹${newTotal}`);
+    updateCartSummary();
+});
+
+$(document).on("click", ".finalsavebtn", function () {
+    let cartItems = [];
+
+    $(".cart-item").each(function () {
+        const productId = $(this).find(".qty-input").data("itemid");
+        const qty = parseInt($(this).find(".qty-input").val());
+
+        cartItems.push({
+            ProductId: productId,
+            Quantity: qty
+        });
+    });
+
+    $.ajax({
+        type: "POST",
+        url: "/Order/PlaceOrder",
+        data: JSON.stringify({ CartItems: cartItems }),
+        contentType: "application/json",
+        success: function (response) {
+            toastr.success("Order placed successfully!");
+            // Optional: Redirect or refresh
+        },
+        error: function () {
+            toastr.error("Error placing order.");
+        }
+    });
+});
+✅ ViewModel for Order
+csharp
+Copy code
+public class CartItemVM
+{
+    public int ProductId { get; set; }
+    public int Quantity { get; set; }
+}
+
+public class OrderRequestVM
+{
+    public List<CartItemVM> CartItems { get; set; }
+}
+✅ Controller
+csharp
+Copy code
+public class OrderController : Controller
+{
+    private readonly IOrderService _orderService;
+
+    public OrderController(IOrderService orderService)
+    {
+        _orderService = orderService;
     }
 
-    .remove-btn {
-        color: red;
-        cursor: pointer;
+    [HttpPost]
+    public IActionResult PlaceOrder([FromBody] OrderRequestVM orderRequest)
+    {
+        if (orderRequest == null || orderRequest.CartItems == null || !orderRequest.CartItems.Any())
+            return BadRequest("No items to place order.");
+
+        var result = _orderService.PlaceOrder(orderRequest.CartItems);
+
+        if (result)
+            return Ok(new { success = true });
+        else
+            return StatusCode(500, new { success = false, message = "Order failed" });
+    }
+}
+✅ Service Layer
+csharp
+Copy code
+public interface IOrderService
+{
+    bool PlaceOrder(List<CartItemVM> cartItems);
+}
+
+public class OrderService : IOrderService
+{
+    private readonly IOrderRepository _orderRepository;
+
+    public OrderService(IOrderRepository orderRepository)
+    {
+        _orderRepository = orderRepository;
     }
 
-    .card {
-        border-radius: 1rem;
+    public bool PlaceOrder(List<CartItemVM> cartItems)
+    {
+        return _orderRepository.CreateOrder(cartItems);
+    }
+}
+✅ Repository Layer
+csharp
+Copy code
+public interface IOrderRepository
+{
+    bool CreateOrder(List<CartItemVM> cartItems);
+}
+
+public class OrderRepository : IOrderRepository
+{
+    private readonly AppDbContext _context;
+
+    public OrderRepository(AppDbContext context)
+    {
+        _context = context;
     }
 
-    .qty-input {
-        width: 60px;
+    public bool CreateOrder(List<CartItemVM> cartItems)
+    {
+        using var transaction = _context.Database.BeginTransaction();
+        try
+        {
+            var order = new Order
+            {
+                OrderDate = DateTime.Now,
+                TotalAmount = cartItems.Sum(x =>
+                    _context.Products.First(p => p.ProductId == x.ProductId).Price * x.Quantity),
+                Status = "Placed"
+            };
+
+            _context.Orders.Add(order);
+            _context.SaveChanges();
+
+            foreach (var item in cartItems)
+            {
+                var product = _context.Products.First(p => p.ProductId == item.ProductId);
+
+                var orderItem = new OrderItem
+                {
+                    OrderId = order.OrderId,
+                    ProductId = product.ProductId,
+                    Quantity = item.Quantity,
+                    Price = product.Price
+                };
+
+                _context.OrderItems.Add(orderItem);
+            }
+
+            _context.SaveChanges();
+            transaction.Commit();
+            return true;
+        }
+        catch (Exception)
+        {
+            transaction.Rollback();
+            return false;
+        }
     }
-</style>
-<div class="container py-5">
-    <h2 class="mb-4 text-center">My Shopping Cart</h2>
+}
+✅ Entity Sample
+csharp
+Copy code
+public class Order
+{
+    public int OrderId { get; set; }
+    public DateTime OrderDate { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string Status { get; set; }
 
-    <div class="row g-4">
-        <!-- Cart Items -->
-        <div class="col-lg-8">
-            <div id="cartItemsContainer" class="card p-3 shadow-sm" data-productid="@ProductId" style="max-height: 500px; overflow-y: auto;scrollbar-width: none;"></div>
-        </div>
+    public ICollection<OrderItem> OrderItems { get; set; }
+}
 
-        <!-- Summary Section -->
+public class OrderItem
+{
+    public int OrderItemId { get; set; }
+    public int OrderId { get; set; }
+    public int ProductId { get; set; }
+    public int Quantity { get; set; }
+    public decimal Price { get; set; }
 
-        <div class="col-lg-4">
-            <div class="card p-4 shadow-sm">
-                <h5 class="mb-3">Order Summary</h5>
-                <div class="d-flex justify-content-between">
-                    <p class="summary-item-count">Items (0)</p>
-                    <p class="summary-total-price">₹0</p>
-                </div>
-                <hr>
-                <div class="d-flex justify-content-between fw-bold">
-                    <p>Total</p>
-                    <p class="summary-total-price">₹0</p>
-                </div>
-                <button class="btn finalsavebtn w-100 mt-3">Place Order</button>
-            </div>
-        </div>
-    </div>
-</div>
-@section Scripts {
-    <script src="~/js/cart.js" asp-append-version="true"></script>
-} here i wnat that whatever is in the partial view is rendering that total item will be saved like i want to place the order of item whichever is in the partial view rendering and give me complete cotroller, service and reposiotry coide 
+    public Order Order { get; set; }
+    public Product Product { get; set; }
+}
+✅ Lazy Load Items in Cart
+You can apply IntersectionObserver or scroll event detection in JS to load more cart i
