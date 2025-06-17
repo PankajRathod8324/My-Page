@@ -1,35 +1,109 @@
-$(document).on("click", ".addtowishlist, .removetowishlist", function (event) {
-    event.stopPropagation();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Cart</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    var icon = $(this);
-    var productid = icon.data("productid");
-    var flag = icon.data("flag");
+    <!-- Bootstrap 5 CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
-    $.ajax({
-        type: "POST",
-        url: '/Product/AddToWishlist',
-        data: { productId: productid, flag: flag },
-        success: function (response) {
-            if (response.success) {
-                if (flag === "add") {
-                    toastr.success('Product Added To Wishlist!', "Success");
-                    icon.removeClass("bi-heart addtowishlist")
-                        .addClass("bi-heart-fill removetowishlist")
-                        .css("color", "rgba(0, 102, 167, 1)")
-                        .data("flag", "remove");
-                } else {
-                    toastr.success('Product Removed From Wishlist!', "Success");
-                    icon.removeClass("bi-heart-fill removetowishlist")
-                        .addClass("bi-heart addtowishlist")
-                        .removeAttr("style")
-                        .data("flag", "add");
-                }
-            } else {
-                alert("Failed to update Wishlist");
-            }
-        },
-        error: function (xhr, status, error) {
-            console.error(xhr);
+    <style>
+        .cart-item img {
+            max-width: 100px;
+            height: auto;
         }
-    });
-});
+        .remove-btn {
+            color: red;
+            cursor: pointer;
+        }
+        .card {
+            border-radius: 1rem;
+        }
+        .qty-input {
+            width: 60px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div class="container py-5">
+        <h2 class="mb-4 text-center">My Shopping Cart</h2>
+
+        <div class="row g-4">
+            <!-- Cart Items -->
+            <div class="col-lg-8">
+                <div class="card p-3 shadow-sm">
+                    <!-- Cart Item -->
+                    <div class="row align-items-center mb-4 cart-item">
+                        <div class="col-3">
+                            <img src="https://via.placeholder.com/100" class="img-fluid rounded" alt="Product">
+                        </div>
+                        <div class="col-6">
+                            <h6 class="fw-semibold">Wireless Headphones</h6>
+                            <p class="mb-1 text-muted">Brand: SoundMax</p>
+                            <p class="mb-1">Price: ₹2,499</p>
+                            <div class="d-flex align-items-center mt-2">
+                                <label class="me-2 mb-0">Qty:</label>
+                                <input type="number" class="form-control qty-input" min="1" value="1">
+                            </div>
+                        </div>
+                        <div class="col-3 text-end">
+                            <p class="mb-1 fw-semibold">₹2,499</p>
+                            <i class="bi bi-trash remove-btn"></i>
+                        </div>
+                    </div>
+
+                    <!-- Repeat Item -->
+                    <hr>
+                    <div class="row align-items-center mb-4 cart-item">
+                        <div class="col-3">
+                            <img src="https://via.placeholder.com/100" class="img-fluid rounded" alt="Product">
+                        </div>
+                        <div class="col-6">
+                            <h6 class="fw-semibold">Smart Watch</h6>
+                            <p class="mb-1 text-muted">Brand: TimeTech</p>
+                            <p class="mb-1">Price: ₹3,999</p>
+                            <div class="d-flex align-items-center mt-2">
+                                <label class="me-2 mb-0">Qty:</label>
+                                <input type="number" class="form-control qty-input" min="1" value="1">
+                            </div>
+                        </div>
+                        <div class="col-3 text-end">
+                            <p class="mb-1 fw-semibold">₹3,999</p>
+                            <i class="bi bi-trash remove-btn"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Section -->
+            <div class="col-lg-4">
+                <div class="card p-4 shadow-sm">
+                    <h5 class="mb-3">Order Summary</h5>
+                    <div class="d-flex justify-content-between">
+                        <p>Items (2)</p>
+                        <p>₹6,498</p>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <p>Delivery</p>
+                        <p>Free</p>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between fw-bold">
+                        <p>Total</p>
+                        <p>₹6,498</p>
+                    </div>
+                    <button class="btn btn-primary w-100 mt-3">Proceed to Checkout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
