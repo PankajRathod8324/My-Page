@@ -1,109 +1,137 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>My Cart</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+Create a Partial View for Cart Items
+Let’s name the partial view _CartItemsPartial.cshtml.
 
-    <!-- Bootstrap 5 CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+cshtml
+Copy code
+@model IEnumerable<CartItemViewModel> <!-- Replace with your model -->
 
-    <style>
-        .cart-item img {
-            max-width: 100px;
-            height: auto;
-        }
-        .remove-btn {
-            color: red;
-            cursor: pointer;
-        }
-        .card {
-            border-radius: 1rem;
-        }
-        .qty-input {
-            width: 60px;
-        }
-    </style>
-</head>
-<body class="bg-light">
-
-    <div class="container py-5">
-        <h2 class="mb-4 text-center">My Shopping Cart</h2>
-
-        <div class="row g-4">
-            <!-- Cart Items -->
-            <div class="col-lg-8">
-                <div class="card p-3 shadow-sm">
-                    <!-- Cart Item -->
-                    <div class="row align-items-center mb-4 cart-item">
-                        <div class="col-3">
-                            <img src="https://via.placeholder.com/100" class="img-fluid rounded" alt="Product">
-                        </div>
-                        <div class="col-6">
-                            <h6 class="fw-semibold">Wireless Headphones</h6>
-                            <p class="mb-1 text-muted">Brand: SoundMax</p>
-                            <p class="mb-1">Price: ₹2,499</p>
-                            <div class="d-flex align-items-center mt-2">
-                                <label class="me-2 mb-0">Qty:</label>
-                                <input type="number" class="form-control qty-input" min="1" value="1">
-                            </div>
-                        </div>
-                        <div class="col-3 text-end">
-                            <p class="mb-1 fw-semibold">₹2,499</p>
-                            <i class="bi bi-trash remove-btn"></i>
-                        </div>
-                    </div>
-
-                    <!-- Repeat Item -->
-                    <hr>
-                    <div class="row align-items-center mb-4 cart-item">
-                        <div class="col-3">
-                            <img src="https://via.placeholder.com/100" class="img-fluid rounded" alt="Product">
-                        </div>
-                        <div class="col-6">
-                            <h6 class="fw-semibold">Smart Watch</h6>
-                            <p class="mb-1 text-muted">Brand: TimeTech</p>
-                            <p class="mb-1">Price: ₹3,999</p>
-                            <div class="d-flex align-items-center mt-2">
-                                <label class="me-2 mb-0">Qty:</label>
-                                <input type="number" class="form-control qty-input" min="1" value="1">
-                            </div>
-                        </div>
-                        <div class="col-3 text-end">
-                            <p class="mb-1 fw-semibold">₹3,999</p>
-                            <i class="bi bi-trash remove-btn"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Summary Section -->
-            <div class="col-lg-4">
-                <div class="card p-4 shadow-sm">
-                    <h5 class="mb-3">Order Summary</h5>
-                    <div class="d-flex justify-content-between">
-                        <p>Items (2)</p>
-                        <p>₹6,498</p>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <p>Delivery</p>
-                        <p>Free</p>
-                    </div>
-                    <hr>
-                    <div class="d-flex justify-content-between fw-bold">
-                        <p>Total</p>
-                        <p>₹6,498</p>
-                    </div>
-                    <button class="btn btn-primary w-100 mt-3">Proceed to Checkout</button>
-                </div>
+@foreach (var item in Model)
+{
+    <div class="row align-items-center mb-4 cart-item">
+        <div class="col-3">
+            <img src="@item.ImageUrl" class="img-fluid rounded cart-img" alt="@item.Name">
+        </div>
+        <div class="col-6">
+            <h6 class="fw-semibold">@item.Name</h6>
+            <p class="mb-1 text-muted">Brand: @item.Brand</p>
+            <p class="mb-1">Price: ₹@item.UnitPrice</p>
+            <div class="d-flex align-items-center mt-2">
+                <label class="me-2 mb-0">Qty:</label>
+                <input type="number" class="form-control qty-input" min="1" value="@item.Quantity" data-itemid="@item.ProductId" />
             </div>
         </div>
+        <div class="col-3 text-end">
+            <p class="mb-1 fw-semibold item-total">₹@(item.UnitPrice * item.Quantity)</p>
+            <i class="bi bi-trash remove-btn" data-itemid="@item.ProductId"></i>
+        </div>
     </div>
+    <hr />
+}
+🔹 2. Controller Action to Serve Cart Items
+csharp
+Copy code
+public IActionResult LoadCartItems(int page = 1, int pageSize = 5)
+{
+    var cartItems = _cartService.GetCartItems(UserId); // Get from DB
+    var pagedItems = cartItems.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    return PartialView("_CartItemsPartial", pagedItems);
+}
+🔹 3. Render Partial in Main Cart View
+In your main view Cart.cshtml:
+
+html
+Copy code
+<div id="cartItemsContainer" class="card p-3 shadow-sm"></div>
+<div class="text-center mt-3">
+    <button id="loadMoreBtn" class="btn btn-outline-primary">Load More</button>
+</div>
+🔹 4. JavaScript for Lazy Loading
+javascript
+Copy code
+let cartPage = 1;
+const pageSize = 5;
+
+function loadCartItems() {
+    $.ajax({
+        url: '/Cart/LoadCartItems',
+        data: { page: cartPage, pageSize: pageSize },
+        type: 'GET',
+        success: function (html) {
+            $('#cartItemsContainer').append(html);
+            cartPage++;
+            updateCartSummary(); // Optional: recalculate total
+        },
+        error: function () {
+            alert("Failed to load cart items.");
+        }
+    });
+}
+
+$(document).ready(function () {
+    loadCartItems(); // Load first page
+
+    $('#loadMoreBtn').on('click', function () {
+        loadCartItems();
+    });
+
+    // Handle quantity change
+    $(document).on('input', '.qty-input', function () {
+        const quantity = parseInt($(this).val());
+        const price = parseFloat($(this).closest('.cart-item').find('p.mb-1:contains("Price")').text().replace(/[^\d.]/g, ''));
+        const totalElement = $(this).closest('.cart-item').find('.item-total');
+        totalElement.text(`₹${(price * quantity).toFixed(2)}`);
+        updateCartSummary();
+    });
+
+    // Remove item
+    $(document).on('click', '.remove-btn', function () {
+        const itemId = $(this).data("itemid");
+        $(this).closest('.cart-item').next("hr").remove(); // remove HR
+        $(this).closest('.cart-item').remove(); // remove item
+        updateCartSummary();
+
+        $.post('/Cart/RemoveItem', { itemId: itemId }); // Your API
+    });
+});
+🔹 5. JavaScript to Update Summary Dynamically
+javascript
+Copy code
+function updateCartSummary() {
+    let total = 0;
+    let count = 0;
+
+    $('.cart-item').each(function () {
+        const priceText = $(this).find('.item-total').text().replace(/[^\d.]/g, '');
+        const price = parseFloat(priceText);
+        if (!isNaN(price)) {
+            total += price;
+            count++;
+        }
+    });
+
+    $('.summary-item-count').text(`Items (${count})`);
+    $('.summary-total-price').text(`₹${total.toFixed(2)}`);
+}
+🔹 6. Update Order Summary Section
+Replace with:
+
+html
+Copy code
+<div class="card p-4 shadow-sm">
+    <h5 class="mb-3">Order Summary</h5>
+    <div class="d-flex justify-content-between">
+        <p class="summary-item-count">Items (0)</p>
+        <p class="summary-total-price">₹0</p>
+    </div>
+    <div class="d-flex justify-content-between">
+        <p>Delivery</p>
+        <p>Free</p>
+    </div>
+    <hr>
+    <div class="d-flex justify-content-between fw-bold">
+        <p>Total</p>
+        <p class="summary-total-price">₹0</p>
+    </div>
+    <button class="btn btn-primary w-100 mt-3">Proceed to Checkout</button>
+</div>
