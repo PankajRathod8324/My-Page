@@ -1,25 +1,49 @@
-Here's a complete solution to your request: a Bootstrap-based UI layout with left-side category fields and right-side selectable branches (with tick/cross icons), along with the backend logic using N-tier architecture.
+@model Entities.ViewModels.CategoryDTO
 
-✅ UI Layout (Bootstrap Only)
-html
-Copy code
-<div class="container my-4">
+<div class="container py-4">
     <div class="row">
         <!-- Left: Category Info -->
         <div class="col-md-5 border-end pe-4">
             <h5 class="mb-3">Edit Category</h5>
-            <form id="editCategoryForm">
-                <div class="form-floating mb-3">
-                    <input type="text" class="form-control" id="categoryName" placeholder="Category Name" name="Name">
-                    <label for="categoryName">Category Name</label>
-                </div>
-                <div class="form-floating mb-3">
-                    <textarea class="form-control" placeholder="Description" id="categoryDesc" name="Description" style="height: 100px"></textarea>
-                    <label for="categoryDesc">Description</label>
-                </div>
-                <button type="submit" class="btn btn-primary mt-2">Update</button>
-            </form>
-        </div>
+           
+            @using (Html.BeginForm(FormMethod.Post, new { @class = "needs-validation", id = "EditCategory", novalidate = "novalidate" }))
+            {
+            
+               
+                    <div class="row">
+                        @Html.HiddenFor(model => model.Categoryid)
+
+                        <div class="col">
+                            <div class="form-floating mb-3">
+                                @Html.TextBoxFor(model => model.Name, new { @class = "form-control"})
+                                @Html.LabelFor(model => model.Name, "Name*", htmlAttributes: new { @class = "fw-semibold text-secondary" })
+                                @Html.ValidationMessageFor(model => model.Name, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col ">
+                            <div class="form-floating">
+                                @Html.TextAreaFor(model => model.Description, new { @class = "form-control", row = 4, cols = 50})
+                                @Html.LabelFor(model => model.Description, "Desciption", htmlAttributes: new { @class = "fw-semibold text-secondary" })
+                                @Html.ValidationMessageFor(model => model.Description, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row ">
+                        <div class="col ">
+                                <div class="form-check form-switch mb-3">
+                                    @Html.CheckBoxFor(model => model.Active, new {@class = "form-check-input toggleSwitch modal-field"} )
+
+                                    <label for="modifierGroups" class="form-label mt-1 ms-3">Active</label>
+                                </div>
+                        </div>
+                    </div>
+       
+                    <button type="submit" class="btn  webybg fs-6 fw-bold text-white px-4">Save</button>
+                    
+            }
+             </div>
 
         <!-- Right: Branch Selection -->
         <div class="col-md-7 ps-4">
@@ -28,13 +52,13 @@ Copy code
                 @* Example dynamically rendered items *@
                 @foreach (var branch in Model.AllBranches)
                 {
-                    var isAssigned = Model.SelectedBranchIds.Contains(branch.Id);
+                    var isAssigned = Model.SelectedBranchIds.Contains(branch.Brandid);
                     <div class="col">
                         <div class="d-flex justify-content-between align-items-center border rounded p-2">
                             <span>@branch.Name</span>
                             <button type="button"
                                     class="btn btn-sm @(isAssigned ? "btn-success" : "btn-outline-secondary") toggle-branch"
-                                    data-branch-id="@branch.Id">
+                                    data-branch-id="@branch.Brandid">
                                 <i class="bi @(isAssigned ? "bi-check-circle-fill" : "bi-x-circle")"></i>
                             </button>
                         </div>
@@ -44,187 +68,73 @@ Copy code
         </div>
     </div>
 </div>
-✳️ Add Bootstrap Icons to your layout for check/cross icons.
 
-✅ ViewModel
-csharp
-Copy code
-public class EditCategoryVM
-{
-    public int CategoryId { get; set; }
-    public string Name { get; set; }
-    public string Description { get; set; }
-
-    public List<BranchVM> AllBranches { get; set; }
-    public List<int> SelectedBranchIds { get; set; }
+@section Scripts {
+    <script src="~/js/category.js" asp-append-version="true"></script>
 }
-csharp
-Copy code
-public class BranchVM
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-}
-✅ Controller (Presentation Layer)
-csharp
-Copy code
-public class CategoryController : Controller
-{
-    private readonly ICategoryService _categoryService;
-    public CategoryController(ICategoryService categoryService)
-    {
-        _categoryService = categoryService;
-    }
 
-    public IActionResult Edit(int id)
-    {
-        var model = _categoryService.GetCategoryWithBranches(id);
-        return View(model);
-    }
+ document.querySelectorAll(".toggle-branch").forEach(btn => {
+        btn.addEventListener("click", function () {
+            const icon = this.querySelector("i");
+            const isSelected = this.classList.contains("btn-success");
+    
+            if (isSelected) {
+                this.classList.remove("btn-success");
+                this.classList.add("btn-outline-secondary");
+                icon.classList.remove("bi-check-circle-fill");
+                icon.classList.add("bi-x-circle");
+            } else {
+                this.classList.remove("btn-outline-secondary");
+                this.classList.add("btn-success");
+                icon.classList.remove("bi-x-circle");
+                icon.classList.add("bi-check-circle-fill");
+            }
+        });
+    });
 
-    [HttpPost]
-    public IActionResult Edit(EditCategoryVM model)
-    {
-        if (ModelState.IsValid)
-        {
-            _categoryService.UpdateCategoryWithBranches(model);
-            return RedirectToAction("Index");
-        }
-        model.AllBranches = _categoryService.GetAllBranches();
-        return View(model);
-    }
-}
-✅ Service Layer
-csharp
-Copy code
-public interface ICategoryService
-{
-    EditCategoryVM GetCategoryWithBranches(int categoryId);
-    void UpdateCategoryWithBranches(EditCategoryVM model);
-    List<BranchVM> GetAllBranches();
-}
-csharp
-Copy code
-public class CategoryService : ICategoryService
-{
-    private readonly ICategoryRepository _categoryRepository;
-    public CategoryService(ICategoryRepository categoryRepository)
-    {
-        _categoryRepository = categoryRepository;
-    }
-
-    public EditCategoryVM GetCategoryWithBranches(int categoryId)
-    {
-        return _categoryRepository.FetchCategoryBranchData(categoryId);
-    }
-
-    public void UpdateCategoryWithBranches(EditCategoryVM model)
-    {
-        _categoryRepository.UpdateCategoryBranchMapping(model);
-    }
-
-    public List<BranchVM> GetAllBranches()
-    {
-        return _categoryRepository.FetchAllBranches();
-    }
-}
-✅ Repository Layer
-csharp
-Copy code
-public interface ICategoryRepository
-{
-    EditCategoryVM FetchCategoryBranchData(int categoryId);
-    void UpdateCategoryBranchMapping(EditCategoryVM model);
-    List<BranchVM> FetchAllBranches();
-}
-csharp
-Copy code
-public class CategoryRepository : ICategoryRepository
-{
-    private readonly AppDbContext _context;
-
-    public CategoryRepository(AppDbContext context)
-    {
-        _context = context;
-    }
-
-    public EditCategoryVM FetchCategoryBranchData(int categoryId)
-    {
-        var category = _context.Categories.Find(categoryId);
-        var allBranches = _context.Branches.ToList();
-        var assignedIds = _context.CategoryBranches
-                                  .Where(cb => cb.CategoryId == categoryId)
-                                  .Select(cb => cb.BranchId).ToList();
-
-        return new EditCategoryVM
-        {
-            CategoryId = categoryId,
-            Name = category.Name,
-            Description = category.Description,
-            AllBranches = allBranches.Select(b => new BranchVM { Id = b.Id, Name = b.Name }).ToList(),
-            SelectedBranchIds = assignedIds
-        };
-    }
-
-    public void UpdateCategoryBranchMapping(EditCategoryVM model)
-    {
-        var category = _context.Categories.Find(model.CategoryId);
-        category.Name = model.Name;
-        category.Description = model.Description;
-
-        var existing = _context.CategoryBranches.Where(cb => cb.CategoryId == model.CategoryId);
-        _context.CategoryBranches.RemoveRange(existing);
-
-        foreach (var branchId in model.SelectedBranchIds)
-        {
-            _context.CategoryBranches.Add(new CategoryBranch
-            {
-                CategoryId = model.CategoryId,
-                BranchId = branchId
+ $(document).on("submit", "#EditCategory", function (event) {
+        event.preventDefault();
+        var formData = $(this)[0];
+        var submissionData = new FormData(formData);
+        if ($(this).valid()) {
+            $.ajax({
+                url: '/Category/UpdateCategory',
+                type: 'POST',
+                data: submissionData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    console.log(response.success);
+                    if (response.success === true) {
+                        toastr.success('Category Edited Successfully!', "Success");
+                        $('#EditCategoryModal').modal('hide');
+                        loadCategory(pageNumber);
+                    } else {
+                        toastr.warning("Invalid Category data.", "Warning");
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error:', xhr.responseText);
+                }
             });
         }
-
-        _context.SaveChanges();
-    }
-
-    public List<BranchVM> FetchAllBranches()
+    });so her i have add brand so i need to chg the jax call to send the whatever the data like brand has assigned and which brand has remove d from the category adn so i need to chage the service like bnackend also 
+ public void UpdateCategory(CategoryDTO model)
     {
-        return _context.Branches.Select(b => new BranchVM { Id = b.Id, Name = b.Name }).ToList();
-    }
-}
-✅ CategoryBranch Mapping Table (DB)
-csharp
-Copy code
-public class CategoryBranch
-{
-    public int Id { get; set; }
+       
+        Category existingCategory = _categoryRepository.GetCategoryById(model.Categoryid) ?? throw new Exception("Category not found.");
+        try
+        {
+            existingCategory.Name = model.Name;
+            existingCategory.Description = model.Description;
+            existingCategory.Active = model.Active;
+            existingCategory.Modifiedat = TimeZoneInfo.ConvertTimeToUtc(DateTime.UtcNow);
+            existingCategory.Modifiedby = _userRepository.GetUserByEmail(_httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Email)?.Value)?.Userid ?? 0;
 
-    public int CategoryId { get; set; }
-    public Category Category { get; set; }
-
-    public int BranchId { get; set; }
-    public Branch Branch { get; set; }
-}
-✅ Bonus: JavaScript to toggle check/cross icons
-javascript
-Copy code
-document.querySelectorAll(".toggle-branch").forEach(btn => {
-    btn.addEventListener("click", function () {
-        const icon = this.querySelector("i");
-        const isSelected = this.classList.contains("btn-success");
-
-        if (isSelected) {
-            this.classList.remove("btn-success");
-            this.classList.add("btn-outline-secondary");
-            icon.classList.remove("bi-check-circle-fill");
-            icon.classList.add("bi-x-circle");
-        } else {
-            this.classList.remove("btn-outline-secondary");
-            this.classList.add("btn-success");
-            icon.classList.remove("bi-x-circle");
-            icon.classList.add("bi-check-circle-fill");
+           _categoryRepository.UpdateCategory(existingCategory);
         }
-
-        // You can also update a hidden field or list to post selected branch IDs
-    });
-});
+        catch (Exception ex)
+        {
+            throw new Exception("Error updating category: " + ex.Message);
+        }
+    } so giv eme updated code for handling these
