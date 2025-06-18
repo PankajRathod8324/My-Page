@@ -1,106 +1,281 @@
+Tables to Create
+1. Product Table
+csharp
+Copy code
+public class Product
+{
+    public int ProductId { get; set; }
+    public string Name { get; set; }
+    // Other product details
 
-<div class="modal" id="AddProductModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg  modal-dialog-centered">
-        <div class="modal-content">
-            <form id="AddProduct" method="post" enctype="multipart/form-data">
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                <div class="modal-header border-bottom-0">
-                    <h5 class="modal-title text-secondary" id="exampleModalLabel">Add Product</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+    public ICollection<ProductVariant> ProductVariants { get; set; }
+}
+2. Variant Table
+(Like "Color", "Size", etc.)
 
-                <div class="modal-body">
-                    @Html.ValidationSummary(true, "", new { @class = "text-danger" })
-                    <div class="row d-flex justify-space-between ">
-                        <div class="col mt-1">
-                            <div class="row">
-                                <div class="col">
-                                    <div class="form-floating mb-3">
-                                        <select class="form-select modal-field" asp-for="Categoryid"
-                                            asp-items="ViewBag.Categories" id="floatingSelect"
-                                            aria-label="Floating label select example">
-                                        </select>
-                                        <label for="floatingSelect">Categories*</label>
-                                        <span asp-validation-for="Categoryid" class="text-danger"></span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col">
-                                    <div class="form-floating mb-3">
-                                        <input type="text" asp-for="Name" class="form-control modal-field"
-                                            id="floatingInput">
-                                        <label for="floatingInput" asp-for="Name">Name*</label>
-                                        <span asp-validation-for="Name" class="text-danger"></span>
-                                    </div>
-                                </div>
-                            </div>
+csharp
+Copy code
+public class Variant
+{
+    public int VariantId { get; set; }
+    public string Name { get; set; }  // e.g., "Color", "Size"
 
+    public ICollection<VariantOption> Options { get; set; }
+}
+3. VariantOption Table
+(Like "Red", "Blue" for "Color")
 
-                            <div class="row d-flex align-items-center">
-                                <div class="col">
-                                    <div class="form-floating mb-3">
-                                        <input type="number" asp-for="Price" class="form-control modal-field"
-                                            id="floatingInput" step="0.01" min="0.01" max="999999999.99">
-                                        <label for="floatingInput" asp-for="Price">Price*</label>
-                                        <span asp-validation-for="Price" class="text-danger"></span>
-                                    </div>
-                                </div>
-                                <div class="col ">
-                                    <div class="form-check form-switch mb-3">
-                                        <input class="form-check-input toggleSwitch form-check-input-lg modal-field"
-                                            type="checkbox" style="border-radius: 1rem !important;" asp-for="Active">
-                                        <label for="modifierGroups" class="form-label mt-1 ms-3">Active</label>
-                                    </div>
+csharp
+Copy code
+public class VariantOption
+{
+    public int VariantOptionId { get; set; }
+    public string Value { get; set; }  // e.g., "Red", "Blue"
+    public int VariantId { get; set; }
 
-                                </div>
+    public Variant Variant { get; set; }
+}
+4. ProductVariant Table (Mapping Product to Variant)
+csharp
+Copy code
+public class ProductVariant
+{
+    public int ProductVariantId { get; set; }
+    public int ProductId { get; set; }
+    public int VariantId { get; set; }
 
-                            </div>
+    public Product Product { get; set; }
+    public Variant Variant { get; set; }
 
-                            <div class="row">
-                                <div data-mdb-input-init class="form-outline mb-3">
-                                    <textarea class="form-control  modal-field" id="form7Example7" placeholder="Details"
-                                        asp-for="Details" required rows="4"></textarea>
-                                </div>
-                            </div>
+    public ICollection<ProductVariantOption> Options { get; set; }
+}
+5. ProductVariantOption Table (Mapping ProductVariant to VariantOption)
+csharp
+Copy code
+public class ProductVariantOption
+{
+    public int ProductVariantOptionId { get; set; }
 
-                            <div class="mb-4">
-                                <label class="form-label fw-semibold">Main Cover Image</label>
-                                <div class="border rounded bg-light p-3 text-center"
-                                    onclick="document.getElementById('mainImageInput').click()"
-                                    style="cursor: pointer;">
-                                    <div class="text-muted">📁 Click here to upload Cover Image</div>
-                                    <input type="file" class="d-none" id="mainImageInput" name="MainImage"
-                                        accept="image/*">
-                                    <div id="mainImagePreview"
-                                        class="mt-3 d-flex flex-wrap gap-3 justify-content-start"></div>
-                                </div>
-                            </div>
+    public int ProductVariantId { get; set; }
+    public int VariantOptionId { get; set; }
 
-                            <!-- Gallery Images Upload -->
-                            <div class="mb-4">
-                                <label class="form-label fw-semibold">Gallery Images</label>
-                                <div class="border rounded bg-light p-3 text-center"
-                                    onclick="document.getElementById('galleryImagesInput').click()"
-                                    style="cursor: pointer;">
-                                    <div class="text-muted">📸 Click here to upload multiple Product Images</div>
-                                    <input type="file" class="d-none" id="galleryImagesInput" name="GalleryImages"
-                                        accept="image/*" multiple>
-                                    <div id="galleryPreview" class="mt-3 d-flex flex-wrap gap-3 justify-content-start">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    public ProductVariant ProductVariant { get; set; }
+    public VariantOption VariantOption { get; set; }
+}
 
-                </div>
-                <div class="modal-footer border-top-0">
-                    <button type="submit" class="btn  webybg fs-6 fw-bold text-white px-4">Save</button>
-                    <button type="button" class="btn  webyborder webybtn fw-bold px-4"
-                        data-bs-dismiss="modal">Cancel</button>
-                </div>
-            </form>
-        </div>
+public class ProductVariantCombination
+{
+    public int Id { get; set; }
+    public int ProductId { get; set; }
 
-    </div>
+    public string CombinationKey { get; set; } // e.g., "Color:Red,Size:M"
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
+
+    public Product Product { get; set; }
+}
+Database Models (Entity Framework Code First)
+Product.cs
+csharp
+Copy code
+public class Product
+{
+    public int ProductId { get; set; }
+    public string Name { get; set; }
+    public decimal Price { get; set; }
+    public string Details { get; set; }
+    public bool Active { get; set; }
+    public int Categoryid { get; set; }
+
+    public string MainImage { get; set; }
+    public ICollection<ProductImage> ProductImages { get; set; }
+
+    public ICollection<ProductVariant> ProductVariants { get; set; }
+}
+ProductImage.cs
+csharp
+Copy code
+public class ProductImage
+{
+    public int ProductImageId { get; set; }
+    public string ImageUrl { get; set; }
+    public int ProductId { get; set; }
+
+    public Product Product { get; set; }
+}
+Variant.cs (e.g., "Color", "Size")
+csharp
+Copy code
+public class Variant
+{
+    public int VariantId { get; set; }
+    public string Name { get; set; } // Example: "Color"
+
+    public ICollection<VariantOption> VariantOptions { get; set; }
+}
+VariantOption.cs (e.g., "Red", "Green")
+csharp
+Copy code
+public class VariantOption
+{
+    public int VariantOptionId { get; set; }
+    public string Value { get; set; }
+    public int VariantId { get; set; }
+
+    public Variant Variant { get; set; }
+}
+ProductVariant.cs
+csharp
+Copy code
+public class ProductVariant
+{
+    public int ProductVariantId { get; set; }
+    public int ProductId { get; set; }
+    public int VariantId { get; set; }
+
+    public Product Product { get; set; }
+    public Variant Variant { get; set; }
+    public ICollection<ProductVariantOption> ProductVariantOptions { get; set; }
+}
+ProductVariantOption.cs
+csharp
+Copy code
+public class ProductVariantOption
+{
+    public int ProductVariantOptionId { get; set; }
+    public int ProductVariantId { get; set; }
+    public int VariantOptionId { get; set; }
+
+    public ProductVariant ProductVariant { get; set; }
+    public VariantOption VariantOption { get; set; }
+}
+✅ 2. ViewModel (Product with Variants)
+csharp
+Copy code
+public class ProductVM
+{
+    public string Name { get; set; }
+    public decimal Price { get; set; }
+    public string Details { get; set; }
+    public bool Active { get; set; }
+    public int Categoryid { get; set; }
+
+    public IFormFile MainImage { get; set; }
+    public List<IFormFile> GalleryImages { get; set; }
+
+    // Variant data from form
+    public List<VariantEntry> Variants { get; set; }
+}
+
+public class VariantEntry
+{
+    public string VariantName { get; set; }       // e.g. "Color"
+    public List<string> Options { get; set; }     // e.g. ["Red", "Blue"]
+}
+✅ 3. Frontend Update (Modal Enhancements)
+Just before modal footer, add:
+
+html
+Copy code
+<div class="mb-3">
+    <label class="form-label fw-semibold">Variants (e.g., Color, Size)</label>
+    <div id="variantContainer"></div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addVariant()">+ Add Variant</button>
 </div>
+Then include the script:
+
+html
+Copy code
+<script>
+let variantIndex = 0;
+function addVariant() {
+    const container = document.getElementById("variantContainer");
+    const div = document.createElement("div");
+    div.classList.add("mb-3", "border", "p-2", "rounded");
+
+    div.innerHTML = `
+        <div class="form-floating mb-2">
+            <input type="text" name="Variants[${variantIndex}].VariantName" class="form-control" placeholder="Variant Name">
+            <label>Variant Name (e.g., Color)</label>
+        </div>
+        <div class="form-floating">
+            <input type="text" name="Variants[${variantIndex}].Options" class="form-control"
+                placeholder="Enter options comma-separated (e.g., Red,Blue)">
+            <label>Options (comma-separated)</label>
+        </div>
+    `;
+    container.appendChild(div);
+    variantIndex++;
+}
+</script>
+✅ 4. Controller Method (AddProduct)
+csharp
+Copy code
+[HttpPost]
+public async Task<IActionResult> AddProduct(ProductVM vm)
+{
+    var product = new Product
+    {
+        Name = vm.Name,
+        Price = vm.Price,
+        Details = vm.Details,
+        Active = vm.Active,
+        Categoryid = vm.Categoryid,
+        ProductImages = new List<ProductImage>(),
+        ProductVariants = new List<ProductVariant>()
+    };
+
+    // Handle Main Image
+    if (vm.MainImage != null)
+    {
+        var mainPath = Path.Combine("wwwroot/images", vm.MainImage.FileName);
+        using var stream = new FileStream(mainPath, FileMode.Create);
+        await vm.MainImage.CopyToAsync(stream);
+        product.MainImage = "/images/" + vm.MainImage.FileName;
+    }
+
+    // Handle Gallery
+    if (vm.GalleryImages != null)
+    {
+        foreach (var image in vm.GalleryImages)
+        {
+            var path = Path.Combine("wwwroot/images", image.FileName);
+            using var stream = new FileStream(path, FileMode.Create);
+            await image.CopyToAsync(stream);
+            product.ProductImages.Add(new ProductImage { ImageUrl = "/images/" + image.FileName });
+        }
+    }
+
+    // Handle Variants
+    foreach (var variantEntry in vm.Variants)
+    {
+        if (string.IsNullOrWhiteSpace(variantEntry.VariantName)) continue;
+
+        var variant = _context.Variants.FirstOrDefault(v => v.Name == variantEntry.VariantName)
+                    ?? new Variant { Name = variantEntry.VariantName, VariantOptions = new List<VariantOption>() };
+
+        if (variant.VariantId == 0)
+            _context.Variants.Add(variant);
+
+        var productVariant = new ProductVariant { Variant = variant, Product = product, ProductVariantOptions = new List<ProductVariantOption>() };
+
+        foreach (var opt in variantEntry.Options.SelectMany(o => o.Split(',', StringSplitOptions.RemoveEmptyEntries)))
+        {
+            var trimmed = opt.Trim();
+            var option = variant.VariantOptions.FirstOrDefault(vo => vo.Value == trimmed)
+                        ?? new VariantOption { Value = trimmed, Variant = variant };
+
+            if (option.VariantOptionId == 0)
+                _context.VariantOptions.Add(option);
+
+            productVariant.ProductVariantOptions.Add(new ProductVariantOption { VariantOption = option });
+        }
+
+        product.ProductVariants.Add(productVariant);
+    }
+
+    _context.Products.Add(product);
+    await _context.SaveChangesAsync();
+
+    return RedirectToAction("ViewProducts");
+}
