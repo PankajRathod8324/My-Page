@@ -1,126 +1,96 @@
-@using System.Security.Claims
-@model Entities.ViewModels.ProductDTO
-@{
-    var role = User.FindFirst(ClaimTypes.Role)?.Value;
+public class ProductDTO
+{
+    public int Productid { get; set; }
+    public int? Categoryid { get; set; }
+    public string? CategoryName { get; set; }
+    public string? Name { get; set; }
+    public string? Details { get; set; }
+    public decimal Price { get; set; }
+    public bool Active { get; set; }
+    public DateTime? Createdat { get; set; }
+    public DateTime? Modifiedat { get; set; }
+    public bool Deleted { get; set; }
+    public string? Images { get; set; }
+    public List<Productimage> Image { get; set; } = new();
+
+    // Wishlist
+    public bool IsInWishlist { get; set; }
+
+    // Return Policy
+    public bool IsReturnable { get; set; }
+    public string? ReturnPolicyName { get; set; }
+    public string? ReturnPolicyDescription { get; set; }
+    public int? ReturnDays { get; set; }
 }
+public ProductDTO GetProductById(int productId)
+{
+    Product product = _productRepository.GetProductById(productId);
+    if (product == null) return null!;
 
-<div class=" mt-4">
-    <div class="row g-4">
-        <div class="col-md-6">
-            <div id="productCarousel" class="carousel slide" data-bs-ride="carousel">
-                <div class="carousel-indicators">
-                    @for (var item = 0; item < @Model.Image.Count; item++)
-                    {
-                        <button type="button" data-bs-target="#productCarousel" data-bs-slide-to="@item"
-                            class="@(item == 0 ? "active" : "")" aria-current="@(item == 0 ? "true" : "")"
-                            aria-label="Slide @item"></button>
-                    }
-                </div>
-                  <div class="carousel-inner">
-                            @foreach (var item in Model.Image)
-                            {
-                                    <div class="carousel-item @(Model.Image.IndexOf(item) == 0 ? "active" : "")">
-                                            <img class="d-block zoomImage w-100 img-fluid" 
-                                 src="@item.Imaegpath" data-zoom-image="@item.Imaegpath" 
-                                       alt="Product Image" style="max-height: 500px; object-fit: contain;" />
-                                        </div>
-                            }
-                        </div>
-                <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel"
-                    data-bs-slide="prev">
-                    <span class="carousel-control-prev-icon"></span>
-                </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#productCarousel"
-                    data-bs-slide="next">
-                    <span class="carousel-control-next-icon"></span>
-                </button>
-            </div>
-        </div>
+    string? useremail = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Email)?.Value;
+    User user = _userRepository.GetUserByEmail(useremail);
+    if (user == null) throw new Exception("User not found.");
 
-        <div class="col-md-5">
-             <div class="d-flex justify-content-between align-items-center">
-                 <h2>@Model.Name</h2>
-                 
-                <div class="fs-3">
-                    @if (Model.IsInWishlist == true)
-                    {
-                        <i class="bi bi-heart-fill removetowishlist" style="color: rgba(0, 102, 167, 1);" data-productid="@Model.Productid" data-flag="remove"></i>
-                    }
-                    else
-                    {
-                        <i class="bi bi-heart addtowishlist" data-productid="@Model.Productid" data-flag="add"></i>
-                    }  
-                </div>
-            </div>
-             <p class="text-muted">@Model.CategoryName</p>
-           
-           
-          
-            <h4 class="text-success">₹@Model.Price</h4>
-            <p><strong>Description:</strong></p>
-            <p>@Model.Details</p>
-            @if(role == "Users")
-            {
-                  <button type="btn" id="addcardbtn" class="col-md-6 mt-3 mb-1 btn finalcancelbtn btn-lg  text-center" data-productid="@Model.Productid">
-                            ADD TO CART
-                </button>
-                
-                <a asp-action="Cart" asp-controller="Home" asp-route-productId="@Model.Productid" style="text-decoration: none;">
-                <button type="btn"  id="buyitnowbtn"  class="col-md-6 mt-3 mb-1 btn finalsavebtn btn-lg  text-center" data-productid="@Model.Productid">
-                            BUY IT NOW
-                </button>
-                </a>
-                
-            }
-            
-           
-        </div>
-        <div class="col-md-1">
-            <a class="btn finalcancelbtn" asp-area="" asp-controller="Home" asp-action="Product"
-                style=" background-color: rgb(245, 245, 245) !important;">
-                <i class="fa-solid fa-chevron-left"></i> Back
-            </a>
-        </div>
+    Category? category = product.Categoryid.HasValue
+        ? _categoryRepository.GetCategoryById(product.Categoryid.Value)
+        : null;
 
-    </div>
-</div>in here how can i add that and i am here want the logic also it should look good okay give me perfect and best ui and backend logic also  public ProductDTO GetProductById(int productId)
-    {
-        Product product = _productRepository.GetProductById(productId);
-        if (product == null) return null!;
+    List<Productimage> productImages = _productRepository.GetProductimagesByProductId(product.Productid);
 
-        string? useremail = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Email)?.Value;
-        User user = _userRepository.GetUserByEmail(useremail);
-        if (user == null) throw new Exception("User not found.");
+    // Fetch return policy if returnable
+    ProductReturnPolicy? returnPolicy = null;
+    if (product.IsReturnable)
+    {
+        returnPolicy = _productRepository.GetReturnPolicyByProductId(product.Productid);
+    }
 
-        Category? category = product.Categoryid.HasValue
-            ? _categoryRepository.GetCategoryById(product.Categoryid.Value)
-            : null;
+    return new ProductDTO
+    {
+        Productid = product.Productid,
+        Categoryid = product.Categoryid,
+        Name = product.Name,
+        CategoryName = category?.Name ?? "Unknown",
+        Image = productImages ?? new List<Productimage>(),
+        Images = product.Imagepath,
+        Active = product.Active,
+        Price = product.Price,
+        Details = product.Details,
+        Createdat = product.Createdat,
+        Modifiedat = product.Modifiedat,
+        Deleted = product.Deleted,
+        IsInWishlist = _productRepository.IsProductIntoWishlist(product.Productid, user.Userid),
 
-        List<Productimage> productImages = _productRepository.GetProductimagesByProductId(product.Productid);
-
-        return new ProductDTO
-        {
-            Productid = product.Productid,
-            Categoryid = product.Categoryid,
-            Name = product.Name,
-            CategoryName = category?.Name ?? "Unknown",
-            Image = productImages ?? new List<Productimage>(),
-            Images = product.Imagepath,
-            Active = product.Active,
-            Price = product.Price,
-            Details = product.Details,
-            Createdat = product.Createdat,
-            Modifiedat = product.Modifiedat,
-            Deleted = product.Deleted,
-            IsInWishlist = _productRepository.IsProductIntoWishlist(product.Productid, user.Userid)
-        };
-    }
-these is how my Product
- 
-IsReturnable - Bool
-ProductReturnPolicy
--ProductId 
--Name 
--Description
--ReturnDays
- schema so i have to check that there is Isreturnable true then i need add that details in that view part ok ay give me complete logic
+        IsReturnable = product.IsReturnable,
+        ReturnPolicyName = returnPolicy?.Name,
+        ReturnPolicyDescription = returnPolicy?.Description,
+        ReturnDays = returnPolicy?.ReturnDays
+    };
+}
+@if (Model.IsReturnable)
+{
+    <div class="card mt-4 shadow-sm border-success">
+        <div class="card-body">
+            <h6 class="text-success fw-bold">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Return Policy
+            </h6>
+            <p class="mb-1"><strong>@Model.ReturnPolicyName</strong></p>
+            <p class="small text-muted mb-1">@Model.ReturnPolicyDescription</p>
+            <span class="badge bg-light text-dark border">Returnable within <strong>@Model.ReturnDays</strong> days</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card mt-4 shadow-sm border-danger">
+        <div class="card-body">
+            <h6 class="text-danger fw-bold">
+                <i class="bi bi-x-circle me-1"></i> Return Policy
+            </h6>
+            <p class="mb-0 text-muted">This product is <strong>not returnable</strong>.</p>
+        </div>
+    </div>
+}
+public ProductReturnPolicy? GetReturnPolicyByProductId(int productId)
+{
+    return _context.ProductReturnPolicies.FirstOrDefault(x => x.ProductId == productId);
+}
