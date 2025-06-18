@@ -1,281 +1,230 @@
-Tables to Create
-1. Product Table
+Here's a complete solution to your request: a Bootstrap-based UI layout with left-side category fields and right-side selectable branches (with tick/cross icons), along with the backend logic using N-tier architecture.
+
+✅ UI Layout (Bootstrap Only)
+html
+Copy code
+<div class="container my-4">
+    <div class="row">
+        <!-- Left: Category Info -->
+        <div class="col-md-5 border-end pe-4">
+            <h5 class="mb-3">Edit Category</h5>
+            <form id="editCategoryForm">
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="categoryName" placeholder="Category Name" name="Name">
+                    <label for="categoryName">Category Name</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <textarea class="form-control" placeholder="Description" id="categoryDesc" name="Description" style="height: 100px"></textarea>
+                    <label for="categoryDesc">Description</label>
+                </div>
+                <button type="submit" class="btn btn-primary mt-2">Update</button>
+            </form>
+        </div>
+
+        <!-- Right: Branch Selection -->
+        <div class="col-md-7 ps-4">
+            <h5 class="mb-3">Assign Branches</h5>
+            <div class="row row-cols-2 g-3" id="branchList">
+                @* Example dynamically rendered items *@
+                @foreach (var branch in Model.AllBranches)
+                {
+                    var isAssigned = Model.SelectedBranchIds.Contains(branch.Id);
+                    <div class="col">
+                        <div class="d-flex justify-content-between align-items-center border rounded p-2">
+                            <span>@branch.Name</span>
+                            <button type="button"
+                                    class="btn btn-sm @(isAssigned ? "btn-success" : "btn-outline-secondary") toggle-branch"
+                                    data-branch-id="@branch.Id">
+                                <i class="bi @(isAssigned ? "bi-check-circle-fill" : "bi-x-circle")"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+✳️ Add Bootstrap Icons to your layout for check/cross icons.
+
+✅ ViewModel
 csharp
 Copy code
-public class Product
+public class EditCategoryVM
 {
-    public int ProductId { get; set; }
+    public int CategoryId { get; set; }
     public string Name { get; set; }
-    // Other product details
+    public string Description { get; set; }
 
-    public ICollection<ProductVariant> ProductVariants { get; set; }
+    public List<BranchVM> AllBranches { get; set; }
+    public List<int> SelectedBranchIds { get; set; }
 }
-2. Variant Table
-(Like "Color", "Size", etc.)
-
 csharp
 Copy code
-public class Variant
-{
-    public int VariantId { get; set; }
-    public string Name { get; set; }  // e.g., "Color", "Size"
-
-    public ICollection<VariantOption> Options { get; set; }
-}
-3. VariantOption Table
-(Like "Red", "Blue" for "Color")
-
-csharp
-Copy code
-public class VariantOption
-{
-    public int VariantOptionId { get; set; }
-    public string Value { get; set; }  // e.g., "Red", "Blue"
-    public int VariantId { get; set; }
-
-    public Variant Variant { get; set; }
-}
-4. ProductVariant Table (Mapping Product to Variant)
-csharp
-Copy code
-public class ProductVariant
-{
-    public int ProductVariantId { get; set; }
-    public int ProductId { get; set; }
-    public int VariantId { get; set; }
-
-    public Product Product { get; set; }
-    public Variant Variant { get; set; }
-
-    public ICollection<ProductVariantOption> Options { get; set; }
-}
-5. ProductVariantOption Table (Mapping ProductVariant to VariantOption)
-csharp
-Copy code
-public class ProductVariantOption
-{
-    public int ProductVariantOptionId { get; set; }
-
-    public int ProductVariantId { get; set; }
-    public int VariantOptionId { get; set; }
-
-    public ProductVariant ProductVariant { get; set; }
-    public VariantOption VariantOption { get; set; }
-}
-
-public class ProductVariantCombination
+public class BranchVM
 {
     public int Id { get; set; }
-    public int ProductId { get; set; }
-
-    public string CombinationKey { get; set; } // e.g., "Color:Red,Size:M"
-    public decimal Price { get; set; }
-    public int Stock { get; set; }
-
-    public Product Product { get; set; }
-}
-Database Models (Entity Framework Code First)
-Product.cs
-csharp
-Copy code
-public class Product
-{
-    public int ProductId { get; set; }
     public string Name { get; set; }
-    public decimal Price { get; set; }
-    public string Details { get; set; }
-    public bool Active { get; set; }
-    public int Categoryid { get; set; }
-
-    public string MainImage { get; set; }
-    public ICollection<ProductImage> ProductImages { get; set; }
-
-    public ICollection<ProductVariant> ProductVariants { get; set; }
 }
-ProductImage.cs
+✅ Controller (Presentation Layer)
 csharp
 Copy code
-public class ProductImage
+public class CategoryController : Controller
 {
-    public int ProductImageId { get; set; }
-    public string ImageUrl { get; set; }
-    public int ProductId { get; set; }
+    private readonly ICategoryService _categoryService;
+    public CategoryController(ICategoryService categoryService)
+    {
+        _categoryService = categoryService;
+    }
 
-    public Product Product { get; set; }
+    public IActionResult Edit(int id)
+    {
+        var model = _categoryService.GetCategoryWithBranches(id);
+        return View(model);
+    }
+
+    [HttpPost]
+    public IActionResult Edit(EditCategoryVM model)
+    {
+        if (ModelState.IsValid)
+        {
+            _categoryService.UpdateCategoryWithBranches(model);
+            return RedirectToAction("Index");
+        }
+        model.AllBranches = _categoryService.GetAllBranches();
+        return View(model);
+    }
 }
-Variant.cs (e.g., "Color", "Size")
+✅ Service Layer
 csharp
 Copy code
-public class Variant
+public interface ICategoryService
 {
-    public int VariantId { get; set; }
-    public string Name { get; set; } // Example: "Color"
-
-    public ICollection<VariantOption> VariantOptions { get; set; }
+    EditCategoryVM GetCategoryWithBranches(int categoryId);
+    void UpdateCategoryWithBranches(EditCategoryVM model);
+    List<BranchVM> GetAllBranches();
 }
-VariantOption.cs (e.g., "Red", "Green")
 csharp
 Copy code
-public class VariantOption
+public class CategoryService : ICategoryService
 {
-    public int VariantOptionId { get; set; }
-    public string Value { get; set; }
-    public int VariantId { get; set; }
+    private readonly ICategoryRepository _categoryRepository;
+    public CategoryService(ICategoryRepository categoryRepository)
+    {
+        _categoryRepository = categoryRepository;
+    }
 
-    public Variant Variant { get; set; }
+    public EditCategoryVM GetCategoryWithBranches(int categoryId)
+    {
+        return _categoryRepository.FetchCategoryBranchData(categoryId);
+    }
+
+    public void UpdateCategoryWithBranches(EditCategoryVM model)
+    {
+        _categoryRepository.UpdateCategoryBranchMapping(model);
+    }
+
+    public List<BranchVM> GetAllBranches()
+    {
+        return _categoryRepository.FetchAllBranches();
+    }
 }
-ProductVariant.cs
+✅ Repository Layer
 csharp
 Copy code
-public class ProductVariant
+public interface ICategoryRepository
 {
-    public int ProductVariantId { get; set; }
-    public int ProductId { get; set; }
-    public int VariantId { get; set; }
-
-    public Product Product { get; set; }
-    public Variant Variant { get; set; }
-    public ICollection<ProductVariantOption> ProductVariantOptions { get; set; }
+    EditCategoryVM FetchCategoryBranchData(int categoryId);
+    void UpdateCategoryBranchMapping(EditCategoryVM model);
+    List<BranchVM> FetchAllBranches();
 }
-ProductVariantOption.cs
 csharp
 Copy code
-public class ProductVariantOption
+public class CategoryRepository : ICategoryRepository
 {
-    public int ProductVariantOptionId { get; set; }
-    public int ProductVariantId { get; set; }
-    public int VariantOptionId { get; set; }
+    private readonly AppDbContext _context;
 
-    public ProductVariant ProductVariant { get; set; }
-    public VariantOption VariantOption { get; set; }
+    public CategoryRepository(AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public EditCategoryVM FetchCategoryBranchData(int categoryId)
+    {
+        var category = _context.Categories.Find(categoryId);
+        var allBranches = _context.Branches.ToList();
+        var assignedIds = _context.CategoryBranches
+                                  .Where(cb => cb.CategoryId == categoryId)
+                                  .Select(cb => cb.BranchId).ToList();
+
+        return new EditCategoryVM
+        {
+            CategoryId = categoryId,
+            Name = category.Name,
+            Description = category.Description,
+            AllBranches = allBranches.Select(b => new BranchVM { Id = b.Id, Name = b.Name }).ToList(),
+            SelectedBranchIds = assignedIds
+        };
+    }
+
+    public void UpdateCategoryBranchMapping(EditCategoryVM model)
+    {
+        var category = _context.Categories.Find(model.CategoryId);
+        category.Name = model.Name;
+        category.Description = model.Description;
+
+        var existing = _context.CategoryBranches.Where(cb => cb.CategoryId == model.CategoryId);
+        _context.CategoryBranches.RemoveRange(existing);
+
+        foreach (var branchId in model.SelectedBranchIds)
+        {
+            _context.CategoryBranches.Add(new CategoryBranch
+            {
+                CategoryId = model.CategoryId,
+                BranchId = branchId
+            });
+        }
+
+        _context.SaveChanges();
+    }
+
+    public List<BranchVM> FetchAllBranches()
+    {
+        return _context.Branches.Select(b => new BranchVM { Id = b.Id, Name = b.Name }).ToList();
+    }
 }
-✅ 2. ViewModel (Product with Variants)
+✅ CategoryBranch Mapping Table (DB)
 csharp
 Copy code
-public class ProductVM
+public class CategoryBranch
 {
-    public string Name { get; set; }
-    public decimal Price { get; set; }
-    public string Details { get; set; }
-    public bool Active { get; set; }
-    public int Categoryid { get; set; }
+    public int Id { get; set; }
 
-    public IFormFile MainImage { get; set; }
-    public List<IFormFile> GalleryImages { get; set; }
+    public int CategoryId { get; set; }
+    public Category Category { get; set; }
 
-    // Variant data from form
-    public List<VariantEntry> Variants { get; set; }
+    public int BranchId { get; set; }
+    public Branch Branch { get; set; }
 }
-
-public class VariantEntry
-{
-    public string VariantName { get; set; }       // e.g. "Color"
-    public List<string> Options { get; set; }     // e.g. ["Red", "Blue"]
-}
-✅ 3. Frontend Update (Modal Enhancements)
-Just before modal footer, add:
-
-html
+✅ Bonus: JavaScript to toggle check/cross icons
+javascript
 Copy code
-<div class="mb-3">
-    <label class="form-label fw-semibold">Variants (e.g., Color, Size)</label>
-    <div id="variantContainer"></div>
-    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addVariant()">+ Add Variant</button>
-</div>
-Then include the script:
+document.querySelectorAll(".toggle-branch").forEach(btn => {
+    btn.addEventListener("click", function () {
+        const icon = this.querySelector("i");
+        const isSelected = this.classList.contains("btn-success");
 
-html
-Copy code
-<script>
-let variantIndex = 0;
-function addVariant() {
-    const container = document.getElementById("variantContainer");
-    const div = document.createElement("div");
-    div.classList.add("mb-3", "border", "p-2", "rounded");
+        if (isSelected) {
+            this.classList.remove("btn-success");
+            this.classList.add("btn-outline-secondary");
+            icon.classList.remove("bi-check-circle-fill");
+            icon.classList.add("bi-x-circle");
+        } else {
+            this.classList.remove("btn-outline-secondary");
+            this.classList.add("btn-success");
+            icon.classList.remove("bi-x-circle");
+            icon.classList.add("bi-check-circle-fill");
+        }
 
-    div.innerHTML = `
-        <div class="form-floating mb-2">
-            <input type="text" name="Variants[${variantIndex}].VariantName" class="form-control" placeholder="Variant Name">
-            <label>Variant Name (e.g., Color)</label>
-        </div>
-        <div class="form-floating">
-            <input type="text" name="Variants[${variantIndex}].Options" class="form-control"
-                placeholder="Enter options comma-separated (e.g., Red,Blue)">
-            <label>Options (comma-separated)</label>
-        </div>
-    `;
-    container.appendChild(div);
-    variantIndex++;
-}
-</script>
-✅ 4. Controller Method (AddProduct)
-csharp
-Copy code
-[HttpPost]
-public async Task<IActionResult> AddProduct(ProductVM vm)
-{
-    var product = new Product
-    {
-        Name = vm.Name,
-        Price = vm.Price,
-        Details = vm.Details,
-        Active = vm.Active,
-        Categoryid = vm.Categoryid,
-        ProductImages = new List<ProductImage>(),
-        ProductVariants = new List<ProductVariant>()
-    };
-
-    // Handle Main Image
-    if (vm.MainImage != null)
-    {
-        var mainPath = Path.Combine("wwwroot/images", vm.MainImage.FileName);
-        using var stream = new FileStream(mainPath, FileMode.Create);
-        await vm.MainImage.CopyToAsync(stream);
-        product.MainImage = "/images/" + vm.MainImage.FileName;
-    }
-
-    // Handle Gallery
-    if (vm.GalleryImages != null)
-    {
-        foreach (var image in vm.GalleryImages)
-        {
-            var path = Path.Combine("wwwroot/images", image.FileName);
-            using var stream = new FileStream(path, FileMode.Create);
-            await image.CopyToAsync(stream);
-            product.ProductImages.Add(new ProductImage { ImageUrl = "/images/" + image.FileName });
-        }
-    }
-
-    // Handle Variants
-    foreach (var variantEntry in vm.Variants)
-    {
-        if (string.IsNullOrWhiteSpace(variantEntry.VariantName)) continue;
-
-        var variant = _context.Variants.FirstOrDefault(v => v.Name == variantEntry.VariantName)
-                    ?? new Variant { Name = variantEntry.VariantName, VariantOptions = new List<VariantOption>() };
-
-        if (variant.VariantId == 0)
-            _context.Variants.Add(variant);
-
-        var productVariant = new ProductVariant { Variant = variant, Product = product, ProductVariantOptions = new List<ProductVariantOption>() };
-
-        foreach (var opt in variantEntry.Options.SelectMany(o => o.Split(',', StringSplitOptions.RemoveEmptyEntries)))
-        {
-            var trimmed = opt.Trim();
-            var option = variant.VariantOptions.FirstOrDefault(vo => vo.Value == trimmed)
-                        ?? new VariantOption { Value = trimmed, Variant = variant };
-
-            if (option.VariantOptionId == 0)
-                _context.VariantOptions.Add(option);
-
-            productVariant.ProductVariantOptions.Add(new ProductVariantOption { VariantOption = option });
-        }
-
-        product.ProductVariants.Add(productVariant);
-    }
-
-    _context.Products.Add(product);
-    await _context.SaveChangesAsync();
-
-    return RedirectToAction("ViewProducts");
-}
+        // You can also update a hidden field or list to post selected branch IDs
+    });
+});
