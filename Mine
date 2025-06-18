@@ -1,140 +1,23 @@
-@model Entities.ViewModels.CategoryDTO
+// Collect selected branch IDs
+let selectedBranchIds = [];
+document.querySelectorAll(".toggle-branch.btn-success").forEach(btn => {
+    selectedBranchIds.push(btn.getAttribute("data-branch-id"));
+});
+submissionData.append("SelectedBranchIds", selectedBranchIds.join(','));
+public void UpdateCategoryBranches(int categoryId, List<int> selectedBranchIds)
+{
+    // Remove existing links
+    var existingMappings = _context.CategoryBranchMappings.Where(cb => cb.Categoryid == categoryId).ToList();
+    _context.CategoryBranchMappings.RemoveRange(existingMappings);
+    _context.SaveChanges();
 
-<div class="container py-4">
-    <div class="row">
-        <!-- Left: Category Info -->
-        <div class="col-md-5 border-end pe-4">
-            <h5 class="mb-3">Edit Category</h5>
-           
-            @using (Html.BeginForm(FormMethod.Post, new { @class = "needs-validation", id = "EditCategory", novalidate = "novalidate" }))
-            {
-            
-               
-                    <div class="row">
-                        @Html.HiddenFor(model => model.Categoryid)
+    // Add new links
+    var newMappings = selectedBranchIds.Select(branchId => new CategoryBranchMapping
+    {
+        Categoryid = categoryId,
+        Branchid = branchId
+    }).ToList();
 
-                        <div class="col">
-                            <div class="form-floating mb-3">
-                                @Html.TextBoxFor(model => model.Name, new { @class = "form-control"})
-                                @Html.LabelFor(model => model.Name, "Name*", htmlAttributes: new { @class = "fw-semibold text-secondary" })
-                                @Html.ValidationMessageFor(model => model.Name, "", new { @class = "text-danger" })
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col ">
-                            <div class="form-floating">
-                                @Html.TextAreaFor(model => model.Description, new { @class = "form-control", row = 4, cols = 50})
-                                @Html.LabelFor(model => model.Description, "Desciption", htmlAttributes: new { @class = "fw-semibold text-secondary" })
-                                @Html.ValidationMessageFor(model => model.Description, "", new { @class = "text-danger" })
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row ">
-                        <div class="col ">
-                                <div class="form-check form-switch mb-3">
-                                    @Html.CheckBoxFor(model => model.Active, new {@class = "form-check-input toggleSwitch modal-field"} )
-
-                                    <label for="modifierGroups" class="form-label mt-1 ms-3">Active</label>
-                                </div>
-                        </div>
-                    </div>
-       
-                    <button type="submit" class="btn  webybg fs-6 fw-bold text-white px-4">Save</button>
-                    
-            }
-             </div>
-
-        <!-- Right: Branch Selection -->
-        <div class="col-md-7 ps-4">
-            <h5 class="mb-3">Assign Branches</h5>
-            <div class="row row-cols-2 g-3" id="branchList">
-                @* Example dynamically rendered items *@
-                @foreach (var branch in Model.AllBranches)
-                {
-                    var isAssigned = Model.SelectedBranchIds.Contains(branch.Brandid);
-                    <div class="col">
-                        <div class="d-flex justify-content-between align-items-center border rounded p-2">
-                            <span>@branch.Name</span>
-                            <button type="button"
-                                    class="btn btn-sm @(isAssigned ? "btn-success" : "btn-outline-secondary") toggle-branch"
-                                    data-branch-id="@branch.Brandid">
-                                <i class="bi @(isAssigned ? "bi-check-circle-fill" : "bi-x-circle")"></i>
-                            </button>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-</div>
-
-@section Scripts {
-    <script src="~/js/category.js" asp-append-version="true"></script>
+    _context.CategoryBranchMappings.AddRange(newMappings);
+    _context.SaveChanges();
 }
-
- document.querySelectorAll(".toggle-branch").forEach(btn => {
-        btn.addEventListener("click", function () {
-            const icon = this.querySelector("i");
-            const isSelected = this.classList.contains("btn-success");
-    
-            if (isSelected) {
-                this.classList.remove("btn-success");
-                this.classList.add("btn-outline-secondary");
-                icon.classList.remove("bi-check-circle-fill");
-                icon.classList.add("bi-x-circle");
-            } else {
-                this.classList.remove("btn-outline-secondary");
-                this.classList.add("btn-success");
-                icon.classList.remove("bi-x-circle");
-                icon.classList.add("bi-check-circle-fill");
-            }
-        });
-    });
-
- $(document).on("submit", "#EditCategory", function (event) {
-        event.preventDefault();
-        var formData = $(this)[0];
-        var submissionData = new FormData(formData);
-        if ($(this).valid()) {
-            $.ajax({
-                url: '/Category/UpdateCategory',
-                type: 'POST',
-                data: submissionData,
-                processData: false,
-                contentType: false,
-                success: function (response) {
-                    console.log(response.success);
-                    if (response.success === true) {
-                        toastr.success('Category Edited Successfully!', "Success");
-                        $('#EditCategoryModal').modal('hide');
-                        loadCategory(pageNumber);
-                    } else {
-                        toastr.warning("Invalid Category data.", "Warning");
-                    }
-                },
-                error: function (xhr, status, error) {
-                    console.error('Error:', xhr.responseText);
-                }
-            });
-        }
-    });so her i have add brand so i need to chg the jax call to send the whatever the data like brand has assigned and which brand has remove d from the category adn so i need to chage the service like bnackend also 
- public void UpdateCategory(CategoryDTO model)
-    {
-       
-        Category existingCategory = _categoryRepository.GetCategoryById(model.Categoryid) ?? throw new Exception("Category not found.");
-        try
-        {
-            existingCategory.Name = model.Name;
-            existingCategory.Description = model.Description;
-            existingCategory.Active = model.Active;
-            existingCategory.Modifiedat = TimeZoneInfo.ConvertTimeToUtc(DateTime.UtcNow);
-            existingCategory.Modifiedby = _userRepository.GetUserByEmail(_httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Email)?.Value)?.Userid ?? 0;
-
-           _categoryRepository.UpdateCategory(existingCategory);
-        }
-        catch (Exception ex)
-        {
-            throw new Exception("Error updating category: " + ex.Message);
-        }
-    } so giv eme updated code for handling these
