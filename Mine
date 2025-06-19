@@ -1,66 +1,142 @@
-public class ServiceResult<T>
-{
-    public bool Success { get; set; }
-    public string? Message { get; set; }
-    public T? Data { get; set; }
+@{
+    ViewData["Title"] = "Dashboard";
+    var totalUsers = ViewBag.TotalUsers;
+    var totalProducts = ViewBag.TotalProducts;
+    var totalCategories = ViewBag.TotalCategories;
 
-    public static ServiceResult<T> SuccessResult(T data, string? message = null)
-    {
-        return new ServiceResult<T> { Success = true, Data = data, Message = message };
-    }
+    var activeUsers = ViewBag.ActiveUsers;
+    var inactiveUsers = ViewBag.InactiveUsers;
 
-    public static ServiceResult<T> Failure(string message)
-    {
-        return new ServiceResult<T> { Success = false, Message = message };
-    }
+    var categoryNames = ViewBag.CategoryNames as List<string>;
+    var categoryCounts = ViewBag.CategoryCounts as List<int>;
 }
-public int AddProduct(Product product)
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="container my-5">
+    <h2 class="mb-4 text-center">E-commerce Dashboard</h2>
+
+    <!-- Cards -->
+    <div class="row g-4 mb-5 text-center">
+        <div class="col-md-4">
+            <div class="card shadow rounded border-0 p-4">
+                <h5>Total Users</h5>
+                <h2 class="text-primary">@totalUsers</h2>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow rounded border-0 p-4">
+                <h5>Total Products</h5>
+                <h2 class="text-success">@totalProducts</h2>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow rounded border-0 p-4">
+                <h5>Total Categories</h5>
+                <h2 class="text-warning">@totalCategories</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row g-4">
+        <!-- Pie Chart -->
+        <div class="col-md-6">
+            <div class="card shadow p-4">
+                <h5 class="text-center">User Activity</h5>
+                <canvas id="userPieChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Bar Chart -->
+        <div class="col-md-6">
+            <div class="card shadow p-4">
+                <h5 class="text-center">Products per Category</h5>
+                <canvas id="categoryBarChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const activeUsers = @activeUsers;
+    const inactiveUsers = @inactiveUsers;
+
+    const categoryNames = @Html.Raw(Json.Serialize(categoryNames));
+    const categoryCounts = @Html.Raw(Json.Serialize(categoryCounts));
+</script>
+
+<script src="~/js/dashboard.js" asp-append-version="true"></script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Pie Chart: Active vs Inactive Users
+    const pieCtx = document.getElementById('userPieChart').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Active Users', 'Inactive Users'],
+            datasets: [{
+                data: [activeUsers, inactiveUsers],
+                backgroundColor: ['#28a745', '#dc3545'],
+                borderWidth: 1
+            }]
+        }
+    });
+
+    // Bar Chart: Category vs Product Count
+    const barCtx = document.getElementById('categoryBarChart').getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: categoryNames,
+            datasets: [{
+                label: 'Product Count',
+                data: categoryCounts,
+                backgroundColor: '#0d6efd',
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+});
+public class DashboardController : Controller
 {
-    _context.Products.Add(product);
-    _context.SaveChanges();
-    return product.ProductId; // Return newly generated ID
-}
-public ServiceResult<int> AddProduct(ProductDTO dto)
-{
-    if (string.IsNullOrEmpty(dto.Name))
-        return ServiceResult<int>.Failure("Product name is required.");
+    private readonly IUserRepository _userRepo;
+    private readonly IProductRepository _productRepo;
+    private readonly ICategoryRepository _categoryRepo;
 
-    Product product = new Product
-    {
-        Name = dto.Name,
-        Price = dto.Price,
-        // map other fields
-        IsReturnable = dto.IsReturnable,
-        ReturnPolicyName = dto.IsReturnable ? dto.ReturnPolicyName : null,
-        ReturnPolicyDescription = dto.IsReturnable ? dto.ReturnPolicyDescription : null,
-        ReturnDays = dto.IsReturnable ? dto.ReturnDays : null,
-    };
+    public DashboardController(IUserRepository userRepo, IProductRepository productRepo, ICategoryRepository categoryRepo)
+    {
+        _userRepo = userRepo;
+        _productRepo = productRepo;
+        _categoryRepo = categoryRepo;
+    }
 
-    int newId = _productRepository.AddProduct(product);
+    public IActionResult Index()
+    {
+        var users = _userRepo.GetAllUsers();
+        var products = _productRepo.GetAllProducts();
+        var categories = _categoryRepo.GetAllCategories();
 
-    return ServiceResult<int>.SuccessResult(newId, "Product added successfully.");
-}
-[HttpPost]
-public IActionResult Add(ProductDTO model)
-{
-    var result = _productService.AddProduct(model);
+        ViewBag.TotalUsers = users.Count();
+        ViewBag.ActiveUsers = users.Count(u => u.IsActive);
+        ViewBag.InactiveUsers = users.Count(u => !u.IsActive);
+        ViewBag.TotalProducts = products.Count();
+        ViewBag.TotalCategories = categories.Count();
 
-    if (!result.Success)
-    {
-        return BadRequest(new { success = false, message = result.Message });
-    }
+        ViewBag.CategoryNames = categories.Select(c => c.Name).ToList();
+        ViewBag.CategoryCounts = categories.Select(c => _productRepo.GetProductsByCategoryId(c.CategoryId).Count()).ToList();
 
-    return Ok(new { success = true, productId = result.Data, message = result.Message });
-}
-[HttpPost]
-public IActionResult Add(ProductDTO model)
-{
-    var result = _productService.AddProduct(model);
-
-    if (!result.Success)
-    {
-        return BadRequest(new { success = false, message = result.Message });
-    }
-
-    return Ok(new { success = true, productId = result.Data, message = result.Message });
+        return View();
+    }
 }
