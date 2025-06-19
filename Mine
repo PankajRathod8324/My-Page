@@ -1,16 +1,49 @@
- public DashboardDTO GetDashboard()
-    {
-        var users = _userRepository.GetAllUsers();
-        var products = _productRepository.GetAllProducts();
-        var categories = _categoryRepository.GetAllCategories();
-        return new DashboardDTO
-        {
-            TotalUsers = users.Count,
-            ActiveUsers = users.Count(u => u.IsActive),
-            InactiveUsers = users.Count(u => !u.IsActive),
-            TotalProducts = products.Count,
-            TotalCategories = categories.Count,
-            CategoryNames = categories.Select(c => c.Name).ToList(),
-            CategoryCounts = categories.Select(c => _productRepository.GetProductsByCategoryId(c.Categoryid).Count).ToList()
-        };
-    }
+public DashboardDTO GetDashboard()
+{
+    int totalUsers = _userRepository.GetTotalUserCount();
+    int activeUsers = _userRepository.GetUserCountByStatus(true);
+    int inactiveUsers = _userRepository.GetUserCountByStatus(false);
+
+    int totalProducts = _productRepository.GetTotalProductCount();
+    int totalCategories = _categoryRepository.GetTotalCategoryCount();
+
+    var categoryData = _categoryRepository.GetCategoryProductCounts();
+
+    return new DashboardDTO
+    {
+        TotalUsers = totalUsers,
+        ActiveUsers = activeUsers,
+        InactiveUsers = inactiveUsers,
+        TotalProducts = totalProducts,
+        TotalCategories = totalCategories,
+        CategoryNames = categoryData.Select(d => d.Name).ToList(),
+        CategoryCounts = categoryData.Select(d => d.Count).ToList()
+    };
+}
+public int GetTotalUserCount()
+{
+    return _context.Users.Count();
+}
+
+public int GetUserCountByStatus(bool isActive)
+{
+    return _context.Users.Count(u => u.IsActive == isActive);
+}
+public int GetTotalProductCount()
+{
+    return _context.Products.Count();
+}
+public int GetTotalCategoryCount()
+{
+    return _context.Categories.Count();
+}
+
+public List<CategoryProductCountDTO> GetCategoryProductCounts()
+{
+    return _context.Categories
+        .Select(c => new CategoryProductCountDTO
+        {
+            Name = c.Name,
+            Count = _context.Products.Count(p => p.Categoryid == c.Categoryid)
+        }).ToList();
+}
