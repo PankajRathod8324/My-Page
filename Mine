@@ -1,9 +1,67 @@
-  <div class="form-check form-switch mb-3">
-                                            <input class="form-check-input toggleSwitch form-check-input-lg modal-field"
-                                                type="checkbox" style="border-radius: 1rem !important;"
-                                                asp-for="IsReturnable">
-                                            <label for="modifierGroups" class="form-label mt-1 ms-3">IsReturnable</label>
-                                        </div> in add and edit i want thata when i checked this true or anything then the details of return policy text box will be append here 
-these field  public string? ReturnPolicyName { get; set; }
-    public string? ReturnPolicyDescription { get; set; }
-    public int? ReturnDays { get; set; } and it will is in productDTO so it should tak in formData and pass tot controller so giev me code for that
+<form id="AddProductForm" enctype="multipart/form-data" method="post">
+    @* Toggle Switch *@
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input toggleSwitch" type="checkbox" id="IsReturnableSwitch" name="IsReturnable">
+        <label for="IsReturnableSwitch" class="form-label ms-2">Is Returnable?</label>
+    </div>
+
+    @* Conditional Return Policy Fields *@
+    <div id="returnPolicySection" class="mb-3 d-none">
+        <div class="mb-2">
+            <label class="form-label">Return Policy Name</label>
+            <input type="text" class="form-control" name="ReturnPolicyName" />
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label">Return Policy Description</label>
+            <textarea class="form-control" name="ReturnPolicyDescription"></textarea>
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label">Return Days</label>
+            <input type="number" class="form-control" name="ReturnDays" />
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Submit</button>
+</form>
+<script>
+    $(document).ready(function () {
+        // Toggle return policy section
+        $('#IsReturnableSwitch').on('change', function () {
+            if ($(this).is(':checked')) {
+                $('#returnPolicySection').removeClass('d-none');
+            } else {
+                $('#returnPolicySection').addClass('d-none');
+            }
+        });
+
+        // Submit form via AJAX
+        $('#AddProductForm').submit(function (e) {
+            e.preventDefault();
+
+            var formData = new FormData(this);
+
+            // For unchecked checkbox (HTML quirk), send explicitly false if not checked
+            if (!$('#IsReturnableSwitch').is(':checked')) {
+                formData.set("IsReturnable", false);
+            }
+
+            $.ajax({
+                url: '/Product/Add', // or your Update endpoint
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    toastr.success("Product saved!");
+                    // Optional redirect or modal close
+                },
+                error: function (err) {
+                    toastr.error("Error saving product.");
+                    console.log(err);
+                }
+            });
+        });
+    });
+</script>
