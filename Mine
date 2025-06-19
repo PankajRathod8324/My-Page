@@ -1,67 +1,66 @@
-<form id="AddProductForm" enctype="multipart/form-data" method="post">
-    @* Toggle Switch *@
-    <div class="form-check form-switch mb-3">
-        <input class="form-check-input toggleSwitch" type="checkbox" id="IsReturnableSwitch" name="IsReturnable">
-        <label for="IsReturnableSwitch" class="form-label ms-2">Is Returnable?</label>
-    </div>
+public class ServiceResult<T>
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
+    public T? Data { get; set; }
 
-    @* Conditional Return Policy Fields *@
-    <div id="returnPolicySection" class="mb-3 d-none">
-        <div class="mb-2">
-            <label class="form-label">Return Policy Name</label>
-            <input type="text" class="form-control" name="ReturnPolicyName" />
-        </div>
+    public static ServiceResult<T> SuccessResult(T data, string? message = null)
+    {
+        return new ServiceResult<T> { Success = true, Data = data, Message = message };
+    }
 
-        <div class="mb-2">
-            <label class="form-label">Return Policy Description</label>
-            <textarea class="form-control" name="ReturnPolicyDescription"></textarea>
-        </div>
+    public static ServiceResult<T> Failure(string message)
+    {
+        return new ServiceResult<T> { Success = false, Message = message };
+    }
+}
+public int AddProduct(Product product)
+{
+    _context.Products.Add(product);
+    _context.SaveChanges();
+    return product.ProductId; // Return newly generated ID
+}
+public ServiceResult<int> AddProduct(ProductDTO dto)
+{
+    if (string.IsNullOrEmpty(dto.Name))
+        return ServiceResult<int>.Failure("Product name is required.");
 
-        <div class="mb-2">
-            <label class="form-label">Return Days</label>
-            <input type="number" class="form-control" name="ReturnDays" />
-        </div>
-    </div>
+    Product product = new Product
+    {
+        Name = dto.Name,
+        Price = dto.Price,
+        // map other fields
+        IsReturnable = dto.IsReturnable,
+        ReturnPolicyName = dto.IsReturnable ? dto.ReturnPolicyName : null,
+        ReturnPolicyDescription = dto.IsReturnable ? dto.ReturnPolicyDescription : null,
+        ReturnDays = dto.IsReturnable ? dto.ReturnDays : null,
+    };
 
-    <button type="submit" class="btn btn-primary mt-3">Submit</button>
-</form>
-<script>
-    $(document).ready(function () {
-        // Toggle return policy section
-        $('#IsReturnableSwitch').on('change', function () {
-            if ($(this).is(':checked')) {
-                $('#returnPolicySection').removeClass('d-none');
-            } else {
-                $('#returnPolicySection').addClass('d-none');
-            }
-        });
+    int newId = _productRepository.AddProduct(product);
 
-        // Submit form via AJAX
-        $('#AddProductForm').submit(function (e) {
-            e.preventDefault();
+    return ServiceResult<int>.SuccessResult(newId, "Product added successfully.");
+}
+[HttpPost]
+public IActionResult Add(ProductDTO model)
+{
+    var result = _productService.AddProduct(model);
 
-            var formData = new FormData(this);
+    if (!result.Success)
+    {
+        return BadRequest(new { success = false, message = result.Message });
+    }
 
-            // For unchecked checkbox (HTML quirk), send explicitly false if not checked
-            if (!$('#IsReturnableSwitch').is(':checked')) {
-                formData.set("IsReturnable", false);
-            }
+    return Ok(new { success = true, productId = result.Data, message = result.Message });
+}
+[HttpPost]
+public IActionResult Add(ProductDTO model)
+{
+    var result = _productService.AddProduct(model);
 
-            $.ajax({
-                url: '/Product/Add', // or your Update endpoint
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function (response) {
-                    toastr.success("Product saved!");
-                    // Optional redirect or modal close
-                },
-                error: function (err) {
-                    toastr.error("Error saving product.");
-                    console.log(err);
-                }
-            });
-        });
-    });
-</script>
+    if (!result.Success)
+    {
+        return BadRequest(new { success = false, message = result.Message });
+    }
+
+    return Ok(new { success = true, productId = result.Data, message = result.Message });
+}
