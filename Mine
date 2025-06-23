@@ -1,67 +1,96 @@
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
+<script>
+    function updateSummary() {
+        let total = 0;
+        let items = [];
 
-namespace Entities.ViewModels;
+        document.querySelectorAll('.cart-item').forEach(item => {
+            const name = item.querySelector('h6').innerText;
+            const qty = parseInt(item.querySelector('.qty-input').value);
+            const priceText = item.querySelector('.item-total').innerText.replace('₹', '').trim();
+            const price = parseFloat(priceText);
+            const productId = parseInt(item.querySelector('.qty-input').getAttribute("data-itemid"));
+            const cartItemId = parseInt(item.querySelector('.remove-icon').getAttribute("data-cartitemid"));
 
-public partial class OrderDTO
-{
-    public int Orderid { get; set; }
-    public int Cartitemid { get; set; }
-    public int? Cartid { get; set; }
-    public string Ordernumber { get; set; } = null!;
-    public int? Totalitems { get; set; }
-    public string Paymentmethod { get; set; } = null!;
-    public string Orderstatus { get; set; } = null!;
-    public int? Productid { get; set; }
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
-    public bool Deleted { get; set; }
+            total += price;
 
-    public int Createdby { get; set; }
+            // For modal display
+            items.push(`<div class="modal-summary-item d-flex justify-content-between">
+                <span>${name} (x${qty})</span>
+                <span>₹${price}</span>
+            </div>`);
+        });
 
-    public DateTime Createdat { get; set; }
+        document.getElementById("orderSummaryBody").innerHTML = items.join('');
+        document.getElementById("orderSummaryTotal").innerText = `₹${total.toFixed(2)}`;
+    }
 
-    public int Modifiedby { get; set; }
+    document.querySelector('[data-bs-target="#orderSummaryModal"]').addEventListener('click', updateSummary);
 
-    public DateTime? Modifiedat { get; set; }
+    document.getElementById("confirmOrderBtn").addEventListener('click', function () {
+        const paymentMethod = document.getElementById("paymentMethodSelect").value;
+        const cartItems = [];
 
-    public int Deletedby { get; set; }
+        let totalQty = 0;
+        let totalPrice = 0;
 
-    public DateTime? Deletedat { get; set; }
-    public ProductDTO? Product { get; set; }
-    public List<CartItemDTO> CartItems { get; set; }
+        document.querySelectorAll('.cart-item').forEach(item => {
+            const qty = parseInt(item.querySelector('.qty-input').value);
+            const priceText = item.querySelector('.item-total').innerText.replace('₹', '').trim();
+            const price = parseFloat(priceText);
+            const productId = parseInt(item.querySelector('.qty-input').getAttribute("data-itemid"));
+            const cartItemId = parseInt(item.querySelector('.remove-icon').getAttribute("data-cartitemid"));
 
-}
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
+            totalQty += qty;
+            totalPrice += price;
 
-namespace Entities.ViewModels;
+            cartItems.push({
+                Cartitemid: cartItemId,
+                Productid: productId,
+                Quantity: qty,
+                Price: price
+            });
+        });
 
-public partial class CartItemDTO
-{
-    public int Cartitemid { get; set; }
-    public int? Cartid { get; set; }
-    public int? Productid { get; set; }
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
-    public bool Deleted { get; set; }
+        const orderData = {
+            Ordernumber: generateOrderNumber(),
+            Totalitems: totalQty,
+            Paymentmethod: paymentMethod,
+            Orderstatus: "Pending",
+            Price: totalPrice,
+            Createdby: 1, // set logged-in user ID
+            Createdat: new Date().toISOString(),
+            CartItems: cartItems
+        };
 
-    public int Createdby { get; set; }
+        // AJAX to post order
+        fetch("/Order/PlaceOrder", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(orderData)
+        })
+        .then(res => res.ok ? res.json() : Promise.reject(res))
+        .then(response => {
+            alert("Order placed successfully!");
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error("Error placing order:", error);
+            alert("Something went wrong.");
+        });
+    });
 
-    public DateTime Createdat { get; set; }
+    function generateOrderNumber() {
+        return 'ORD' + Date.now();
+    }
+</script><div class="mb-3">
+    <label class="form-label">Payment Method</label>
+    <select class="form-select" id="paymentMethodSelect">
+        <option value="Cash On Delivery">Cash On Delivery</option>
+        <option value="UPI">UPI</option>
+        <option value="Net Banking">Net Banking</option>
+        <option value="Card">Card</option>
+    </select>
+</div>
 
-    public int Modifiedby { get; set; }
-
-    public DateTime? Modifiedat { get; set; }
-
-    public int Deletedby { get; set; }
-
-    public DateTime? Deletedat { get; set; }
-    public  ProductDTO? Product { get; set; }
-
-
-}
