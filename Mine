@@ -1,138 +1,67 @@
-@{
-    int ProductId = ViewBag.ProductId;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Entities.ViewModels;
+
+public partial class OrderDTO
+{
+    public int Orderid { get; set; }
+    public int Cartitemid { get; set; }
+    public int? Cartid { get; set; }
+    public string Ordernumber { get; set; } = null!;
+    public int? Totalitems { get; set; }
+    public string Paymentmethod { get; set; } = null!;
+    public string Orderstatus { get; set; } = null!;
+    public int? Productid { get; set; }
+    public int Quantity { get; set; }
+    public decimal Price { get; set; }
+    public bool Deleted { get; set; }
+
+    public int Createdby { get; set; }
+
+    public DateTime Createdat { get; set; }
+
+    public int Modifiedby { get; set; }
+
+    public DateTime? Modifiedat { get; set; }
+
+    public int Deletedby { get; set; }
+
+    public DateTime? Deletedat { get; set; }
+    public ProductDTO? Product { get; set; }
+    public List<CartItemDTO> CartItems { get; set; }
+
 }
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 
-<style>
-    .cart-item img {
-        max-width: 100px;
-        height: auto;
-    }
+namespace Entities.ViewModels;
 
-    .remove-icon {
-        color: red;
-        cursor: pointer;
-    }
+public partial class CartItemDTO
+{
+    public int Cartitemid { get; set; }
+    public int? Cartid { get; set; }
+    public int? Productid { get; set; }
+    public int Quantity { get; set; }
+    public decimal Price { get; set; }
+    public bool Deleted { get; set; }
 
-    .card {
-        border-radius: 1rem;
-    }
+    public int Createdby { get; set; }
 
-    .qty-input {
-        width: 60px;
-    }
+    public DateTime Createdat { get; set; }
 
-    .modal-summary-item {
-        border-bottom: 1px solid #eee;
-        padding: 10px 0;
-    }
-</style>
+    public int Modifiedby { get; set; }
 
-<div class="container py-5">
-    <h2 class="mb-4 text-center">My Shopping Cart</h2>
-    <div class="row g-4">
-        <!-- Cart Items -->
-        <div class="col-lg-8">
-            <div class="card p-3 shadow-sm" style="max-height: 700px; overflow-y: auto;" id="cartItemsContainer" data-productid="@ProductId">
-                @foreach (var item in Model)
-                {
-                    <div class="row align-items-center mb-4 cart-item m-2 p-2 bg-light rounded shadow-sm">
-                        <div class="col-3">
-                            <img src="@item.Product.Images" class="img-fluid rounded cart-img" alt="@item.Product.Name">
-                        </div>
-                        <div class="col-6">
-                            <h6 class="fw-semibold">@item.Product.Name</h6>
-                            <p class="mb-1 text-muted">Brand: @item.Product.CategoryName</p>
-                            <p class="mb-1">Price: ₹@item.Price</p>
-                            <div class="d-flex align-items-center mt-2">
-                                <label class="me-2 mb-0">Qty:</label>
-                                <input type="number" class="form-control qty-input" min="1" value="@item.Quantity" data-itemid="@item.Productid" />
-                            </div>
-                        </div>
-                        <div class="col-3 text-end">
-                            <p class="mb-1 fw-semibold item-total">₹@(item.Price * item.Quantity)</p>
-                            <i class="fas fa-trash-alt remove-icon" data-cartitemid="@item.Cartitemid"></i>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
+    public DateTime? Modifiedat { get; set; }
 
-        <!-- Summary & Button -->
-        <div class="col-lg-4">
-            <div class="card p-4 shadow-sm">
-                <h5 class="mb-3">Order Summary</h5>
-                <div class="d-flex justify-content-between">
-                    <p class="summary-item-count">Items (0)</p>
-                    <p class="summary-total-price">₹0</p>
-                </div>
-                <hr />
-                <div class="d-flex justify-content-between fw-bold">
-                    <p>Total</p>
-                    <p class="summary-total-price">₹0</p>
-                </div>
-                <button class="btn btn-primary w-100 mt-3" data-bs-toggle="modal" data-bs-target="#orderSummaryModal">
-                    Continue
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+    public int Deletedby { get; set; }
 
-<!-- 📦 Order Summary Modal -->
-<div class="modal fade" id="orderSummaryModal" tabindex="-1" aria-labelledby="orderSummaryModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content shadow-lg">
-            <div class="modal-header">
-                <h5 class="modal-title">Order Summary</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="orderSummaryBody">
-                    <!-- Filled dynamically with JS -->
-                </div>
-                <hr />
-                <div class="d-flex justify-content-between fw-bold fs-5">
-                    <p>Total:</p>
-                    <p id="orderSummaryTotal">₹0</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-success w-100" id="confirmOrderBtn">Confirm Order</button>
-            </div>
-        </div>
-    </div>
-</div>
+    public DateTime? Deletedat { get; set; }
+    public  ProductDTO? Product { get; set; }
 
-@section Scripts {
-    <script src="~/js/cart.js" asp-append-version="true"></script>
-    <script>
-        function updateSummary() {
-            let total = 0;
-            let items = [];
 
-            document.querySelectorAll('.cart-item').forEach(item => {
-                const name = item.querySelector('h6').innerText;
-                const price = parseFloat(item.querySelector('.item-total').innerText.replace('₹', ''));
-                const qty = item.querySelector('.qty-input').value;
-
-                total += price;
-
-                items.push(`<div class="modal-summary-item d-flex justify-content-between">
-                                <span>${name} (x${qty})</span>
-                                <span>₹${price}</span>
-                            </div>`);
-            });
-
-            document.getElementById("orderSummaryBody").innerHTML = items.join('');
-            document.getElementById("orderSummaryTotal").innerText = `₹${total.toFixed(2)}`;
-        }
-
-        document.querySelector('[data-bs-target="#orderSummaryModal"]').addEventListener('click', updateSummary);
-
-        document.getElementById("confirmOrderBtn").addEventListener('click', function () {
-            alert("Order Placed Successfully!");
-            // You can call your order placing API here
-        });
-    </script>
 }
