@@ -1,96 +1,150 @@
-<script>
-    function updateSummary() {
-        let total = 0;
-        let items = [];
+@model IEnumerable<Entities.ViewModels.OrderDTO>
 
-        document.querySelectorAll('.cart-item').forEach(item => {
-            const name = item.querySelector('h6').innerText;
-            const qty = parseInt(item.querySelector('.qty-input').value);
-            const priceText = item.querySelector('.item-total').innerText.replace('₹', '').trim();
-            const price = parseFloat(priceText);
-            const productId = parseInt(item.querySelector('.qty-input').getAttribute("data-itemid"));
-            const cartItemId = parseInt(item.querySelector('.remove-icon').getAttribute("data-cartitemid"));
-
-            total += price;
-
-            // For modal display
-            items.push(`<div class="modal-summary-item d-flex justify-content-between">
-                <span>${name} (x${qty})</span>
-                <span>₹${price}</span>
-            </div>`);
-        });
-
-        document.getElementById("orderSummaryBody").innerHTML = items.join('');
-        document.getElementById("orderSummaryTotal").innerText = `₹${total.toFixed(2)}`;
+<div class="container py-5">
+    <h2 class="text-center mb-4">🧾 My Order History</h2>
+    
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info text-center">No orders found.</div>
     }
-
-    document.querySelector('[data-bs-target="#orderSummaryModal"]').addEventListener('click', updateSummary);
-
-    document.getElementById("confirmOrderBtn").addEventListener('click', function () {
-        const paymentMethod = document.getElementById("paymentMethodSelect").value;
-        const cartItems = [];
-
-        let totalQty = 0;
-        let totalPrice = 0;
-
-        document.querySelectorAll('.cart-item').forEach(item => {
-            const qty = parseInt(item.querySelector('.qty-input').value);
-            const priceText = item.querySelector('.item-total').innerText.replace('₹', '').trim();
-            const price = parseFloat(priceText);
-            const productId = parseInt(item.querySelector('.qty-input').getAttribute("data-itemid"));
-            const cartItemId = parseInt(item.querySelector('.remove-icon').getAttribute("data-cartitemid"));
-
-            totalQty += qty;
-            totalPrice += price;
-
-            cartItems.push({
-                Cartitemid: cartItemId,
-                Productid: productId,
-                Quantity: qty,
-                Price: price
-            });
-        });
-
-        const orderData = {
-            Ordernumber: generateOrderNumber(),
-            Totalitems: totalQty,
-            Paymentmethod: paymentMethod,
-            Orderstatus: "Pending",
-            Price: totalPrice,
-            Createdby: 1, // set logged-in user ID
-            Createdat: new Date().toISOString(),
-            CartItems: cartItems
-        };
-
-        // AJAX to post order
-        fetch("/Order/PlaceOrder", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(orderData)
-        })
-        .then(res => res.ok ? res.json() : Promise.reject(res))
-        .then(response => {
-            alert("Order placed successfully!");
-            window.location.reload();
-        })
-        .catch(error => {
-            console.error("Error placing order:", error);
-            alert("Something went wrong.");
-        });
-    });
-
-    function generateOrderNumber() {
-        return 'ORD' + Date.now();
+    else
+    {
+        <div class="row">
+            @foreach (var order in Model)
+            {
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm border-0 rounded-3">
+                        <div class="card-body">
+                            <h5 class="card-title mb-2">Order #: <strong>@order.Ordernumber</strong></h5>
+                            <p class="text-muted mb-1">Date: @order.Createdat.ToString("dd MMM yyyy")</p>
+                            <p class="mb-1">Payment: <strong>@order.Paymentmethod</strong></p>
+                            <p class="mb-1">Status: 
+                                <span class="badge @GetStatusClass(order.Orderstatus)">
+                                    @order.Orderstatus
+                                </span>
+                            </p>
+                            <hr />
+                            <ul class="list-group list-group-flush mb-3">
+                                @foreach (var item in order.CartItems)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>@item.Product?.Name (x@item.Quantity)</span>
+                                        <span>₹@(item.Price)</span>
+                                    </li>
+                                }
+                            </ul>
+                            <h6 class="text-end fw-bold">Total: ₹@order.CartItems.Sum(i => i.Price * i.Quantity)</h6>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
     }
-</script><div class="mb-3">
-    <label class="form-label">Payment Method</label>
-    <select class="form-select" id="paymentMethodSelect">
-        <option value="Cash On Delivery">Cash On Delivery</option>
-        <option value="UPI">UPI</option>
-        <option value="Net Banking">Net Banking</option>
-        <option value="Card">Card</option>
-    </select>
 </div>
 
+@functions {
+    string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Pending" => "bg-warning text-dark",
+            "Processing" => "bg-info",
+            "Completed" => "bg-success",
+            "Cancelled" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}
+@model IEnumerable<Entities.ViewModels.OrderDTO>
+
+<div class="container py-5">
+    <h2 class="text-center mb-4">📦 Manage Orders</h2>
+
+    <table class="table table-bordered table-hover table-responsive">
+        <thead class="table-dark">
+            <tr>
+                <th>Order #</th>
+                <th>User</th>
+                <th>Date</th>
+                <th>Payment</th>
+                <th>Items</th>
+                <th>Total Price</th>
+                <th>Status</th>
+                <th>Update</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in Model)
+            {
+                <tr>
+                    <td>@order.Ordernumber</td>
+                    <td>@order.Createdby</td>
+                    <td>@order.Createdat.ToString("dd MMM yyyy")</td>
+                    <td>@order.Paymentmethod</td>
+                    <td>
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var item in order.CartItems)
+                            {
+                                <li>@item.Product?.Name (x@item.Quantity)</li>
+                            }
+                        </ul>
+                    </td>
+                    <td>₹@order.CartItems.Sum(i => i.Price * i.Quantity)</td>
+                    <td>
+                        <select class="form-select order-status" data-orderid="@order.Orderid">
+                            <option value="Pending" @(order.Orderstatus == "Pending" ? "selected" : "")>Pending</option>
+                            <option value="Processing" @(order.Orderstatus == "Processing" ? "selected" : "")>Processing</option>
+                            <option value="Completed" @(order.Orderstatus == "Completed" ? "selected" : "")>Completed</option>
+                            <option value="Cancelled" @(order.Orderstatus == "Cancelled" ? "selected" : "")>Cancelled</option>
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-success update-status-btn" data-orderid="@order.Orderid">
+                            <i class="fas fa-save"></i>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.update-status-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const orderId = this.getAttribute('data-orderid');
+                const selectedStatus = document.querySelector(`.order-status[data-orderid="${orderId}"]`).value;
+
+                fetch(`/Admin/UpdateOrderStatus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, status: selectedStatus })
+                })
+                .then(res => res.ok ? res.json() : Promise.reject(res))
+                .then(data => {
+                    alert("Status updated successfully!");
+                    location.reload();
+                })
+                .catch(err => {
+                    alert("Error updating order status.");
+                    console.error(err);
+                });
+            });
+        });
+    </script>
+}
+[HttpPost]
+public IActionResult UpdateOrderStatus([FromBody] OrderStatusUpdateModel model)
+{
+    if (model == null) return BadRequest();
+
+    _orderService.UpdateStatus(model.OrderId, model.Status); // Your own logic
+    return Ok(new { success = true });
+}
+
+public class OrderStatusUpdateModel
+{
+    public int OrderId { get; set; }
+    public string Status { get; set; } = string.Empty;
+}
