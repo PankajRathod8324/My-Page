@@ -1,150 +1,129 @@
-@model IEnumerable<Entities.ViewModels.OrderDTO>
+@model Entities.ViewModels.OrderWithAddressVM
+
+@{
+    ViewBag.Title = "Place Order";
+}
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
 
 <div class="container py-5">
-    <h2 class="text-center mb-4">🧾 My Order History</h2>
-    
-    @if (!Model.Any())
-    {
-        <div class="alert alert-info text-center">No orders found.</div>
-    }
-    else
-    {
-        <div class="row">
-            @foreach (var order in Model)
+    <h2 class="mb-4 text-center">📍 Select Address & Place Order</h2>
+
+    <div class="row">
+        <!-- Address Section -->
+        <div class="col-md-6">
+            <h5>📦 Your Addresses</h5>
+            @if (Model.Addresses.Any())
             {
-                <div class="col-md-6 mb-4">
-                    <div class="card shadow-sm border-0 rounded-3">
-                        <div class="card-body">
-                            <h5 class="card-title mb-2">Order #: <strong>@order.Ordernumber</strong></h5>
-                            <p class="text-muted mb-1">Date: @order.Createdat.ToString("dd MMM yyyy")</p>
-                            <p class="mb-1">Payment: <strong>@order.Paymentmethod</strong></p>
-                            <p class="mb-1">Status: 
-                                <span class="badge @GetStatusClass(order.Orderstatus)">
-                                    @order.Orderstatus
-                                </span>
-                            </p>
-                            <hr />
-                            <ul class="list-group list-group-flush mb-3">
-                                @foreach (var item in order.CartItems)
-                                {
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <span>@item.Product?.Name (x@item.Quantity)</span>
-                                        <span>₹@(item.Price)</span>
-                                    </li>
-                                }
-                            </ul>
-                            <h6 class="text-end fw-bold">Total: ₹@order.CartItems.Sum(i => i.Price * i.Quantity)</h6>
-                        </div>
-                    </div>
+                <div class="list-group mb-3">
+                    @foreach (var address in Model.Addresses)
+                    {
+                        <label class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <input type="radio" name="SelectedAddressId" value="@address.AddressId" class="form-check-input me-2" />
+                                <strong>@address.FullName</strong><br />
+                                <small>@address.Street, @address.City, @address.State - @address.Zip</small>
+                            </div>
+                        </label>
+                    }
                 </div>
             }
-        </div>
-    }
-</div>
-
-@functions {
-    string GetStatusClass(string status)
-    {
-        return status switch
-        {
-            "Pending" => "bg-warning text-dark",
-            "Processing" => "bg-info",
-            "Completed" => "bg-success",
-            "Cancelled" => "bg-danger",
-            _ => "bg-secondary"
-        };
-    }
-}
-@model IEnumerable<Entities.ViewModels.OrderDTO>
-
-<div class="container py-5">
-    <h2 class="text-center mb-4">📦 Manage Orders</h2>
-
-    <table class="table table-bordered table-hover table-responsive">
-        <thead class="table-dark">
-            <tr>
-                <th>Order #</th>
-                <th>User</th>
-                <th>Date</th>
-                <th>Payment</th>
-                <th>Items</th>
-                <th>Total Price</th>
-                <th>Status</th>
-                <th>Update</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var order in Model)
+            else
             {
-                <tr>
-                    <td>@order.Ordernumber</td>
-                    <td>@order.Createdby</td>
-                    <td>@order.Createdat.ToString("dd MMM yyyy")</td>
-                    <td>@order.Paymentmethod</td>
-                    <td>
-                        <ul class="list-unstyled mb-0">
-                            @foreach (var item in order.CartItems)
-                            {
-                                <li>@item.Product?.Name (x@item.Quantity)</li>
-                            }
-                        </ul>
-                    </td>
-                    <td>₹@order.CartItems.Sum(i => i.Price * i.Quantity)</td>
-                    <td>
-                        <select class="form-select order-status" data-orderid="@order.Orderid">
-                            <option value="Pending" @(order.Orderstatus == "Pending" ? "selected" : "")>Pending</option>
-                            <option value="Processing" @(order.Orderstatus == "Processing" ? "selected" : "")>Processing</option>
-                            <option value="Completed" @(order.Orderstatus == "Completed" ? "selected" : "")>Completed</option>
-                            <option value="Cancelled" @(order.Orderstatus == "Cancelled" ? "selected" : "")>Cancelled</option>
-                        </select>
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-success update-status-btn" data-orderid="@order.Orderid">
-                            <i class="fas fa-save"></i>
-                        </button>
-                    </td>
-                </tr>
+                <p>No saved addresses. Add one below.</p>
             }
-        </tbody>
-    </table>
+
+            <!-- Add New Address Form -->
+            <h6 class="mt-4">➕ Add New Address</h6>
+            <form method="post" asp-action="AddAddress" asp-controller="Order">
+                <div class="mb-2">
+                    <input type="text" name="FullName" class="form-control" placeholder="Full Name" required />
+                </div>
+                <div class="mb-2">
+                    <input type="text" name="Street" class="form-control" placeholder="Street Address" required />
+                </div>
+                <div class="mb-2">
+                    <input type="text" name="City" class="form-control" placeholder="City" required />
+                </div>
+                <div class="mb-2">
+                    <input type="text" name="State" class="form-control" placeholder="State" required />
+                </div>
+                <div class="mb-2">
+                    <input type="text" name="Zip" class="form-control" placeholder="ZIP Code" required />
+                </div>
+                <button type="submit" class="btn btn-primary">Add Address</button>
+            </form>
+        </div>
+
+        <!-- Order + Payment Section -->
+        <div class="col-md-6">
+            <h5>💰 Payment Method</h5>
+            <select class="form-select mb-4" id="paymentMethod">
+                <option value="Cash On Delivery">Cash On Delivery</option>
+                <option value="UPI">UPI</option>
+                <option value="Net Banking">Net Banking</option>
+                <option value="Card">Card</option>
+            </select>
+
+            <button class="btn btn-success w-100" onclick="placeOrder()">🛒 Confirm & Place Order</button>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
     <script>
-        document.querySelectorAll('.update-status-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const orderId = this.getAttribute('data-orderid');
-                const selectedStatus = document.querySelector(`.order-status[data-orderid="${orderId}"]`).value;
+        function placeOrder() {
+            const addressId = document.querySelector('input[name="SelectedAddressId"]:checked');
+            const paymentMethod = document.getElementById("paymentMethod").value;
 
-                fetch(`/Admin/UpdateOrderStatus`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId, status: selectedStatus })
-                })
-                .then(res => res.ok ? res.json() : Promise.reject(res))
-                .then(data => {
-                    alert("Status updated successfully!");
-                    location.reload();
-                })
-                .catch(err => {
-                    alert("Error updating order status.");
-                    console.error(err);
-                });
+            if (!addressId) {
+                alert("Please select an address to continue.");
+                return;
+            }
+
+            const orderData = {
+                AddressId: addressId.value,
+                PaymentMethod: paymentMethod
+            };
+
+            fetch("/Order/ConfirmOrder", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(orderData)
+            })
+            .then(res => res.ok ? res.json() : Promise.reject(res))
+            .then(result => {
+                alert("Order placed successfully!");
+                window.location.href = "/Order/MyOrders";
+            })
+            .catch(err => {
+                alert("Something went wrong while placing the order.");
+                console.error(err);
             });
-        });
+        }
     </script>
 }
-[HttpPost]
-public IActionResult UpdateOrderStatus([FromBody] OrderStatusUpdateModel model)
+public IActionResult PlaceOrder()
 {
-    if (model == null) return BadRequest();
-
-    _orderService.UpdateStatus(model.OrderId, model.Status); // Your own logic
-    return Ok(new { success = true });
+    var model = new OrderWithAddressVM
+    {
+        Addresses = _userService.GetAddresses(UserId)
+    };
+    return View(model);
 }
 
-public class OrderStatusUpdateModel
+[HttpPost]
+public IActionResult AddAddress(AddressDTO address)
 {
-    public int OrderId { get; set; }
-    public string Status { get; set; } = string.Empty;
+    _userService.AddAddress(UserId, address);
+    return RedirectToAction("PlaceOrder");
+}
+
+[HttpPost]
+public IActionResult ConfirmOrder([FromBody] OrderPlaceRequestDTO request)
+{
+    _orderService.PlaceOrder(UserId, request.AddressId, request.PaymentMethod);
+    return Ok(new { success = true });
 }
