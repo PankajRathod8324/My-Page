@@ -1,94 +1,14 @@
-using System.Net;
-using System.Net.Mail;
-using Microsoft.AspNetCore.Hosting;
-using Entities.Models;
-
-namespace BLL.Utilities;
-
-public class EmailService
+private static byte[] GeneratePdfFromHtml(string htmlContent)
 {
-    private readonly IWebHostEnvironment _env;
+    using var outputStream = new MemoryStream();
+    using var htmlStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(htmlContent));
 
-    public EmailService(IWebHostEnvironment env)
-    {
-        _env = env;
-    }
+    using var pdfWriter = new iText.Kernel.Pdf.PdfWriter(outputStream);
+    using var pdfDocument = new iText.Kernel.Pdf.PdfDocument(pdfWriter);
 
-    public async Task SendOrderConfirmationEmail(User user, Order order)
-    {
-        string templatePath = Path.Combine(_env.WebRootPath, "Templates", "OrderConfirmation.html");
-        string html = File.ReadAllText(templatePath);
+    iText.Html2pdf.HtmlConverter.ConvertToPdf(htmlStream, pdfDocument);
 
-        string orderRowsHtml = string.Join("", order.Orderitems.Select(item =>
-            $"<tr><td>{item.Product?.Name}</td><td>{item.Quantity}</td><td>₹{item.Price}</td><td>₹{item.Quantity * item.Price}</td></tr>"));
+    pdfDocument.Close(); // Ensure PDF is finalized before reading
 
-        html = html.Replace("{{OrderNumber}}", order.Ordernumber)
-                   .Replace("{{CustomerName}}", user.Firstname + " " + user.Lastname)
-                   .Replace("{{OrderDate}}", order.Createdat.ToString("dd MMM yyyy"))
-                   .Replace("{{OrderStatus}}", order.Orderstatus)
-                   .Replace("{{TotalItems}}", order.Totalitems.ToString())
-                   .Replace("{{OrderRows}}", orderRowsHtml)
-                   .Replace("{{TotalAmount}}", ((decimal)order.Totalamount).ToString("F2"));
-
-        // Convert to PDF
-        byte[] pdfBytes = GeneratePdfFromHtml(html);
-
-        // Send email
-        var message = new MailMessage("test.dotnet@etatvasoft.com", user.Email)
-        {
-            Subject = $"Order Placed - #{order.Ordernumber}",
-            Body = "Please find your order summary attached.",
-            IsBodyHtml = true
-        };
-        message.Body = html;
-        message.Subject = $"Order Confirmation - #{order.Ordernumber}";
-        message.IsBodyHtml = true;
-
-        message.To.Add(new MailAddress(user.Email));
-
-
-        var pdfStream = new MemoryStream(pdfBytes);
-        message.Attachments.Add(new Attachment(pdfStream, $"Order_{order.Ordernumber}.pdf"));
-
-        using var smtp = new SmtpClient("mail.etatvasoft.com", 587)
-        {
-            Credentials = new NetworkCredential("test.dotnet@etatvasoft.com", "P}N^{z-]7Ilp"),
-            EnableSsl = true
-        };
-        await smtp.SendMailAsync(message);
-    }
-
-
-    private static byte[] GeneratePdfFromHtml(string htmlContent)
-    {
-        var ms = new MemoryStream();
-        try
-        {
-            using var pdfWriter = new iText.Kernel.Pdf.PdfWriter(ms);
-            using var pdfDocument = new iText.Kernel.Pdf.PdfDocument(pdfWriter);
-            using var htmlStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(htmlContent));
-            iText.Html2pdf.HtmlConverter.ConvertToPdf(htmlStream, ms);
-        }
-        catch
-        {
-            ms.Dispose();
-            throw;
-        }
-        return ms.ToArray();
-    }
-} these is the error is there {System.ObjectDisposedException: Cannot access a closed Stream.
-   at System.IO.MemoryStream.Write(Byte[] buffer, Int32 offset, Int32 count)
-   at iText.Kernel.Pdf.CountOutputStream.Write(Byte[] b, Int32 off, Int32 len)
-   at iText.IO.Source.OutputStream`1.Write(Byte[] b, Int32 off, Int32 len)
-   at iText.IO.Source.OutputStream`1.WriteInteger(Int32 value)
-   at iText.Kernel.Pdf.PdfWriter.WriteToBody(PdfObject pdfObj)
-   at iText.Kernel.Pdf.PdfWriter.FlushObject(PdfObject pdfObject, Boolean canBeInObjStm)
-   at iText.Kernel.Pdf.PdfDocument.FlushObject(PdfObject pdfObject, Boolean canBeInObjStm)
-   at iText.Kernel.Pdf.PdfObject.Flush(Boolean canBeInObjStm)
-   at iText.Kernel.Pdf.PdfPage.Flush(Boolean flushResourcesContentStreams)
-   at iText.Kernel.Pdf.PdfPage.Flush()
-   at iText.Kernel.Pdf.PdfDocument.Close()
-   at iText.Kernel.Pdf.PdfDocument.System.IDisposable.Dispose()
-   at BLL.Utilities.EmailService.GeneratePdfFromHtml(String htmlContent) in D:\Training\Assignment\E-Commerce Application\BLL\Utilities\EmailService.cs:line 70
-   at BLL.Utilities.EmailService.SendOrderConfirmationEmail(User user, Order order) in D:\Training\Assignment\E-Commerce Application\BLL\Utilities\EmailService.cs:line 34
-   at BLL.Services.OrderService.CreateOrderAsync(OrderDTO Order) in D:\Training\Assignment\E-Commerce Application\BLL\Services\OrderService.cs:line 133}
+    return outputStream.ToArray();
+}
