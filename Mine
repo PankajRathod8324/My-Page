@@ -1,16 +1,18 @@
-  private static byte[] GeneratePdfFromHtml(string htmlContent)
-    {
-        using var ms = new MemoryStream();
+using iText.Html2pdf;
+using System.IO;
 
-        // Use iText7 to convert HTML to PDF
-        using (var writer = new PdfWriter(ms))
-        {
-            var pdfDocument = new PdfDocument(writer);
-            using var document = new iText.Layout.Document(pdfDocument);
-            var paragraph = new iText.Layout.Element.Paragraph(htmlContent);
-            document.Add(paragraph);
-            document.Close();
-        }
+private static byte[] GeneratePdfFromHtml(string htmlContent)
+{
+    using var ms = new MemoryStream();
 
-        return ms.ToArray();
-    }
+    var writerProperties = new iText.Kernel.Pdf.WriterProperties();
+    using (var writer = new iText.Kernel.Pdf.PdfWriter(ms, writerProperties))
+    {
+        var pdfDocument = new iText.Kernel.Pdf.PdfDocument(writer);
+
+        // Convert HTML to PDF using HtmlConverter
+        HtmlConverter.ConvertToPdf(htmlContent, pdfDocument);
+    }
+
+    return ms.ToArray();
+}
