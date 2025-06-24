@@ -1,18 +1,62 @@
-using iText.Html2pdf;
-using System.IO;
-
-private static byte[] GeneratePdfFromHtml(string htmlContent)
+public class EmailService
 {
-    using var ms = new MemoryStream();
+    private readonly IWebHostEnvironment _env;
 
-    var writerProperties = new iText.Kernel.Pdf.WriterProperties();
-    using (var writer = new iText.Kernel.Pdf.PdfWriter(ms, writerProperties))
-    {
-        var pdfDocument = new iText.Kernel.Pdf.PdfDocument(writer);
+    public EmailService(IWebHostEnvironment env)
+    {
+        _env = env;
+    }
 
-        // Convert HTML to PDF using HtmlConverter
-        HtmlConverter.ConvertToPdf(htmlContent, pdfDocument);
-    }
+    public void SendOrderConfirmationEmail(User user, Order order)
+    {
+        string templatePath = Path.Combine(_env.WebRootPath, "Templates", "OrderConfirmation.html");
+        string html = File.ReadAllText(templatePath);
 
-    return ms.ToArray();
+        string orderRowsHtml = string.Join("", order.Orderitems.Select(item =>
+            $"<tr><td>{item.Product?.Name}</td><td>{item.Quantity}</td><td>₹{item.Price}</td><td>₹{item.Quantity * item.Price}</td></tr>"));
+
+        html = html.Replace("{{OrderNumber}}", order.Ordernumber)
+                   .Replace("{{CustomerName}}", user.Name)
+                   .Replace("{{OrderDate}}", order.Createdat.ToString("dd MMM yyyy"))
+                   .Replace("{{OrderStatus}}", order.Orderstatus)
+                   .Replace("{{TotalItems}}", order.Totalitems.ToString())
+                   .Replace("{{OrderRows}}", orderRowsHtml)
+                   .Replace("{{TotalAmount}}", order.Totalamount.ToString("F2"));
+
+        // Convert to PDF
+        byte[] pdfBytes = GeneratePdfFromHtml(html);
+
+        // Send email
+        var message = new MailMessage("ecommerce@example.com", user.Email)
+        {
+            Subject = $"Order Placed - #{order.Ordernumber}",
+            Body = "Please find your order summary attached.",
+            IsBodyHtml = true
+        };
+
+        message.Attachments.Add(new Attachment(new MemoryStream(pdfBytes), $"Order_{order.Ordernumber}.pdf"));
+
+        using var smtp = new SmtpClient("smtp.yourserver.com")
+        {
+            Credentials = new NetworkCredential("yourEmail", "yourPassword"),
+            EnableSsl = true
+        };
+        smtp.Send(message);
+    }
+
+    private byte[] GeneratePdfFromHtml(string htmlContent)
+    {
+        using var ms = new MemoryStream();
+        using var doc = new iTextSharp.text.Document();
+        var writer = PdfWriter.GetInstance(doc, ms);
+        doc.Open();
+
+        using (var sr = new StringReader(htmlContent))
+        {
+            XMLWorkerHelper.GetInstance().ParseXHtml(writer, doc, sr);
+        }
+
+        doc.Close();
+        return ms.ToArray();
+    }
 }
