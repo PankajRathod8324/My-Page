@@ -1,64 +1,120 @@
-   public bool CreateOrder(OrderDTO Order)
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Order Confirmation</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f9f9f9; }
+        .container { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table, th, td { border: 1px solid #ddd; }
+        th, td { padding: 12px; text-align: left; }
+        th { background-color: #f0f0f0; }
+        .total { font-weight: bold; }
+        .footer { margin-top: 30px; font-size: 14px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Order Confirmation - #{{OrderNumber}}</h2>
+        <p>Hello {{CustomerName}},</p>
+        <p>Thank you for your order! Below are the details of your purchase:</p>
+
+        <p><strong>Order Date:</strong> {{OrderDate}}</p>
+        <p><strong>Order Status:</strong> {{OrderStatus}}</p>
+        <p><strong>Total Items:</strong> {{TotalItems}}</p>
+
+        <h3>Order Summary:</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{OrderRows}}
+            </tbody>
+        </table>
+
+        <p class="total">Total Order Amount: ₹{{TotalAmount}}</p>
+
+        <div class="footer">
+            <p>Thank you for shopping with us!<br/>E-commerce System Team</p>
+        </div>
+    </div>
+</body>
+</html>
+public class EmailService
+{
+    private readonly IWebHostEnvironment _env;
+
+    public EmailService(IWebHostEnvironment env)
     {
-        string useremail = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Email)?.Value;
-        User user = _userRepository.GetUserByEmail(useremail);
-        using var transaction = _productRepository.BeginTransaction();
-        try
-        {
-            var order = new Order
-            {
-                Userid = user.Userid,
-                Ordernumber = Order.Ordernumber,
-                Orderstatus = Order.Orderstatus,
-                Paymentmethod = Order.Paymentmethod,
-                Totalamount = Order.Price,
-                Totalitems = Order.Totalitems,
-                Createdat = DateTime.Now,
-                Createdby = user.Userid,
-                Orderitems = Order.CartItems.Select(item => new Orderitems
-                {
-                    Productid = item.Productid,
-                    Quantity = item.Quantity,
-                    Price = _productRepository.GetProductById((int)item.Productid)?.Price ?? 0,
-                    Createdat = DateTime.Now,
-                    Createdby =  user.Userid,
-                }).ToList()
+        _env = env;
+    }
 
-            };
+    public void SendOrderConfirmationEmail(User user, Order order)
+    {
+        string templatePath = Path.Combine(_env.WebRootPath, "Templates", "OrderConfirmation.html");
+        string html = File.ReadAllText(templatePath);
 
-            _orderRepository.AddOrder(order);
-            // Empty the usercart after successful order creation
-            transaction.Commit();
-            _orderRepository.EmptyCart(user.Userid);
-            return true;
-        }
-        catch (Exception ex)
+        string orderRowsHtml = string.Join("", order.Orderitems.Select(item =>
+            $"<tr><td>{item.Product?.Name}</td><td>{item.Quantity}</td><td>₹{item.Price}</td><td>₹{item.Quantity * item.Price}</td></tr>"));
+
+        html = html.Replace("{{OrderNumber}}", order.Ordernumber)
+                   .Replace("{{CustomerName}}", user.Name)
+                   .Replace("{{OrderDate}}", order.Createdat.ToString("dd MMM yyyy"))
+                   .Replace("{{OrderStatus}}", order.Orderstatus)
+                   .Replace("{{TotalItems}}", order.Totalitems.ToString())
+                   .Replace("{{OrderRows}}", orderRowsHtml)
+                   .Replace("{{TotalAmount}}", order.Totalamount.ToString("F2"));
+
+        // Convert to PDF
+        byte[] pdfBytes = GeneratePdfFromHtml(html);
+
+        // Send email
+        var message = new MailMessage("ecommerce@example.com", user.Email)
         {
-            transaction.Rollback();
-            throw new Exception("An error occurred while deleting the product.", ex);
+            Subject = $"Order Placed - #{order.Ordernumber}",
+            Body = "Please find your order summary attached.",
+            IsBodyHtml = true
+        };
+
+        message.Attachments.Add(new Attachment(new MemoryStream(pdfBytes), $"Order_{order.Ordernumber}.pdf"));
+
+        using var smtp = new SmtpClient("smtp.yourserver.com")
+        {
+            Credentials = new NetworkCredential("yourEmail", "yourPassword"),
+            EnableSsl = true
+        };
+        smtp.Send(message);
+    }
+
+    private byte[] GeneratePdfFromHtml(string htmlContent)
+    {
+        using var ms = new MemoryStream();
+        using var doc = new iTextSharp.text.Document();
+        var writer = PdfWriter.GetInstance(doc, ms);
+        doc.Open();
+
+        using (var sr = new StringReader(htmlContent))
+        {
+            XMLWorkerHelper.GetInstance().ParseXHtml(writer, doc, sr);
         }
-    }after the order craete i want to send the order confirmation email like these body Email Specifications
-Subject:
-Order Placed - #[Order Number]
-Email Body:
-Hello [Customer Name],
-Thank you for your order! Below are the details of your purchase:
-Order Date: [Order Date]  
-Order Number: [Order Number]  
-Order Status: [Order Status]  
-Total Items: [Total Item Count]
-Order Summary:
-Order Summary Table
-Product Name	Quantity	Unit Price	Total
-Example Item 1	2	$10.00	$20.00
-Example Item 2	1	$15.00	$15.00
-...	...	...	...
-Total Order Amount: $[Total Amount]
-Thank you for shopping with us!
-E-commerce System Team
-Acceptance Criteria
-Email should be triggered only after a successful order placement.
-All dynamic placeholders (e.g., [Order Number], [Total Amount]) must be correctly populated.
-Email should be responsive and display well in all major email clients.
-Ensure HTML and plain text versions are both supported (if applicable).Implementing the same format PDF file using the iTextSharp library and attaching it to the order confirmation email would be a valuable enhancement.
-Add relevant unit tests to ensure email template formatting and data mapping.
+
+        doc.Close();
+        return ms.ToArray();
+    }
+}
+_orderRepository.AddOrder(order);
+transaction.Commit();
+_orderRepository.EmptyCart(user.Userid);
+
+// Send confirmation email with PDF
+_emailService.SendOrderConfirmationEmail(user, order);
+
+return true;
