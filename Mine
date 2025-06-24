@@ -1,14 +1,90 @@
-private static byte[] GeneratePdfFromHtml(string htmlContent)
-{
-    using var outputStream = new MemoryStream();
-    using var htmlStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(htmlContent));
+@model List<Entities.ViewModels.OrderDTO>
 
-    using var pdfWriter = new iText.Kernel.Pdf.PdfWriter(outputStream);
-    using var pdfDocument = new iText.Kernel.Pdf.PdfDocument(pdfWriter);
+<div class="container py-5">
+    <h2 class="text-center mb-4 webybtn">Manage Orders</h2>
 
-    iText.Html2pdf.HtmlConverter.ConvertToPdf(htmlStream, pdfDocument);
+    <table class="table table-responsive">
+        <thead class="table-light">
+            <tr>
+                <th class="text-secondary border-top-0 fs-5">Order ID #</th>
+                <th class="text-secondary border-top-0 fs-5">User</th>
+                <th class="text-secondary border-top-0 fs-5">Date</th>
+                <th class="text-secondary border-top-0 fs-5">Payment</th>
+                <th class="text-secondary border-top-0 fs-5">Items</th>
+                <th class="text-secondary border-top-0 fs-5">Total Price</th>
+                <th class="text-secondary border-top-0 fs-5">Status</th>
+                <th class="text-secondary border-top-0 fs-5">Update</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in Model)
+            {
+                <tr>
+                    <td  class=" text-secondary align-items-center">@order.Ordernumber</td>
+                    <td  class=" text-secondary align-items-center">@order.Createdby</td>
+                    <td  class=" text-secondary align-items-center">@order.Createdat.ToString("dd MMM yyyy")</td>
+                    <td  class=" text-secondary align-items-center">@order.Paymentmethod</td>
+                    <td  class=" text-secondary align-items-center">
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var item in order.Orderitems)
+                            {
+                                <li>@item.Product?.Name (@item.Quantity)</li>
+                            }
+                        </ul>
+                    </td>
+                    <td  class=" text-secondary align-items-center">₹@order.Orderitems.Sum(i => i.Price * i.Quantity)</td>
+                    <td  class=" text-secondary align-items-center">₹@order.Orderitems.Sum(i => i.Price * i.Quantity)</td>
+                    <td >
+                        @if(order.Orderstatus == "Completed")
+                        {
+                            @* <span class="badge bg-success">Completed</span> *@
+                            <span class="alert alert-info text-success  fw-bold fs-6 d-inline px-4 py-1 ">Completed</span>
 
-    pdfDocument.Close(); // Ensure PDF is finalized before reading
+                        }
+                        else
+                        {
+                        <select class="form-select order-status" data-orderid="@order.Orderid">
+                            <option value="Pending" selected="@(order.Orderstatus == "Pending")">Pending</option>
+                            <option value="Processing" selected="@(order.Orderstatus == "Processing")">Processing</option>
+                            <option value="Completed" selected="@(order.Orderstatus == "Completed")">Completed</option>
+                            <option value="Cancelled" selected="@(order.Orderstatus == "Cancelled")">Cancelled</option>
+                        </select>
+                        }
+                    </td>
+                    <td >
+                        <button class="btn btn-sm finalsavebtn update-status-btn" data-orderid="@order.Orderid">
+                            <i class="fas fa-save"></i>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
 
-    return outputStream.ToArray();
+@section Scripts {
+    <script>
+        document.querySelectorAll('.update-status-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const orderId = this.getAttribute('data-orderid');
+                const selectedStatus = document.querySelector(`.order-status[data-orderid="${orderId}"]`).value;
+                console.log(`Updating order ${orderId} to status: ${selectedStatus}`);
+
+                fetch(`/Order/UpdateOrderStatus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, Orderstatus: selectedStatus })
+                })
+                .then(res => res.ok ? res.json() : Promise.reject(res))
+                .then(data => {
+                    alert("Status updated successfully!");
+                    location.reload();
+                })
+                .catch(err => {
+                    alert("Error updating order status.");
+                    console.error(err);
+                });
+            });
+        });
+    </script>
 }
