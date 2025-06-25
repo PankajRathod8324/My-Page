@@ -2,3 +2,96 @@
                 <label class="me-2 mb-0">Qty:</label>
                 <input type="number" class="form-control qty-input" min="1" value="@item.Quantity" data-itemid="@item.Productid" />
             </div>instead of this input number give me like plus and minus icon and give me poerfect modern ui without manipulationg my functionality
+ $(document).on('input', '.qty-input', function () {
+        const quantity = parseInt($(this).val());
+        const price = parseFloat($(this).closest('.cart-item').find('p.mb-1:contains("Price")').text().replace(/[^\d.]/g, ''));
+        const totalElement = $(this).closest('.cart-item').find('.item-total');
+        totalElement.text(`₹${(price * quantity).toFixed(2)}`);
+        updateCartSummary();
+    });function updateSummary() {
+    let total = 0;
+    let items = [];
+
+    document.querySelectorAll('.cart-item').forEach(item => {
+        const name = item.querySelector('h6').innerText;
+        const qty = parseInt(item.querySelector('.qty-input').value);
+        const priceText = item.querySelector('.item-total').innerText.replace('₹', '').trim();
+        const price = parseFloat(priceText);
+        const productId = parseInt(item.querySelector('.qty-input').getAttribute("data-itemid"));
+        const cartItemId = parseInt(item.querySelector('.remove-icon').getAttribute("data-cartitemid"));
+
+        total += price;
+
+        // For modal display
+        items.push(`<div class="modal-summary-item d-flex justify-content-between">
+                <span>${name} (x${qty})</span>
+                <span>₹${price}</span>
+            </div>`);
+    });
+
+    document.getElementById("orderSummaryBody").innerHTML = items.join('');
+    document.getElementById("orderSummaryTotal").innerText = `₹${total.toFixed(2)}`;
+}
+
+document.querySelector('[data-bs-target="#orderSummaryModal"]').addEventListener('click', updateSummary);
+
+document.getElementById("confirmOrderBtn").addEventListener('click', function () {
+    const paymentMethod = document.getElementById("paymentMethodSelect").value;
+    const cartItems = [];
+
+    let totalQty = 0;
+    let totalPrice = 0;
+
+    document.querySelectorAll('.cart-item').forEach(item => {
+        const qty = parseInt(item.querySelector('.qty-input').value);
+        const priceText = item.querySelector('.item-total').innerText.replace('₹', '').trim();
+        const price = parseFloat(priceText);
+        const productId = parseInt(item.querySelector('.qty-input').getAttribute("data-itemid"));
+        const cartItemId = parseInt(item.querySelector('.remove-icon').getAttribute("data-cartitemid"));
+
+        totalQty += qty;
+        totalPrice += price;
+
+        cartItems.push({
+            Cartitemid: cartItemId,
+            Productid: productId,
+            Quantity: qty,
+            Price: price
+        });
+    });
+
+    const orderData = {
+        Ordernumber: generateOrderNumber(),
+        Totalitems: totalQty,
+        Paymentmethod: paymentMethod,
+        Orderstatus: "Pending",
+        Price: totalPrice,
+        Createdby: 1,
+        Createdat: new Date().toISOString(),
+        CartItems: cartItems
+    };
+
+    fetch("/Order/PlaceOrder", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(orderData)
+    })
+        .then(res => res.ok ? res.json() : Promise.reject(res))
+        .then(response => {
+            alert("Order placed successfully!");
+            $('#proccedToCheckout').hide();
+            toastr.success("Order placed successfully!", "Success");
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error("Error placing order:", error);
+            alert("Something went wrong.");
+        });
+});
+
+function generateOrderNumber() {
+    return 'ORD' + Date.now();
+}
+
