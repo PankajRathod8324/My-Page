@@ -1,77 +1,140 @@
-  _orderRepository.AddOrder(order);
-            // Empty the usercart after successful order creation
-            transaction.Commit();
-            _orderRepository.EmptyCart(user.UserId);
-            await _emailService.SendOrderConfirmationEmail(user, order);
+"EmailSettings": {
+  "Host": "mail.etatvasoft.com",
+  "Port": 587,
+  "EnableSsl": true,
+  "FromEmail": "test.dotnet@etatvasoft.com",
+  "Password": "P}N^{z-]7Ilp"
+}
+public class EmailSettings
+{
+    public string Host { get; set; }
+    public int Port { get; set; }
+    public bool EnableSsl { get; set; }
+    public string FromEmail { get; set; }
+    public string Password { get; set; }
+}
+public class EmailJob
+{
+    public string To { get; set; }
+    public string Subject { get; set; }
+    public string Body { get; set; }
+    public bool IsHtml { get; set; } = true;
+    public List<Attachment>? Attachments { get; set; }
+}
+public interface IEmailQueue
+{
+    void Enqueue(EmailJob job);
+    Task<EmailJob?> DequeueAsync(CancellationToken cancellationToken);
+}
 
-using System.Net;
-using System.Net.Mail;
-using Microsoft.AspNetCore.Hosting;
-using Entities.Models;
+public class EmailQueue : IEmailQueue
+{
+    private readonly Channel<EmailJob> _queue = Channel.CreateUnbounded<EmailJob>();
 
-namespace BLL.Utilities;
+    public void Enqueue(EmailJob job) => _queue.Writer.TryWrite(job);
 
+    public async Task<EmailJob?> DequeueAsync(CancellationToken cancellationToken)
+    {
+        return await _queue.Reader.ReadAsync(cancellationToken);
+    }
+}
+public class EmailSenderBackgroundService : BackgroundService
+{
+    private readonly IServiceProvider _serviceProvider;
+    private readonly IEmailQueue _queue;
+    private readonly EmailSettings _settings;
+
+    public EmailSenderBackgroundService(IServiceProvider serviceProvider, IEmailQueue queue, IOptions<EmailSettings> options)
+    {
+        _serviceProvider = serviceProvider;
+        _queue = queue;
+        _settings = options.Value;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var job = await _queue.DequeueAsync(stoppingToken);
+            if (job == null) continue;
+
+            using var smtp = new SmtpClient(_settings.Host, _settings.Port)
+            {
+                Credentials = new NetworkCredential(_settings.FromEmail, _settings.Password),
+                EnableSsl = _settings.EnableSsl
+            };
+
+            var message = new MailMessage(_settings.FromEmail, job.To)
+            {
+                Subject = job.Subject,
+                Body = job.Body,
+                IsBodyHtml = job.IsHtml
+            };
+
+            if (job.Attachments != null)
+            {
+                foreach (var attachment in job.Attachments)
+                    message.Attachments.Add(attachment);
+            }
+
+            await smtp.SendMailAsync(message);
+        }
+    }
+}
 public class EmailService
 {
-    private readonly IWebHostEnvironment _env;
+    private readonly IWebHostEnvironment _env;
+    private readonly IEmailQueue _queue;
 
-    public EmailService(IWebHostEnvironment env)
-    {
-        _env = env;
-    }
+    public EmailService(IWebHostEnvironment env, IEmailQueue queue)
+    {
+        _env = env;
+        _queue = queue;
+    }
 
-    public async Task SendOrderConfirmationEmail(User user, Order order)
-    {
-        string templatePath = Path.Combine(_env.WebRootPath, "Templates", "OrderConfirmation.html");
-        string html = File.ReadAllText(templatePath);
+    public void QueueOrderConfirmation(string toEmail, string customerName, Order order)
+    {
+        string templatePath = Path.Combine(_env.WebRootPath, "Templates", "OrderConfirmation.html");
+        string html = File.ReadAllText(templatePath);
 
-        string orderRowsHtml = string.Join("", order.OrderItems.Select(item =>
-            $"<tr><td>{item.Product?.Name}</td><td>{item.Quantity}</td><td>&#8377;{item.Price}</td><td>&#8377;{item.Quantity * item.Price}</td></tr>"));
+        string orderRowsHtml = string.Join("", order.OrderItems.Select(item =>
+            $"<tr><td>{item.Product?.Name}</td><td>{item.Quantity}</td><td>&#8377;{item.Price}</td><td>&#8377;{item.Quantity * item.Price}</td></tr>"));
 
-        html = html.Replace("{{OrderNumber}}", order.OrderNumber)
-                   .Replace("{{CustomerName}}", user.FirstName + " " + user.LastName)
-                   .Replace("{{OrderDate}}", order.CreatedAt.ToString("dd MMM yyyy"))
-                   .Replace("{{OrderStatus}}", order.OrderStatus)
-                   .Replace("{{TotalItems}}", order.TotalItems.ToString())
-                   .Replace("{{OrderRows}}", orderRowsHtml)
-                   .Replace("{{TotalAmount}}", order.TotalAmount.ToString("F2"));
+        html = html.Replace("{{OrderNumber}}", order.OrderNumber)
+                   .Replace("{{CustomerName}}", customerName)
+                   .Replace("{{OrderDate}}", order.CreatedAt.ToString("dd MMM yyyy"))
+                   .Replace("{{OrderStatus}}", order.OrderStatus)
+                   .Replace("{{TotalItems}}", order.TotalItems.ToString())
+                   .Replace("{{OrderRows}}", orderRowsHtml)
+                   .Replace("{{TotalAmount}}", order.TotalAmount.ToString("F2"));
 
-        byte[] pdfBytes = GeneratePdfFromHtml(html);
+        var pdfStream = new MemoryStream(GeneratePdfFromHtml(html));
+        var attachment = new Attachment(pdfStream, $"Order_{order.OrderNumber}.pdf", "application/pdf");
 
-        var message = new MailMessage("test.dotnet@etatvasoft.com", user.Email)
-        {
-            Subject =  $"Order Confirmation - #{order.OrderNumber}",
-            Body = html,
-            IsBodyHtml = true
-        };
+        _queue.Enqueue(new EmailJob
+        {
+            To = toEmail,
+            Subject = $"Order Confirmation - #{order.OrderNumber}",
+            Body = html,
+            IsHtml = true,
+            Attachments = new List<Attachment> { attachment }
+        });
+    }
 
-        message.To.Add(new MailAddress(user.Email));
+    private static byte[] GeneratePdfFromHtml(string htmlContent)
+    {
+        using var outputStream = new MemoryStream();
+        using var htmlStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(htmlContent));
+        using var pdfWriter = new iText.Kernel.Pdf.PdfWriter(outputStream);
+        using var pdfDocument = new iText.Kernel.Pdf.PdfDocument(pdfWriter);
 
+        iText.Html2pdf.HtmlConverter.ConvertToPdf(htmlStream, pdfDocument);
 
-        var pdfStream = new MemoryStream(pdfBytes);
-        message.Attachments.Add(new Attachment(pdfStream, $"Order_{order.OrderNumber}.pdf"));
-
-        using var smtp = new SmtpClient("mail.etatvasoft.com", 587)
-        {
-            Credentials = new NetworkCredential("test.dotnet@etatvasoft.com", "P}N^{z-]7Ilp"),
-            EnableSsl = true
-        };
-        await smtp.SendMailAsync(message);
-    }
-
-
-    private static byte[] GeneratePdfFromHtml(string htmlContent)
-    {
-        using var outputStream = new MemoryStream();
-        using var htmlStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(htmlContent));
-
-        using var pdfWriter = new iText.Kernel.Pdf.PdfWriter(outputStream);
-        using var pdfDocument = new iText.Kernel.Pdf.PdfDocument(pdfWriter);
-
-        iText.Html2pdf.HtmlConverter.ConvertToPdf(htmlStream, pdfDocument);
-
-        pdfDocument.Close(); 
-
-        return outputStream.ToArray();
-    }
-} here i wnat that the email serveice should go background like order should be complete and the email service should do work in background using IHostService the mail should be dynamic  in mail service credials are in appsetting.json file the mail should be reusable just chnage the subject body adn whom to sen dall should and the user model why r u send for just three feild just make adjust in one model
+        return outputStream.ToArray();
+    }
+}
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddSingleton<IEmailQueue, EmailQueue>();
+builder.Services.AddSingleton<EmailService>();
+builder.Services.AddHostedService<EmailSenderBackgroundService>();
+_emailService.QueueOrderConfirmation(user.Email, user.FirstName + " " + user.LastName, order);
