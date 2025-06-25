@@ -1,143 +1,46 @@
-"EmailSettings": {
-  "FromEmail": "test.dotnet@etatvasoft.com",
-  "Password": "P}N^{z-]7Ilp",
-  "Host": "mail.etatvasoft.com",
-  "Port": 587,
-  "EnableSsl": true
-}
-public class EmailRequest
-{
-    public string ToEmail { get; set; } = "";
-    public string Subject { get; set; } = "";
-    public string HtmlBody { get; set; } = "";
-    public List<Attachment>? Attachments { get; set; }
-}
-public class EmailSettings
-{
-    public string FromEmail { get; set; }
-    public string Password { get; set; }
-    public string Host { get; set; }
-    public int Port { get; set; }
-    public bool EnableSsl { get; set; }
-}
-public interface IEmailService
-{
-    Task SendEmailAsync(EmailRequest request);
-}
-
-public class EmailService : IEmailService
-{
-    private readonly EmailSettings _settings;
-
-    public EmailService(IOptions<EmailSettings> settings)
-    {
-        _settings = settings.Value;
-    }
-
-    public async Task SendEmailAsync(EmailRequest request)
-    {
-        var message = new MailMessage
-        {
-            From = new MailAddress(_settings.FromEmail),
-            Subject = request.Subject,
-            Body = request.HtmlBody,
-            IsBodyHtml = true
-        };
-        message.To.Add(request.ToEmail);
-
-        if (request.Attachments != null)
-        {
-            foreach (var attachment in request.Attachments)
-                message.Attachments.Add(attachment);
-        }
-
-        using var smtp = new SmtpClient(_settings.Host, _settings.Port)
-        {
-            Credentials = new NetworkCredential(_settings.FromEmail, _settings.Password),
-            EnableSsl = _settings.EnableSsl
-        };
-
-        await smtp.SendMailAsync(message);
-    }
-}
-public class EmailBackgroundWorker : BackgroundService
-{
-    private readonly Channel<EmailRequest> _channel = Channel.CreateUnbounded<EmailRequest>();
-    private readonly IServiceProvider _provider;
-
-    public EmailBackgroundWorker(IServiceProvider provider)
-    {
-        _provider = provider;
-    }
-
-    public void QueueEmail(EmailRequest request)
-    {
-        _channel.Writer.TryWrite(request);
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (await _channel.Reader.WaitToReadAsync(stoppingToken))
-        {
-            var request = await _channel.Reader.ReadAsync(stoppingToken);
-            using var scope = _provider.CreateScope();
-            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
-            await emailService.SendEmailAsync(request);
-        }
-    }
-}
-builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
-builder.Services.AddSingleton<EmailBackgroundWorker>(); // Hosted service
-builder.Services.AddHostedService(provider => provider.GetRequiredService<EmailBackgroundWorker>());
-builder.Services.AddScoped<IEmailService, EmailService>(); // Reusable
-public class OrderService
-{
-    private readonly EmailBackgroundWorker _emailWorker;
-    private readonly IWebHostEnvironment _env;
-
-    public OrderService(EmailBackgroundWorker emailWorker, IWebHostEnvironment env)
-    {
-        _emailWorker = emailWorker;
-        _env = env;
-    }
-
-    public void SendOrderConfirmation(User user, Order order)
-    {
-        string templatePath = Path.Combine(_env.WebRootPath, "Templates", "OrderConfirmation.html");
-        string html = File.ReadAllText(templatePath);
-
-        // Replace placeholders
-        html = html.Replace("{{CustomerName}}", $"{user.FirstName} {user.LastName}")
-                   .Replace("{{OrderNumber}}", order.OrderNumber)
-                   .Replace("{{OrderDate}}", order.CreatedAt.ToString("dd MMM yyyy"))
-                   .Replace("{{OrderStatus}}", order.OrderStatus)
-                   .Replace("{{TotalItems}}", order.TotalItems.ToString())
-                   .Replace("{{TotalAmount}}", order.TotalAmount.ToString("F2"))
-                   .Replace("{{OrderRows}}", string.Join("", order.OrderItems.Select(item =>
-                       $"<tr><td>{item.Product?.Name}</td><td>{item.Quantity}</td><td>₹{item.Price}</td><td>₹{item.Price * item.Quantity}</td></tr>")));
-
-        var pdfBytes = GeneratePdf(html);
-        var attachment = new Attachment(new MemoryStream(pdfBytes), $"Order_{order.OrderNumber}.pdf", "application/pdf");
-
-        var request = new EmailRequest
-        {
-            ToEmail = user.Email,
-            Subject = $"Order Confirmation - #{order.OrderNumber}",
-            HtmlBody = html,
-            Attachments = new List<Attachment> { attachment }
-        };
-
-        _emailWorker.QueueEmail(request); // Fire-and-forget
-    }
-
-    private byte[] GeneratePdf(string html)
-    {
-        using var outputStream = new MemoryStream();
-        using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(html));
-        using var writer = new PdfWriter(outputStream);
-        using var pdfDoc = new PdfDocument(writer);
-
-        HtmlConverter.ConvertToPdf(htmlStream, pdfDoc);
-        return outputStream.ToArray();
-    }
-}
+Task Document: Notification System – Database Design
+🎯 Objective:
+Design and implement a notification system using two database tables:
+NotificationTypes – Stores master data for all predefined system notifications.
+UserNotifications – Manages user-specific notification entries and their read/unread status.
+✅ Task Breakdown
+1. Master Table: NotificationTypes
+Purpose: Define and store the static notification configurations used throughout the system.
+Fields:
+Id – Primary key
+NotificationCode – Unique identifier (e.g., 1 = Order Placed, 2 = Order Confirmed, 3 = Order Shipped)
+Title – Title of the notification
+Message – Message body/content of the notification
+CreatedAt – Timestamp when the record was created
+UpdatedAt – Timestamp when the record was last modified
+Note: This table will be seeded with predefined values representing system-triggered notifications.
+2. Transaction Table: UserNotifications
+Purpose: Track individual notifications sent to users, including their read status.
+Fields:
+Id – Primary key
+UserId – Identifier of the user receiving the notification
+NotificationTypeId – Foreign key linking to NotificationTypes
+IsRead – Boolean flag (false by default) indicating whether the notification has been read
+CreatedAt – Timestamp when the notification was generated
+UpdatedAt – Timestamp when the record was last updated
+🛠️ Functional Requirements
+Unread Notification Count
+Display the number of unread notifications for the logged-in user on the UI.
+Mark All as Read
+Provide an option for users to mark all their unread notifications as read in a single action.
+📌 Deliverables
+Database schema for NotificationTypes and UserNotifications
+Backend services to:
+Retrieve unread notification count
+List user notifications
+Mark notifications as read (individually or in bulk)
+Frontend integration to:
+Display unread count
+Trigger mark-as-read operations
+Sample Data:
+Notification Type	Title	Message
+1 – Order Placed	Order Placed @OrderNo@	Your order has been placed successfully.
+2 – Order Confirmed	Order Confirmed @OrderNo@	Your order has been confirmed.
+3 – Order Shipped	Order Shipped @OrderNo@	Your order has been shipped. when order plced then triggered that trigger and the notifictaion frontend here   <div class="m-2 fs-3 me-3">
+                <i class="bi bi-bell" style="color: white;"></i>
+            </div> give me complete code 
