@@ -1,186 +1,77 @@
-$(document).ready(function () {
-    loadCartItems();
+  _orderRepository.AddOrder(order);
+            // Empty the usercart after successful order creation
+            transaction.Commit();
+            _orderRepository.EmptyCart(user.UserId);
+            await _emailService.SendOrderConfirmationEmail(user, order);
 
-    $('#loadMoreBtn').on('click', function () {
-        loadCartItems();
-    });
+using System.Net;
+using System.Net.Mail;
+using Microsoft.AspNetCore.Hosting;
+using Entities.Models;
 
-    // Handle quantity increase
-    $(document).on('click', '.qty-increase', function () {
-        const itemId = $(this).data("itemid");
-        const input = $(`.qty-input[data-itemid="${itemId}"]`);
-        let qty = parseInt(input.val()) || 1;
-        input.val(qty + 1);
-        updateItemTotal(itemId);
-        updateCartSummary();
-    });
+namespace BLL.Utilities;
 
-    // Handle quantity decrease
-    $(document).on('click', '.qty-decrease', function () {
-        const itemId = $(this).data("itemid");
-        const input = $(`.qty-input[data-itemid="${itemId}"]`);
-        let qty = parseInt(input.val()) || 1;
-        if (qty > 1) {
-            input.val(qty - 1);
-            updateItemTotal(itemId);
-            updateCartSummary();
-        }
-    });
+public class EmailService
+{
+    private readonly IWebHostEnvironment _env;
 
-    // Handle remove
-    $(document).on("click", ".remove-icon", function (event) {
-        event.stopPropagation();
-        var cartitemid = $(this).data("cartitemid");
-        console.log(cartitemid);
-        $.ajax({
-            type: "POST",
-            url: '/Cart/RemoveFromCart',
-            data: { cartitemid: cartitemid },
-            success: function (response) {
-                if (response.success) {
-                    toastr.success('Product Removed From Cart!', "Success");
-                    loadCartItems();
-                } else {
-                    alert("Failed to remove product from cart.");
-                }
-            },
-            error: function (xhr) {
-                console.error(xhr);
-            }
-        });
-    });
+    public EmailService(IWebHostEnvironment env)
+    {
+        _env = env;
+    }
 
-    // Attach modal open event
-    $('[data-bs-target="#orderSummaryModal"]').on('click', updateSummary);
+    public async Task SendOrderConfirmationEmail(User user, Order order)
+    {
+        string templatePath = Path.Combine(_env.WebRootPath, "Templates", "OrderConfirmation.html");
+        string html = File.ReadAllText(templatePath);
 
-    // Place order
-    $('#confirmOrderBtn').on('click', function () {
-        const paymentMethod = $('#paymentMethodSelect').val();
-        const cartItems = [];
+        string orderRowsHtml = string.Join("", order.OrderItems.Select(item =>
+            $"<tr><td>{item.Product?.Name}</td><td>{item.Quantity}</td><td>&#8377;{item.Price}</td><td>&#8377;{item.Quantity * item.Price}</td></tr>"));
 
-        let totalQty = 0;
-        let totalPrice = 0;
+        html = html.Replace("{{OrderNumber}}", order.OrderNumber)
+                   .Replace("{{CustomerName}}", user.FirstName + " " + user.LastName)
+                   .Replace("{{OrderDate}}", order.CreatedAt.ToString("dd MMM yyyy"))
+                   .Replace("{{OrderStatus}}", order.OrderStatus)
+                   .Replace("{{TotalItems}}", order.TotalItems.ToString())
+                   .Replace("{{OrderRows}}", orderRowsHtml)
+                   .Replace("{{TotalAmount}}", order.TotalAmount.ToString("F2"));
 
-        $('.cart-item').each(function () {
-            const qty = parseInt($(this).find('.qty-input').val());
-            const price = parseFloat($(this).find('.item-total').text().replace(/[^\d.]/g, ''));
-            const productId = parseInt($(this).find('.qty-input').data("itemid"));
-            const cartItemId = parseInt($(this).find('.remove-icon').data("cartitemid"));
+        byte[] pdfBytes = GeneratePdfFromHtml(html);
 
-            totalQty += qty;
-            totalPrice += price;
+        var message = new MailMessage("test.dotnet@etatvasoft.com", user.Email)
+        {
+            Subject =  $"Order Confirmation - #{order.OrderNumber}",
+            Body = html,
+            IsBodyHtml = true
+        };
 
-            cartItems.push({
-                Cartitemid: cartItemId,
-                Productid: productId,
-                Quantity: qty,
-                Price: price
-            });
-        });
+        message.To.Add(new MailAddress(user.Email));
 
-        const orderData = {
-            Ordernumber: generateOrderNumber(),
-            Totalitems: totalQty,
-            Paymentmethod: paymentMethod,
-            Orderstatus: "Pending",
-            Price: totalPrice,
-            Createdby: 1,
-            Createdat: new Date().toISOString(),
-            CartItems: cartItems
-        };
 
-        fetch("/Order/PlaceOrder", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(orderData)
-        })
-            .then(res => res.ok ? res.json() : Promise.reject(res))
-            .then(response => {
-                toastr.success("Order placed successfully!", "Success");
-                $('#proccedToCheckout').hide();
-                window.location.reload();
-            })
-            .catch(error => {
-                console.error("Error placing order:", error);
-                alert("Something went wrong.");
-            });
-    });
-});
+        var pdfStream = new MemoryStream(pdfBytes);
+        message.Attachments.Add(new Attachment(pdfStream, $"Order_{order.OrderNumber}.pdf"));
 
-function updateItemTotal(itemId) {
-    const input = $(`.qty-input[data-itemid="${itemId}"]`);
-    const qty = parseInt(input.val()) || 1;
-    const cartItem = $(`.cart-item[data-productid="${itemId}"]`);
-    const price = parseFloat(cartItem.data("price"));
-    const total = qty * price;
+        using var smtp = new SmtpClient("mail.etatvasoft.com", 587)
+        {
+            Credentials = new NetworkCredential("test.dotnet@etatvasoft.com", "P}N^{z-]7Ilp"),
+            EnableSsl = true
+        };
+        await smtp.SendMailAsync(message);
+    }
 
-    cartItem.find('.item-total').text(`₹${total.toFixed(2)}`);
-}
 
-function updateCartSummary() {
-    let total = 0;
-    let count = 0;
+    private static byte[] GeneratePdfFromHtml(string htmlContent)
+    {
+        using var outputStream = new MemoryStream();
+        using var htmlStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(htmlContent));
 
-    $('.cart-item').each(function () {
-        const priceText = $(this).find('.item-total').text().replace(/[^\d.]/g, '');
-        const price = parseFloat(priceText);
-        const qty = parseInt($(this).find('.qty-input').val()) || 1;
-        if (!isNaN(price)) {
-            total += price;
-            count += qty;
-        }
-    });
+        using var pdfWriter = new iText.Kernel.Pdf.PdfWriter(outputStream);
+        using var pdfDocument = new iText.Kernel.Pdf.PdfDocument(pdfWriter);
 
-    $('.summary-item-count').text(`Items (${count})`);
-    $('.summary-total-price').text(`₹${total.toFixed(2)}`);
+        iText.Html2pdf.HtmlConverter.ConvertToPdf(htmlStream, pdfDocument);
 
-    if (count === 0) {
-        $('#proccedToCheckout').hide();
-    }
-}
+        pdfDocument.Close(); 
 
-function updateSummary() {
-    let total = 0;
-    let items = [];
-
-    $('.cart-item').each(function () {
-        const name = $(this).find('h6').text();
-        const qty = parseInt($(this).find('.qty-input').val());
-        const price = parseFloat($(this).find('.item-total').text().replace(/[^\d.]/g, ''));
-
-        total += price;
-
-        items.push(`<div class="modal-summary-item d-flex justify-content-between">
-            <span>${name} (x${qty})</span>
-            <span>₹${price.toFixed(2)}</span>
-        </div>`);
-    });
-
-    $('#orderSummaryBody').html(items.join(''));
-    $('#orderSummaryTotal').text(`₹${total.toFixed(2)}`);
-}
-
-function loadCartItems() {
-    const productId = $('#cartItemsContainer').data('productid');
-    $.ajax({
-        url: '/Cart/LoadCartItems',
-        type: 'GET',
-        data: { productId: productId },
-        success: function (html) {
-            $('#cartItemsContainer').append(html);
-            updateCartSummary();
-        },
-        error: function () {
-            alert("Failed to load cart items.");
-        }
-    });
-}
-
-function generateOrderNumber() {
-    return 'ORD' + Date.now();
-}
-<div class="cart-item" data-productid="@item.Productid" data-price="@item.Price">
-<button class="qty-increase" data-itemid="@item.Productid">+</button>
-<button class="qty-decrease" data-itemid="@item.Productid">−</button>
+        return outputStream.ToArray();
+    }
+} here i wnat that the email serveice should go background like order should be complete and the email service should do work in background using IHostService the mail should be dynamic  in mail service credials are in appsetting.json file the mail should be reusable just chnage the subject body adn whom to sen dall should and the user model why r u send for just three feild just make adjust in one model
