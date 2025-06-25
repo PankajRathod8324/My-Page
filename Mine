@@ -1,46 +1,149 @@
-Task Document: Notification System – Database Design
-🎯 Objective:
-Design and implement a notification system using two database tables:
-NotificationTypes – Stores master data for all predefined system notifications.
-UserNotifications – Manages user-specific notification entries and their read/unread status.
-✅ Task Breakdown
-1. Master Table: NotificationTypes
-Purpose: Define and store the static notification configurations used throughout the system.
-Fields:
-Id – Primary key
-NotificationCode – Unique identifier (e.g., 1 = Order Placed, 2 = Order Confirmed, 3 = Order Shipped)
-Title – Title of the notification
-Message – Message body/content of the notification
-CreatedAt – Timestamp when the record was created
-UpdatedAt – Timestamp when the record was last modified
-Note: This table will be seeded with predefined values representing system-triggered notifications.
-2. Transaction Table: UserNotifications
-Purpose: Track individual notifications sent to users, including their read status.
-Fields:
-Id – Primary key
-UserId – Identifier of the user receiving the notification
-NotificationTypeId – Foreign key linking to NotificationTypes
-IsRead – Boolean flag (false by default) indicating whether the notification has been read
-CreatedAt – Timestamp when the notification was generated
-UpdatedAt – Timestamp when the record was last updated
-🛠️ Functional Requirements
-Unread Notification Count
-Display the number of unread notifications for the logged-in user on the UI.
-Mark All as Read
-Provide an option for users to mark all their unread notifications as read in a single action.
-📌 Deliverables
-Database schema for NotificationTypes and UserNotifications
-Backend services to:
-Retrieve unread notification count
-List user notifications
-Mark notifications as read (individually or in bulk)
-Frontend integration to:
-Display unread count
-Trigger mark-as-read operations
-Sample Data:
-Notification Type	Title	Message
-1 – Order Placed	Order Placed @OrderNo@	Your order has been placed successfully.
-2 – Order Confirmed	Order Confirmed @OrderNo@	Your order has been confirmed.
-3 – Order Shipped	Order Shipped @OrderNo@	Your order has been shipped. when order plced then triggered that trigger and the notifictaion frontend here   <div class="m-2 fs-3 me-3">
-                <i class="bi bi-bell" style="color: white;"></i>
-            </div> give me complete code 
+public interface INotificationService
+{
+    Task AddNotificationAsync(int userId, int notificationCode, string orderNumber);
+    Task<int> GetUnreadCountAsync(int userId);
+    Task<List<UserNotification>> GetUserNotificationsAsync(int userId);
+    Task MarkAllAsReadAsync(int userId);
+}
+public class NotificationService : INotificationService
+{
+    private readonly AppDbContext _context;
+
+    public NotificationService(AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task AddNotificationAsync(int userId, int notificationCode, string orderNumber)
+    {
+        var type = await _context.NotificationTypes.FirstOrDefaultAsync(x => x.NotificationCode == notificationCode);
+        if (type == null) return;
+
+        var notification = new UserNotification
+        {
+            UserId = userId,
+            NotificationTypeId = type.Id,
+            OrderNumber = orderNumber,
+            IsRead = false,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+
+        _context.UserNotifications.Add(notification);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<int> GetUnreadCountAsync(int userId)
+    {
+        return await _context.UserNotifications
+            .CountAsync(n => n.UserId == userId && !n.IsRead);
+    }
+
+    public async Task<List<UserNotification>> GetUserNotificationsAsync(int userId)
+    {
+        return await _context.UserNotifications
+            .Include(n => n.NotificationType)
+            .Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task MarkAllAsReadAsync(int userId)
+    {
+        var notifications = await _context.UserNotifications
+            .Where(n => n.UserId == userId && !n.IsRead)
+            .ToListAsync();
+
+        foreach (var n in notifications)
+        {
+            n.IsRead = true;
+            n.UpdatedAt = DateTime.Now;
+        }
+
+        await _context.SaveChangesAsync();
+    }
+}
+[Authorize]
+public class NotificationController : Controller
+{
+    private readonly INotificationService _notificationService;
+
+    public NotificationController(INotificationService notificationService)
+    {
+        _notificationService = notificationService;
+    }
+
+    public async Task<IActionResult> UnreadCount()
+    {
+        int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+        var count = await _notificationService.GetUnreadCountAsync(userId);
+        return Json(count);
+    }
+
+    public async Task<IActionResult> List()
+    {
+        int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+        var notifications = await _notificationService.GetUserNotificationsAsync(userId);
+        return PartialView("_NotificationListPartial", notifications);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> MarkAllRead()
+    {
+        int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+        await _notificationService.MarkAllAsReadAsync(userId);
+        return Ok();
+    }
+}
+@model List<UserNotification>
+
+<ul class="list-group">
+@foreach (var n in Model)
+{
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+            <strong>@n.NotificationType.Title.Replace("@OrderNo@", n.OrderNumber)</strong><br />
+            <span class="text-muted">@n.NotificationType.Message</span><br />
+            <small class="text-secondary">@n.CreatedAt.ToString("dd MMM yyyy hh:mm tt")</small>
+        </div>
+        @if (!n.IsRead)
+        {
+            <span class="badge bg-primary">New</span>
+        }
+    </li>
+}
+</ul>
+<div class="dropdown me-3">
+    <a class="position-relative" href="#" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-bell fs-4 text-white"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationCount">0</span>
+    </a>
+    <ul class="dropdown-menu dropdown-menu-end p-2" style="width: 300px;">
+        <div id="notificationList">Loading...</div>
+        <button class="btn btn-sm btn-link mt-2" onclick="markAllRead()">Mark all as read</button>
+    </ul>
+</div>
+<script>
+function loadNotifications() {
+    $.get('/Notification/UnreadCount', function (count) {
+        $('#notificationCount').text(count);
+        if (count == 0) $('#notificationCount').hide();
+        else $('#notificationCount').show();
+    });
+
+    $.get('/Notification/List', function (html) {
+        $('#notificationList').html(html);
+    });
+}
+
+function markAllRead() {
+    $.post('/Notification/MarkAllRead', function () {
+        loadNotifications();
+    });
+}
+
+$(document).ready(function () {
+    loadNotifications();
+});
+</script>
+await _notificationService.AddNotificationAsync(user.Id, 1, order.OrderNumber); // Order Placed
