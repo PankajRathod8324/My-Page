@@ -1,97 +1,75 @@
- <div class="d-flex align-items-center mt-2">
-                <label class="me-2 mb-0">Qty:</label>
-                <input type="number" class="form-control qty-input" min="1" value="@item.Quantity" data-itemid="@item.Productid" />
-            </div>instead of this input number give me like plus and minus icon and give me poerfect modern ui without manipulationg my functionality
- $(document).on('input', '.qty-input', function () {
-        const quantity = parseInt($(this).val());
-        const price = parseFloat($(this).closest('.cart-item').find('p.mb-1:contains("Price")').text().replace(/[^\d.]/g, ''));
-        const totalElement = $(this).closest('.cart-item').find('.item-total');
-        totalElement.text(`₹${(price * quantity).toFixed(2)}`);
-        updateCartSummary();
-    });function updateSummary() {
-    let total = 0;
-    let items = [];
+<div class="d-flex align-items-center mt-2 gap-2">
+    <label class="me-2 mb-0 fw-semibold">Qty:</label>
+    <div class="input-group flex-nowrap" style="width: 130px;">
+        <button class="btn btn-outline-secondary qty-decrease" type="button" data-itemid="@item.Productid">−</button>
+        <input type="text" class="form-control text-center qty-input" value="@item.Quantity" data-itemid="@item.Productid" readonly />
+        <button class="btn btn-outline-secondary qty-increase" type="button" data-itemid="@item.Productid">+</button>
+    </div>
+</div>
+document.addEventListener("DOMContentLoaded", function () {
 
-    document.querySelectorAll('.cart-item').forEach(item => {
-        const name = item.querySelector('h6').innerText;
-        const qty = parseInt(item.querySelector('.qty-input').value);
-        const priceText = item.querySelector('.item-total').innerText.replace('₹', '').trim();
-        const price = parseFloat(priceText);
-        const productId = parseInt(item.querySelector('.qty-input').getAttribute("data-itemid"));
-        const cartItemId = parseInt(item.querySelector('.remove-icon').getAttribute("data-cartitemid"));
+    function updateItemTotal(itemId) {
+        const qtyInput = document.querySelector(`.qty-input[data-itemid="${itemId}"]`);
+        const quantity = parseInt(qtyInput.value);
+        const price = parseFloat(document.querySelector(`.cart-item[data-productid="${itemId}"]`).dataset.price);
 
-        total += price;
+        const totalElement = document.querySelector(`.cart-item[data-productid="${itemId}"] .item-total`);
+        if (totalElement) {
+            totalElement.textContent = `₹${(quantity * price).toFixed(2)}`;
+        }
 
-        // For modal display
-        items.push(`<div class="modal-summary-item d-flex justify-content-between">
-                <span>${name} (x${qty})</span>
-                <span>₹${price}</span>
-            </div>`);
-    });
+        updateOrderSummary();
+    }
 
-    document.getElementById("orderSummaryBody").innerHTML = items.join('');
-    document.getElementById("orderSummaryTotal").innerText = `₹${total.toFixed(2)}`;
-}
+    function updateOrderSummary() {
+        let totalPrice = 0;
+        let totalItems = 0;
 
-document.querySelector('[data-bs-target="#orderSummaryModal"]').addEventListener('click', updateSummary);
+        document.querySelectorAll(".qty-input").forEach(input => {
+            const qty = parseInt(input.value);
+            const itemId = input.getAttribute("data-itemid");
+            const itemRow = document.querySelector(`.cart-item[data-productid="${itemId}"]`);
+            const price = parseFloat(itemRow?.dataset.price || 0);
 
-document.getElementById("confirmOrderBtn").addEventListener('click', function () {
-    const paymentMethod = document.getElementById("paymentMethodSelect").value;
-    const cartItems = [];
+            if (!isNaN(qty)) {
+                totalItems += qty;
+                totalPrice += qty * price;
+            }
+        });
 
-    let totalQty = 0;
-    let totalPrice = 0;
+        document.querySelectorAll(".summary-item-count").forEach(el => el.textContent = `Items (${totalItems})`);
+        document.querySelectorAll(".summary-total-price").forEach(el => el.textContent = `₹${totalPrice.toFixed(2)}`);
+    }
 
-    document.querySelectorAll('.cart-item').forEach(item => {
-        const qty = parseInt(item.querySelector('.qty-input').value);
-        const priceText = item.querySelector('.item-total').innerText.replace('₹', '').trim();
-        const price = parseFloat(priceText);
-        const productId = parseInt(item.querySelector('.qty-input').getAttribute("data-itemid"));
-        const cartItemId = parseInt(item.querySelector('.remove-icon').getAttribute("data-cartitemid"));
+    // Increase quantity
+    document.querySelectorAll(".qty-increase").forEach(button => {
+        button.addEventListener("click", function () {
+            const itemId = this.getAttribute("data-itemid");
+            const input = document.querySelector(`.qty-input[data-itemid="${itemId}"]`);
+            let qty = parseInt(input.value) || 1;
+            input.value = qty + 1;
 
-        totalQty += qty;
-        totalPrice += price;
+            updateItemTotal(itemId);
+        });
+    });
 
-        cartItems.push({
-            Cartitemid: cartItemId,
-            Productid: productId,
-            Quantity: qty,
-            Price: price
-        });
-    });
+    // Decrease quantity
+    document.querySelectorAll(".qty-decrease").forEach(button => {
+        button.addEventListener("click", function () {
+            const itemId = this.getAttribute("data-itemid");
+            const input = document.querySelector(`.qty-input[data-itemid="${itemId}"]`);
+            let qty = parseInt(input.value) || 1;
+            if (qty > 1) {
+                input.value = qty - 1;
+                updateItemTotal(itemId);
+            }
+        });
+    });
 
-    const orderData = {
-        Ordernumber: generateOrderNumber(),
-        Totalitems: totalQty,
-        Paymentmethod: paymentMethod,
-        Orderstatus: "Pending",
-        Price: totalPrice,
-        Createdby: 1,
-        Createdat: new Date().toISOString(),
-        CartItems: cartItems
-    };
-
-    fetch("/Order/PlaceOrder", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(orderData)
-    })
-        .then(res => res.ok ? res.json() : Promise.reject(res))
-        .then(response => {
-            alert("Order placed successfully!");
-            $('#proccedToCheckout').hide();
-            toastr.success("Order placed successfully!", "Success");
-            window.location.reload();
-        })
-        .catch(error => {
-            console.error("Error placing order:", error);
-            alert("Something went wrong.");
-        });
+    // Initial calculation on page load
+    updateOrderSummary();
 });
-
-function generateOrderNumber() {
-    return 'ORD' + Date.now();
-}
-
+<div class="row align-items-center mb-4 cart-item m-2 p-2"
+    data-productid="@item.Productid"
+    data-price="@item.Price"
+    style="background-color: rgb(245, 245, 245) !important;">
