@@ -1,15 +1,53 @@
 @{
-    ViewBag.Title = "Payment";
+    ViewBag.Title = "Payment";
+    Layout = "~/Views/Shared/_Layout.cshtml"; // Optional
 }
 
-<form action="/Payment/Charge" method="POST">
-    <script src="https://checkout.stripe.com/checkout.js"
-            class="stripe-button"
-            data-key="@ViewBag.StripePublishKey"
-            data-amount="@((int)(ViewBag.Amount * 100))"
-            data-name="My E-Commerce"
-            data-description="Secure Payment"
-            data-currency="inr">
-    </script>
-</form>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg border-0 rounded-3">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0">Confirm Payment</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center">
+                        You are about to pay <strong class="text-dark">₹@ViewBag.Amount</strong> for your order.
+                    </p>
+                    <div class="text-center my-4">
+                        <form action="/Payment/Charge" method="POST">
+                            <script src="https://checkout.stripe.com/checkout.js"
+                                    class="stripe-button"
+                                    data-key="@ViewBag.StripePublishKey"
+                                    data-amount="@((int)(ViewBag.Amount * 100))"
+                                    data-name="My E-Commerce"
+                                    data-description="Secure Payment"
+                                    data-currency="inr"
+                                    data-locale="auto">
+                            </script>
+                        </form>
+                    </div>
+                </div>
+                <div class="card-footer text-center">
+                    <p class="text-muted small mb-0">Powered by Stripe — Payment is 100% secure</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
+<style>
+    .stripe-button-el {
+        background-color: #5469d4 !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-size: 1rem !important;
+        border-radius: 6px !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .stripe-button-el span {
+        color: white !important;
+        font-weight: 600;
+    }
+</style>
