@@ -1,149 +1,190 @@
-public interface INotificationService
-{
-    Task AddNotificationAsync(int userId, int notificationCode, string orderNumber);
-    Task<int> GetUnreadCountAsync(int userId);
-    Task<List<UserNotification>> GetUserNotificationsAsync(int userId);
-    Task MarkAllAsReadAsync(int userId);
-}
-public class NotificationService : INotificationService
-{
-    private readonly AppDbContext _context;
+**Assignment Title:** Stripe Payment Gateway Integration in ASP.NET Core MVC E-Commerce System with Post-Payment Order Placement
 
-    public NotificationService(AppDbContext context)
-    {
-        _context = context;
+---
+
+**Objective:**
+Integrate Stripe payment gateway into an ASP.NET Core MVC-based e-commerce application. Ensure that the Stripe payment process is triggered after the user clicks the 'Place Order' button, and the order is placed in the database only if the payment is successful.
+
+---
+
+**Technology Stack:**
+
+* ASP.NET Core MVC
+* C#
+* Stripe.NET SDK
+* Razor Views
+
+---
+
+**Task-Based Assignment with Code Suggestions**
+
+### Task 1: Setup Stripe Environment
+
+* Register on Stripe: [https://dashboard.stripe.com/](https://dashboard.stripe.com/)
+* Generate and note your **Publishable** and **Secret** keys.
+* Install Stripe NuGet package:
+
+  ```bash
+dotnet add package Stripe.net
+  ```
+
+### Task 2: Configure Stripe in `Program.cs`
+
+* Add to `appsettings.json`:
+
+  ```json
+  {
+    "Stripe": {
+      "PublishableKey": "pk_test_...",
+      "SecretKey": "sk_test_..."
     }
+  }
+  ```
+* Create configuration model:
 
-    public async Task AddNotificationAsync(int userId, int notificationCode, string orderNumber)
-    {
-        var type = await _context.NotificationTypes.FirstOrDefaultAsync(x => x.NotificationCode == notificationCode);
-        if (type == null) return;
+  ```csharp
+  public class StripeSettings
+  {
+      public string PublishableKey { get; set; }
+      public string SecretKey { get; set; }
+  }
+  ```
+* Update `Program.cs`:
 
-        var notification = new UserNotification
-        {
-            UserId = userId,
-            NotificationTypeId = type.Id,
-            OrderNumber = orderNumber,
-            IsRead = false,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
-        };
+  ```csharp
+  var builder = WebApplication.CreateBuilder(args);
+  builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+  StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+  builder.Services.AddControllersWithViews();
+  var app = builder.Build();
+  app.UseHttpsRedirection();
+  app.UseStaticFiles();
+  app.UseRouting();
+  app.UseAuthorization();
+  app.MapControllerRoute(name: "default", pattern: "{controller=Home}/{action=Index}/{id?}");
+  app.Run();
+  ```
 
-        _context.UserNotifications.Add(notification);
-        await _context.SaveChangesAsync();
-    }
+### Task 3: Create Payment Page
 
-    public async Task<int> GetUnreadCountAsync(int userId)
-    {
-        return await _context.UserNotifications
-            .CountAsync(n => n.UserId == userId && !n.IsRead);
-    }
+* `Views/Payment/Index.cshtml`:
 
-    public async Task<List<UserNotification>> GetUserNotificationsAsync(int userId)
-    {
-        return await _context.UserNotifications
-            .Include(n => n.NotificationType)
-            .Where(n => n.UserId == userId)
-            .OrderByDescending(n => n.CreatedAt)
-            .ToListAsync();
-    }
+  ```html
+  <form action="/Payment/Charge" method="POST">
+      <script
+src="https://checkout.stripe.com/checkout.js" class="stripe-button"
+          data-key="@ViewBag.StripePublishKey"
+          data-amount="@ViewBag.Amount"
+          data-name="My E-Commerce"
+          data-description="Order Payment"
+          data-currency="inr">
+      </script>
+  </form>
+  ```
 
-    public async Task MarkAllAsReadAsync(int userId)
-    {
-        var notifications = await _context.UserNotifications
-            .Where(n => n.UserId == userId && !n.IsRead)
-            .ToListAsync();
+### Task 4: Implement Payment Controller
 
-        foreach (var n in notifications)
-        {
-            n.IsRead = true;
-            n.UpdatedAt = DateTime.Now;
-        }
+* `Controllers/PaymentController.cs`:
 
-        await _context.SaveChangesAsync();
-    }
-}
-[Authorize]
-public class NotificationController : Controller
-{
-    private readonly INotificationService _notificationService;
+  ```csharp
+  public class PaymentController : Controller
+  {
+      private readonly IConfiguration _configuration;
+      private readonly ApplicationDbContext _dbContext;
 
-    public NotificationController(INotificationService notificationService)
-    {
-        _notificationService = notificationService;
-    }
+      public PaymentController(IConfiguration configuration, ApplicationDbContext dbContext)
+      {
+          _configuration = configuration;
+          _dbContext = dbContext; // User Payment Service Here
+      }
 
-    public async Task<IActionResult> UnreadCount()
-    {
-        int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-        var count = await _notificationService.GetUnreadCountAsync(userId);
-        return Json(count);
-    }
+      public IActionResult Index(decimal amount)
+      {
+          ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
+          ViewBag.Amount = (int)(amount * 100);
+          TempData["OrderAmount"] = amount;
+          return View();
+      }
 
-    public async Task<IActionResult> List()
-    {
-        int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-        var notifications = await _notificationService.GetUserNotificationsAsync(userId);
-        return PartialView("_NotificationListPartial", notifications);
-    }
+      [HttpPost]
+      public IActionResult Charge(string stripeToken)
+      {
+          var amount = Convert.ToDecimal(TempData["OrderAmount"]);
 
-    [HttpPost]
-    public async Task<IActionResult> MarkAllRead()
-    {
-        int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-        await _notificationService.MarkAllAsReadAsync(userId);
-        return Ok();
-    }
-}
-@model List<UserNotification>
+          var options = new ChargeCreateOptions
+          {
+              Amount = (long)(amount * 100),
+              Currency = "inr",
+              Description = "Order Payment",
+              Source = stripeToken,
+          };
 
-<ul class="list-group">
-@foreach (var n in Model)
-{
-    <li class="list-group-item d-flex justify-content-between align-items-center">
-        <div>
-            <strong>@n.NotificationType.Title.Replace("@OrderNo@", n.OrderNumber)</strong><br />
-            <span class="text-muted">@n.NotificationType.Message</span><br />
-            <small class="text-secondary">@n.CreatedAt.ToString("dd MMM yyyy hh:mm tt")</small>
-        </div>
-        @if (!n.IsRead)
-        {
-            <span class="badge bg-primary">New</span>
-        }
-    </li>
-}
-</ul>
-<div class="dropdown me-3">
-    <a class="position-relative" href="#" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-        <i class="bi bi-bell fs-4 text-white"></i>
-        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationCount">0</span>
-    </a>
-    <ul class="dropdown-menu dropdown-menu-end p-2" style="width: 300px;">
-        <div id="notificationList">Loading...</div>
-        <button class="btn btn-sm btn-link mt-2" onclick="markAllRead()">Mark all as read</button>
-    </ul>
-</div>
-<script>
-function loadNotifications() {
-    $.get('/Notification/UnreadCount', function (count) {
-        $('#notificationCount').text(count);
-        if (count == 0) $('#notificationCount').hide();
-        else $('#notificationCount').show();
-    });
+          var service = new ChargeService();
+          var charge = service.Create(options);
 
-    $.get('/Notification/List', function (html) {
-        $('#notificationList').html(html);
-    });
-}
+          if (charge.Status == "succeeded")
+          {
+              var order = new Order
+              {
+                  TotalAmount = amount,
+                  StripeChargeId = charge.Id,
+                  PaymentStatus = "Paid",
+                  PaymentDate = DateTime.UtcNow
+              };
 
-function markAllRead() {
-    $.post('/Notification/MarkAllRead', function () {
-        loadNotifications();
-    });
-}
+              // User ORder Service Here...
+              _dbContext.Orders.Add(order);
+              _dbContext.SaveChanges();
 
-$(document).ready(function () {
-    loadNotifications();
-});
-</script>
-await _notificationService.AddNotificationAsync(user.Id, 1, order.OrderNumber); // Order Placed
+              return RedirectToAction("Success");
+          }
+          return RedirectToAction("Failed");
+      }
+
+      public IActionResult Success() => View();
+      public IActionResult Failed() => View();
+  }
+  ```
+
+### Task 5: Route Order Flow Correctly
+
+* `Place Order` button should:
+
+  1. Validate the cart.
+  2. Temporarily store order details (`TempData`, session, or hidden fields).
+  3. Redirect to `/Payment/Index` with the calculated total.
+
+---
+
+### Suggested Database Design (No Schema)
+
+* **Orders Table**
+
+
+  * PaymentStatus (e.g., Paid, Failed)
+  * StripeChargeId
+  * PaymentDate
+
+
+* **Products Table** (Existing)
+  * SKU
+  * StockQuantity
+
+---
+
+**Note:** Ensure the system places the order only after a successful Stripe payment. Validate the total server-side to prevent manipulation.
+
+**Test with Stripe Cards:**
+
+* Success: `4242 4242 4242 4242`
+* Failure: `4000 0000 0000 9995`
+
+---
+
+**Deliverables:**
+
+* Source code with integrated payment flow
+* Updated appsettings.json (without secrets)
+* Screenshots of successful and failed payments
+* Database design overview
+* PDF walkthrough of assignment steps
