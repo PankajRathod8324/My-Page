@@ -1,35 +1,67 @@
-public class PaymentDTO
-{
-    public decimal Amount { get; set; }
-    public List<CartItemDTO> CartItems { get; set; }
-}
+using System.Security.Claims;
+using BLL.Interfaces;
+using BLL.Utilities;
+using Entities.ViewModels;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-public class CartItemDTO
+namespace Products.Controllers;
+
+[Authorize]
+public class PaymentController : Controller
 {
-    public int Productid { get; set; }
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
-    public int Cartitemid { get; set; }
+    private readonly PaymentService _paymentService;
+    private readonly IOrderService _orderService;
+    private readonly IConfiguration _configuration;
+
+    public PaymentController(PaymentService paymentService, IOrderService orderService, IConfiguration configuration)
+    {
+        _paymentService = paymentService;
+        _orderService = orderService;
+        _configuration = configuration;
+    }
+    [HttpPost]
+    public IActionResult StorePaymentData([FromBody] PaymentDTO dto)
+    {
+        try
+        {
+            TempData["TotalAmount"] = dto.Amount.ToString("F2");
+            TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(dto.CartItems);
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            // Log the exception (ex) as needed
+            Console.WriteLine($"Error storing payment data: {ex.Message}");
+            return BadRequest(new { success = false, message = "An error occurred while processing payment data." });
+        }
+
+    }
+
+    public IActionResult Index()
+    {
+        ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
+        ViewBag.Amount = TempData["TotalAmount"];
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Charge(string stripeToken)
+    {
+        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
+        string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+        var (success, chargeId) = await _paymentService.ProcessToPaymentAsync(amount, stripeToken);
+
+        if (success)
+        {
+            // await _orderService.CreateOrderAsync(userId, amount, chargeId);
+            return RedirectToAction("Success");
+        }
+
+        return RedirectToAction("Failed");
+    }
+
+    public IActionResult Success() => View();
+    public IActionResult Failed() => View();
 }
-[HttpPost]
-public IActionResult StorePaymentData([FromBody] PaymentDTO dto)
-{
-    TempData["TotalAmount"] = dto.Amount;
-    TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(dto.CartItems);
-    return Ok();
-}
-$.ajax({
-    url: "/Payment/StorePaymentData",
-    type: "POST",
-    contentType: "application/json; charset=utf-8",
-    data: JSON.stringify({
-        amount: totalPrice,
-        cartItems: cartItems
-    }),
-    success: function () {
-        window.location.href = "/Payment/Index";
-    },
-    error: function () {
-        alert("Something went wrong while preparing payment.");
-    }
-});
