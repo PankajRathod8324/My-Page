@@ -1,190 +1,88 @@
-**Assignment Title:** Stripe Payment Gateway Integration in ASP.NET Core MVC E-Commerce System with Post-Payment Order Placement
+public interface IPaymentService
+{
+    Task<(bool success, string chargeId)> ProcessStripePaymentAsync(decimal amount, string stripeToken);
+}
+using Stripe;
+using Microsoft.Extensions.Options;
 
----
+public class StripePaymentService : IPaymentService
+{
+    private readonly StripeSettings _settings;
 
-**Objective:**
-Integrate Stripe payment gateway into an ASP.NET Core MVC-based e-commerce application. Ensure that the Stripe payment process is triggered after the user clicks the 'Place Order' button, and the order is placed in the database only if the payment is successful.
-
----
-
-**Technology Stack:**
-
-* ASP.NET Core MVC
-* C#
-* Stripe.NET SDK
-* Razor Views
-
----
-
-**Task-Based Assignment with Code Suggestions**
-
-### Task 1: Setup Stripe Environment
-
-* Register on Stripe: [https://dashboard.stripe.com/](https://dashboard.stripe.com/)
-* Generate and note your **Publishable** and **Secret** keys.
-* Install Stripe NuGet package:
-
-  ```bash
-dotnet add package Stripe.net
-  ```
-
-### Task 2: Configure Stripe in `Program.cs`
-
-* Add to `appsettings.json`:
-
-  ```json
-  {
-    "Stripe": {
-      "PublishableKey": "pk_test_...",
-      "SecretKey": "sk_test_..."
+    public StripePaymentService(IOptions<StripeSettings> options)
+    {
+        _settings = options.Value;
+        StripeConfiguration.ApiKey = _settings.SecretKey;
     }
-  }
-  ```
-* Create configuration model:
 
-  ```csharp
-  public class StripeSettings
-  {
-      public string PublishableKey { get; set; }
-      public string SecretKey { get; set; }
-  }
-  ```
-* Update `Program.cs`:
+    public async Task<(bool success, string chargeId)> ProcessStripePaymentAsync(decimal amount, string stripeToken)
+    {
+        var options = new ChargeCreateOptions
+        {
+            Amount = (long)(amount * 100),
+            Currency = "inr",
+            Description = "Order Payment",
+            Source = stripeToken,
+        };
 
-  ```csharp
-  var builder = WebApplication.CreateBuilder(args);
-  builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
-  StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
-  builder.Services.AddControllersWithViews();
-  var app = builder.Build();
-  app.UseHttpsRedirection();
-  app.UseStaticFiles();
-  app.UseRouting();
-  app.UseAuthorization();
-  app.MapControllerRoute(name: "default", pattern: "{controller=Home}/{action=Index}/{id?}");
-  app.Run();
-  ```
+        var service = new ChargeService();
+        var charge = await service.CreateAsync(options);
 
-### Task 3: Create Payment Page
+        return (charge.Status == "succeeded", charge.Id);
+    }
+}
+public class PaymentController : Controller
+{
+    private readonly IPaymentService _paymentService;
+    private readonly IOrderService _orderService;
+    private readonly IConfiguration _configuration;
 
-* `Views/Payment/Index.cshtml`:
+    public PaymentController(IPaymentService paymentService, IOrderService orderService, IConfiguration configuration)
+    {
+        _paymentService = paymentService;
+        _orderService = orderService;
+        _configuration = configuration;
+    }
 
-  ```html
-  <form action="/Payment/Charge" method="POST">
-      <script
-src="https://checkout.stripe.com/checkout.js" class="stripe-button"
-          data-key="@ViewBag.StripePublishKey"
-          data-amount="@ViewBag.Amount"
-          data-name="My E-Commerce"
-          data-description="Order Payment"
-          data-currency="inr">
-      </script>
-  </form>
-  ```
+    public IActionResult Index(decimal amount)
+    {
+        ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
+        ViewBag.Amount = (int)(amount * 100); // in paise
+        TempData["TotalAmount"] = amount;
+        return View();
+    }
 
-### Task 4: Implement Payment Controller
+    [HttpPost]
+    public async Task<IActionResult> Charge(string stripeToken)
+    {
+        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
+        string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-* `Controllers/PaymentController.cs`:
+        var (success, chargeId) = await _paymentService.ProcessStripePaymentAsync(amount, stripeToken);
 
-  ```csharp
-  public class PaymentController : Controller
-  {
-      private readonly IConfiguration _configuration;
-      private readonly ApplicationDbContext _dbContext;
+        if (success)
+        {
+            await _orderService.PlaceOrderAsync(userId, amount, chargeId);
+            return RedirectToAction("Success");
+        }
 
-      public PaymentController(IConfiguration configuration, ApplicationDbContext dbContext)
-      {
-          _configuration = configuration;
-          _dbContext = dbContext; // User Payment Service Here
-      }
+        return RedirectToAction("Failed");
+    }
 
-      public IActionResult Index(decimal amount)
-      {
-          ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
-          ViewBag.Amount = (int)(amount * 100);
-          TempData["OrderAmount"] = amount;
-          return View();
-      }
+    public IActionResult Success() => View();
+    public IActionResult Failed() => View();
+}
+@{
+    ViewBag.Title = "Payment";
+}
 
-      [HttpPost]
-      public IActionResult Charge(string stripeToken)
-      {
-          var amount = Convert.ToDecimal(TempData["OrderAmount"]);
-
-          var options = new ChargeCreateOptions
-          {
-              Amount = (long)(amount * 100),
-              Currency = "inr",
-              Description = "Order Payment",
-              Source = stripeToken,
-          };
-
-          var service = new ChargeService();
-          var charge = service.Create(options);
-
-          if (charge.Status == "succeeded")
-          {
-              var order = new Order
-              {
-                  TotalAmount = amount,
-                  StripeChargeId = charge.Id,
-                  PaymentStatus = "Paid",
-                  PaymentDate = DateTime.UtcNow
-              };
-
-              // User ORder Service Here...
-              _dbContext.Orders.Add(order);
-              _dbContext.SaveChanges();
-
-              return RedirectToAction("Success");
-          }
-          return RedirectToAction("Failed");
-      }
-
-      public IActionResult Success() => View();
-      public IActionResult Failed() => View();
-  }
-  ```
-
-### Task 5: Route Order Flow Correctly
-
-* `Place Order` button should:
-
-  1. Validate the cart.
-  2. Temporarily store order details (`TempData`, session, or hidden fields).
-  3. Redirect to `/Payment/Index` with the calculated total.
-
----
-
-### Suggested Database Design (No Schema)
-
-* **Orders Table**
-
-
-  * PaymentStatus (e.g., Paid, Failed)
-  * StripeChargeId
-  * PaymentDate
-
-
-* **Products Table** (Existing)
-  * SKU
-  * StockQuantity
-
----
-
-**Note:** Ensure the system places the order only after a successful Stripe payment. Validate the total server-side to prevent manipulation.
-
-**Test with Stripe Cards:**
-
-* Success: `4242 4242 4242 4242`
-* Failure: `4000 0000 0000 9995`
-
----
-
-**Deliverables:**
-
-* Source code with integrated payment flow
-* Updated appsettings.json (without secrets)
-* Screenshots of successful and failed payments
-* Database design overview
-* PDF walkthrough of assignment steps
+<form action="/Payment/Charge" method="POST">
+    <script src="https://checkout.stripe.com/checkout.js"
+            class="stripe-button"
+            data-key="@ViewBag.StripePublishKey"
+            data-amount="@ViewBag.Amount"
+            data-name="My E-Commerce"
+            data-description="Secure Payment"
+            data-currency="inr">
+    </script>
+</form>
