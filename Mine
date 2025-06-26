@@ -1,53 +1,59 @@
-@{
-    ViewBag.Title = "Payment";
-    Layout = "~/Views/Shared/_Layout.cshtml"; // Optional
+ const orderData = {
+            Ordernumber: generateOrderNumber(),
+            Totalitems: totalQty,
+            Paymentmethod: paymentMethod,
+            Orderstatus: "Pending",
+            Price: totalPrice,
+            Createdby: 1,
+            Createdat: new Date().toISOString(),
+            CartItems: cartItems
+        };now i wnat to sent the data using like u have write in jaxa and set the data here i onlyn send the data of orderAmount, CartItems only and using ajx so it will use in temdata that time and then in resuklt redirect to Payment/Index so i can use and make PaymentDTO if u want to use then chnage the comntroller according to thatusing System.Security.Claims;
+using BLL.Interfaces;
+using BLL.Utilities;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Products.Controllers;
+
+[Authorize]
+public class PaymentController : Controller
+{
+    private readonly PaymentService _paymentService;
+    private readonly IOrderService _orderService;
+    private readonly IConfiguration _configuration;
+
+    public PaymentController(PaymentService paymentService, IOrderService orderService, IConfiguration configuration)
+    {
+        _paymentService = paymentService;
+        _orderService = orderService;
+        _configuration = configuration;
+    }
+
+    public IActionResult Index(decimal amount)
+    {
+        ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
+        ViewBag.Amount = (int)(amount * 100);
+        TempData["TotalAmount"] = amount.ToString("F2");
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Charge(string stripeToken)
+    {
+        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
+        string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+        var (success, chargeId) = await _paymentService.ProcessToPaymentAsync(amount, stripeToken);
+
+        if (success)
+        {
+            // await _orderService.PlaceOrderAsync(userId, amount, chargeId);
+            return RedirectToAction("Success");
+        }
+
+        return RedirectToAction("Failed");
+    }
+
+    public IActionResult Success() => View();
+    public IActionResult Failed() => View();
 }
-
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <div class="card shadow-lg border-0 rounded-3">
-                <div class="card-header bg-primary text-white text-center py-3">
-                    <h4 class="mb-0">Confirm Payment</h4>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted text-center">
-                        You are about to pay <strong class="text-dark">₹@ViewBag.Amount</strong> for your order.
-                    </p>
-                    <div class="text-center my-4">
-                        <form action="/Payment/Charge" method="POST">
-                            <script src="https://checkout.stripe.com/checkout.js"
-                                    class="stripe-button"
-                                    data-key="@ViewBag.StripePublishKey"
-                                    data-amount="@((int)(ViewBag.Amount * 100))"
-                                    data-name="My E-Commerce"
-                                    data-description="Secure Payment"
-                                    data-currency="inr"
-                                    data-locale="auto">
-                            </script>
-                        </form>
-                    </div>
-                </div>
-                <div class="card-footer text-center">
-                    <p class="text-muted small mb-0">Powered by Stripe — Payment is 100% secure</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    .stripe-button-el {
-        background-color: #5469d4 !important;
-        border: none !important;
-        padding: 12px 24px !important;
-        font-size: 1rem !important;
-        border-radius: 6px !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-    }
-
-    .stripe-button-el span {
-        color: white !important;
-        font-weight: 600;
-    }
-</style>
