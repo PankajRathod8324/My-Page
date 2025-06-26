@@ -1,19 +1,35 @@
- [HttpPost]
-    public IActionResult StorePaymentData(decimal amount, List<CartItemDTO> cartItems)
-    {
-        TempData["TotalAmount"] = amount;
-        TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(cartItems);
-        return Ok();
-    }  $.ajax({
-            url: "/Payment/StorePaymentData",
-            type: "POST",
-            data: JSON.stringify({ amount: totalPrice, cartItems: cartItems }),
-            dataType: "json",
-            contentType: "application/json; charset=utf-8",
-            success: function () {
-                window.location.href = "/Payment/Index";
-            },
-            error: function () {
-                alert("Something went wrong while preparing payment.");
-            }
-        }); why the data is not coming in controller
+public class PaymentDTO
+{
+    public decimal Amount { get; set; }
+    public List<CartItemDTO> CartItems { get; set; }
+}
+
+public class CartItemDTO
+{
+    public int Productid { get; set; }
+    public int Quantity { get; set; }
+    public decimal Price { get; set; }
+    public int Cartitemid { get; set; }
+}
+[HttpPost]
+public IActionResult StorePaymentData([FromBody] PaymentDTO dto)
+{
+    TempData["TotalAmount"] = dto.Amount;
+    TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(dto.CartItems);
+    return Ok();
+}
+$.ajax({
+    url: "/Payment/StorePaymentData",
+    type: "POST",
+    contentType: "application/json; charset=utf-8",
+    data: JSON.stringify({
+        amount: totalPrice,
+        cartItems: cartItems
+    }),
+    success: function () {
+        window.location.href = "/Payment/Index";
+    },
+    error: function () {
+        alert("Something went wrong while preparing payment.");
+    }
+});
