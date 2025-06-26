@@ -1,77 +1,3 @@
-public interface IPaymentService
-{
-    Task<(bool success, string chargeId)> ProcessStripePaymentAsync(decimal amount, string stripeToken);
-}
-using Stripe;
-using Microsoft.Extensions.Options;
-
-public class StripePaymentService : IPaymentService
-{
-    private readonly StripeSettings _settings;
-
-    public StripePaymentService(IOptions<StripeSettings> options)
-    {
-        _settings = options.Value;
-        StripeConfiguration.ApiKey = _settings.SecretKey;
-    }
-
-    public async Task<(bool success, string chargeId)> ProcessStripePaymentAsync(decimal amount, string stripeToken)
-    {
-        var options = new ChargeCreateOptions
-        {
-            Amount = (long)(amount * 100),
-            Currency = "inr",
-            Description = "Order Payment",
-            Source = stripeToken,
-        };
-
-        var service = new ChargeService();
-        var charge = await service.CreateAsync(options);
-
-        return (charge.Status == "succeeded", charge.Id);
-    }
-}
-public class PaymentController : Controller
-{
-    private readonly IPaymentService _paymentService;
-    private readonly IOrderService _orderService;
-    private readonly IConfiguration _configuration;
-
-    public PaymentController(IPaymentService paymentService, IOrderService orderService, IConfiguration configuration)
-    {
-        _paymentService = paymentService;
-        _orderService = orderService;
-        _configuration = configuration;
-    }
-
-    public IActionResult Index(decimal amount)
-    {
-        ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
-        ViewBag.Amount = (int)(amount * 100); // in paise
-        TempData["TotalAmount"] = amount;
-        return View();
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Charge(string stripeToken)
-    {
-        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
-        string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-        var (success, chargeId) = await _paymentService.ProcessStripePaymentAsync(amount, stripeToken);
-
-        if (success)
-        {
-            await _orderService.PlaceOrderAsync(userId, amount, chargeId);
-            return RedirectToAction("Success");
-        }
-
-        return RedirectToAction("Failed");
-    }
-
-    public IActionResult Success() => View();
-    public IActionResult Failed() => View();
-}
 @{
     ViewBag.Title = "Payment";
 }
@@ -80,9 +6,10 @@ public class PaymentController : Controller
     <script src="https://checkout.stripe.com/checkout.js"
             class="stripe-button"
             data-key="@ViewBag.StripePublishKey"
-            data-amount="@ViewBag.Amount"
+            data-amount="@((int)(ViewBag.Amount * 100))"
             data-name="My E-Commerce"
             data-description="Secure Payment"
             data-currency="inr">
     </script>
 </form>
+
