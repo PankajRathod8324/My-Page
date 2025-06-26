@@ -1,59 +1,24 @@
- const orderData = {
-            Ordernumber: generateOrderNumber(),
-            Totalitems: totalQty,
-            Paymentmethod: paymentMethod,
-            Orderstatus: "Pending",
-            Price: totalPrice,
-            Createdby: 1,
-            Createdat: new Date().toISOString(),
-            CartItems: cartItems
-        };now i wnat to sent the data using like u have write in jaxa and set the data here i onlyn send the data of orderAmount, CartItems only and using ajx so it will use in temdata that time and then in resuklt redirect to Payment/Index so i can use and make PaymentDTO if u want to use then chnage the comntroller according to thatusing System.Security.Claims;
-using BLL.Interfaces;
-using BLL.Utilities;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+const paymentDto = {
+    orderAmount: totalPrice,
+    cartItems: cartItems
+};
 
-namespace Products.Controllers;
-
-[Authorize]
-public class PaymentController : Controller
+$.ajax({
+    url: "/Payment/StorePaymentData",
+    type: "POST",
+    contentType: "application/json",
+    data: JSON.stringify(paymentDto),
+    success: function () {
+        window.location.href = "/Payment/Index";
+    },
+    error: function () {
+        alert("Something went wrong while preparing payment.");
+    }
+});
+[HttpPost]
+public IActionResult StorePaymentData([FromBody] PaymentDTO dto)
 {
-    private readonly PaymentService _paymentService;
-    private readonly IOrderService _orderService;
-    private readonly IConfiguration _configuration;
-
-    public PaymentController(PaymentService paymentService, IOrderService orderService, IConfiguration configuration)
-    {
-        _paymentService = paymentService;
-        _orderService = orderService;
-        _configuration = configuration;
-    }
-
-    public IActionResult Index(decimal amount)
-    {
-        ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
-        ViewBag.Amount = (int)(amount * 100);
-        TempData["TotalAmount"] = amount.ToString("F2");
-        return View();
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Charge(string stripeToken)
-    {
-        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
-        string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-        var (success, chargeId) = await _paymentService.ProcessToPaymentAsync(amount, stripeToken);
-
-        if (success)
-        {
-            // await _orderService.PlaceOrderAsync(userId, amount, chargeId);
-            return RedirectToAction("Success");
-        }
-
-        return RedirectToAction("Failed");
-    }
-
-    public IActionResult Success() => View();
-    public IActionResult Failed() => View();
+    TempData["TotalAmount"] = dto.OrderAmount.ToString("F2");
+    TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(dto.CartItems);
+    return Ok(); // simple confirmation
 }
