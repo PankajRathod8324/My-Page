@@ -1,24 +1,19 @@
-const paymentDto = {
-    orderAmount: totalPrice,
-    cartItems: cartItems
-};
-
-$.ajax({
-    url: "/Payment/StorePaymentData",
-    type: "POST",
-    contentType: "application/json",
-    data: JSON.stringify(paymentDto),
-    success: function () {
-        window.location.href = "/Payment/Index";
-    },
-    error: function () {
-        alert("Something went wrong while preparing payment.");
-    }
-});
-[HttpPost]
-public IActionResult StorePaymentData([FromBody] PaymentDTO dto)
-{
-    TempData["TotalAmount"] = dto.OrderAmount.ToString("F2");
-    TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(dto.CartItems);
-    return Ok(); // simple confirmation
-}
+ [HttpPost]
+    public IActionResult StorePaymentData(decimal amount, List<CartItemDTO> cartItems)
+    {
+        TempData["TotalAmount"] = amount;
+        TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(cartItems);
+        return Ok();
+    }  $.ajax({
+            url: "/Payment/StorePaymentData",
+            type: "POST",
+            data: JSON.stringify({ amount: totalPrice, cartItems: cartItems }),
+            dataType: "json",
+            contentType: "application/json; charset=utf-8",
+            success: function () {
+                window.location.href = "/Payment/Index";
+            },
+            error: function () {
+                alert("Something went wrong while preparing payment.");
+            }
+        }); why the data is not coming in controller
