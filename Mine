@@ -1,67 +1,27 @@
-using System.Security.Claims;
-using BLL.Interfaces;
-using BLL.Utilities;
-using Entities.ViewModels;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-
-namespace Products.Controllers;
-
-[Authorize]
-public class PaymentController : Controller
+public IActionResult Index()
 {
-    private readonly PaymentService _paymentService;
-    private readonly IOrderService _orderService;
-    private readonly IConfiguration _configuration;
+    ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
+    ViewBag.Amount = TempData["TotalAmount"];
+    TempData.Keep("TotalAmount");   // 👈 This keeps the value for next request
+    TempData.Keep("CartItems");     // 👈 Also keep CartItems for use in Charge
+    return View();
+}
+[HttpPost]
+public async Task<IActionResult> Charge(string stripeToken)
+{
+    string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-    public PaymentController(PaymentService paymentService, IOrderService orderService, IConfiguration configuration)
-    {
-        _paymentService = paymentService;
-        _orderService = orderService;
-        _configuration = configuration;
-    }
-    [HttpPost]
-    public IActionResult StorePaymentData([FromBody] PaymentDTO dto)
-    {
-        try
-        {
-            TempData["TotalAmount"] = dto.Amount.ToString("F2");
-            TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(dto.CartItems);
-            return Ok(new { success = true });
-        }
-        catch (Exception ex)
-        {
-            // Log the exception (ex) as needed
-            Console.WriteLine($"Error storing payment data: {ex.Message}");
-            return BadRequest(new { success = false, message = "An error occurred while processing payment data." });
-        }
+    decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
+    var cartItemsJson = TempData["CartItems"]?.ToString();
+    var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItemDTO>>(cartItemsJson ?? "[]");
 
-    }
+    var (success, chargeId) = await _paymentService.ProcessToPaymentAsync(amount, stripeToken);
 
-    public IActionResult Index()
-    {
-        ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
-        ViewBag.Amount = TempData["TotalAmount"];
-        return View();
-    }
+    if (success)
+    {
+        await _orderService.CreateOrderAsync(userId, amount, chargeId, cartItems);
+        return RedirectToAction("Success");
+    }
 
-    [HttpPost]
-    public async Task<IActionResult> Charge(string stripeToken)
-    {
-        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
-        string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-        var (success, chargeId) = await _paymentService.ProcessToPaymentAsync(amount, stripeToken);
-
-        if (success)
-        {
-            // await _orderService.CreateOrderAsync(userId, amount, chargeId);
-            return RedirectToAction("Success");
-        }
-
-        return RedirectToAction("Failed");
-    }
-
-    public IActionResult Success() => View();
-    public IActionResult Failed() => View();
+    return RedirectToAction("Failed");
 }
