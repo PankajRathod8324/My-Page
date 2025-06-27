@@ -1,86 +1,23 @@
-  [HttpGet]
-    public IActionResult CreateCheckoutSession()
+var options = new Stripe.Checkout.SessionCreateOptions
+{
+    PaymentMethodTypes = new List<string> { "card" },
+    Mode = "payment",
+    LineItems = new List<SessionLineItemOptions>
     {
-        StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
-
-        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
-        TempData.Keep("TotalAmount");
-        TempData.Keep("CartItems");
-        TempData.Keep("PaymentMethod");
-
-        var options = new Stripe.Checkout.SessionCreateOptions
+        new SessionLineItemOptions
         {
-            PaymentMethodTypes = new List<string> { "card" },
-            Mode = "payment",
-            LineItems = new List<SessionLineItemOptions>
-        {
-            new SessionLineItemOptions
+            PriceData = new SessionLineItemPriceDataOptions
             {
-                PriceData = new SessionLineItemPriceDataOptions
+                Currency = "inr",
+                UnitAmount = (long?)amount,
+                ProductData = new SessionLineItemPriceDataProductDataOptions
                 {
-                    Currency = "inr",
-                    UnitAmount = (long?)amount,
-                    ProductData = new SessionLineItemPriceDataProductDataOptions
-                    {
-                        Name = "Order Payment"
-                    },
+                    Name = "Order Payment"
                 },
-                Quantity = 1
             },
+            Quantity = 1
         },
-            SuccessUrl = Url.Action("Success", "Payment", null, Request.Scheme),
-            CancelUrl = Url.Action("Failed", "Payment", null, Request.Scheme),
-        };
-
-        var service = new Stripe.Checkout.SessionService();
-        var session = service.Create(options);
-
-        return Json(new { id = session.Id });
-    }
-    [AllowAnonymous]
-    public async Task<IActionResult> Success(string session_id)
-    {
-        try
-        {
-            StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
-            var service = new Stripe.Checkout.SessionService();
-            var session = service.Get(session_id);
-
-            var paymentIntentId = session.PaymentIntentId;
-            var paymentIntentService = new Stripe.PaymentIntentService();
-            var paymentIntent = paymentIntentService.Get(paymentIntentId);
-
-            var chargeService = new Stripe.ChargeService();
-            var charge = chargeService.Get(paymentIntent.LatestChargeId);
-            var transactionId = charge.Id;
-
-            var amount = Convert.ToDecimal(TempData["TotalAmount"]);
-            var cartItemsJson = TempData["CartItems"]?.ToString();
-            var paymentMethod = TempData["PaymentMethod"]?.ToString();
-
-            if (string.IsNullOrEmpty(cartItemsJson) || string.IsNullOrEmpty(paymentMethod))
-            {
-                return RedirectToAction("Index", "Cart");
-            }
-
-            var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItemDTO>>(cartItemsJson);
-
-            var order = new OrderDTO
-            {
-                Price = amount,
-                PaymentMethod = paymentMethod,
-                CartItems = cartItems,
-                StripeChargeId = transactionId,
-            };
-
-            await _orderService.CreateOrderAsync(order);
-
-            ViewBag.Message = "Your payment was successful, and your order has been placed!";
-            return View();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Order creation error: {ex.Message}");
-            return RedirectToAction("Failed");
-        }
-    } in succes i didn't get the sessionId whyy 
+    },
+    SuccessUrl = Url.Action("Success", "Payment", new { session_id = "{CHECKOUT_SESSION_ID}" }, Request.Scheme),
+    CancelUrl = Url.Action("Failed", "Payment", null, Request.Scheme),
+};
