@@ -1,3 +1,53 @@
+ $.ajax({
+            url: "/Payment/StorePaymentData",
+            type: "POST",
+            contentType: "application/json; charset=utf-8",
+            data: JSON.stringify({
+                Amount: totalPrice,
+                CartItems: cartItems,
+                PaymentMethod: paymentMethod,
+            }),
+            success: function (response) {
+                if (response && response.success) {
+                    window.location.href = "/Payment/Index";
+                } else {
+                    alert("Failed to process payment. Please try again.");
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Error:", error);
+                alert("Something went wrong while preparing payment.");
+            }
+        });
+
+ [HttpPost]
+    public IActionResult StorePaymentData([FromBody] PaymentDTO dto)
+    {
+        try
+        {
+            TempData["TotalAmount"] = dto.Amount.ToString("F2");
+            TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(dto.CartItems);
+            TempData["PaymentMethod"] = dto.PaymentMethod;
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error storing payment data: {ex.Message}");
+            return BadRequest(new { success = false, message = "An error occurred while processing payment data." });
+        }
+
+    }
+
+ public IActionResult Index()
+    {
+        ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
+        ViewBag.Amount = TempData["TotalAmount"];
+        TempData.Keep("TotalAmount");
+        TempData.Keep("CartItems");
+        TempData.Keep("PaymentMethod");
+        return View();
+    }
+
 @{
     ViewBag.Title = "Payment";
 }
@@ -23,8 +73,6 @@
                                     data-locale="auto">
                                 </script>
                             </div>
-
-
                         </form>
                     </div>
                 </div>
@@ -51,3 +99,33 @@
         font-weight: 600;
     }
 </style>
+   [HttpPost]
+    public async Task<IActionResult> Charge(string stripeToken)
+    {
+
+        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
+        var cartItemsJson = TempData["CartItems"]!.ToString();
+        List<CartItemDTO>? cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItemDTO>>(cartItemsJson!);
+
+        var (success, chargeId) = await _paymentService.ProcessToPaymentAsync(amount, stripeToken);
+        var order = new OrderDTO
+        {
+            Price = amount,
+            PaymentMethod = TempData["PaymentMethod"].ToString(),
+            CartItems = cartItems,
+            StripeChargeId = chargeId,
+        };
+
+        if (success)
+        {
+            await _orderService.CreateOrderAsync(order);
+
+            return RedirectToAction("Success");
+        }
+
+        return RedirectToAction("Failed");
+    }
+
+    public IActionResult Success() => View();
+    public IActionResult Failed() => View();
+}this things now her i only get the card option in very small modal
