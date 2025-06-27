@@ -1,2 +1,46 @@
- string useremail = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Email)?.Value;
-        User user = _userRepository.GetUserByEmail(useremail); these step i have tyo also do when i have to find created by adn updated by so give me one somethiung that when i create token itr will store that time and i have to just take form the userid when i needded okay for not all the place i have call the repo all time okay
+[AllowAnonymous]
+public async Task<IActionResult> Success(string session_id)
+{
+    try
+    {
+        StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
+        var service = new Stripe.Checkout.SessionService();
+        var session = service.Get(session_id);
+
+        // Retrieve the PaymentIntent
+        var paymentIntentId = session.PaymentIntentId;
+        var paymentIntentService = new Stripe.PaymentIntentService();
+        var paymentIntent = paymentIntentService.Get(paymentIntentId);
+
+        var transactionId = paymentIntent.Charges.Data[0].Id; // StripeChargeId you can store
+
+        var amount = Convert.ToDecimal(TempData["TotalAmount"]);
+        var cartItemsJson = TempData["CartItems"]?.ToString();
+        var paymentMethod = TempData["PaymentMethod"]?.ToString();
+
+        if (string.IsNullOrEmpty(cartItemsJson) || string.IsNullOrEmpty(paymentMethod))
+        {
+            return RedirectToAction("Index", "Cart");
+        }
+
+        var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItemDTO>>(cartItemsJson);
+
+        var order = new OrderDTO
+        {
+            Price = amount,
+            PaymentMethod = paymentMethod,
+            CartItems = cartItems,
+            StripeChargeId = transactionId, // ✅ Store actual transaction ID
+        };
+
+        await _orderService.CreateOrderAsync(order);
+
+        ViewBag.Message = "Your payment was successful, and your order has been placed!";
+        return View();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Order creation error: {ex.Message}");
+        return RedirectToAction("Failed");
+    }
+}
