@@ -1,3 +1,77 @@
+ [HttpGet]
+    public IActionResult CreateCheckoutSession()
+    {
+        StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
+
+        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
+        TempData.Keep("TotalAmount");
+        TempData.Keep("CartItems");
+        TempData.Keep("PaymentMethod");
+
+        var options = new Stripe.Checkout.SessionCreateOptions
+        {
+            PaymentMethodTypes = new List<string> { "card" },
+            Mode = "payment",
+            LineItems = new List<SessionLineItemOptions>
+        {
+            new SessionLineItemOptions
+            {
+                PriceData = new SessionLineItemPriceDataOptions
+                {
+                    Currency = "inr",
+                    UnitAmount = (long?)amount,
+                    ProductData = new SessionLineItemPriceDataProductDataOptions
+                    {
+                        Name = "Order Payment"
+                    },
+                },
+                Quantity = 1
+            },
+        },
+            SuccessUrl = Url.Action("Success", "Payment", null, Request.Scheme),
+            CancelUrl = Url.Action("Failed", "Payment", null, Request.Scheme),
+        };
+
+        var service = new Stripe.Checkout.SessionService();
+        var session = service.Create(options);
+
+        return Json(new { id = session.Id });
+    }
+
+    public async Task<IActionResult> Success()
+    {
+        try
+        {
+            var amount = Convert.ToDecimal(TempData["TotalAmount"]);
+            var cartItemsJson = TempData["CartItems"]?.ToString();
+            var paymentMethod = TempData["PaymentMethod"]?.ToString();
+
+            if (string.IsNullOrEmpty(cartItemsJson) || string.IsNullOrEmpty(paymentMethod))
+            {
+                return RedirectToAction("Index", "Cart");
+            }
+
+            var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItemDTO>>(cartItemsJson);
+
+            var order = new OrderDTO
+            {
+                Price = amount,
+                PaymentMethod = paymentMethod,
+                CartItems = cartItems,
+                StripeChargeId = "StripeHostedCheckout", 
+            };
+
+            await _orderService.CreateOrderAsync(order);
+
+            ViewBag.Message = "Your payment was successful, and your order has been placed!";
+            return View();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Order creation error: {ex.Message}");
+            return RedirectToAction("Failed");
+        }
+    }
 @{
     ViewBag.Title = "Payment";
 }
@@ -39,78 +113,4 @@
             });
     });
 </script>
-[HttpGet]
-public IActionResult CreateCheckoutSession()
-{
-    StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
-
-    decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
-    TempData.Keep("TotalAmount");
-    TempData.Keep("CartItems");
-    TempData.Keep("PaymentMethod");
-
-    var options = new SessionCreateOptions
-    {
-        PaymentMethodTypes = new List<string> { "card", "upi", "netbanking" },
-        Mode = "payment",
-        LineItems = new List<SessionLineItemOptions>
-        {
-            new SessionLineItemOptions
-            {
-                PriceData = new SessionLineItemPriceDataOptions
-                {
-                    Currency = "inr",
-                    UnitAmount = (long)(amount * 100),
-                    ProductData = new SessionLineItemPriceDataProductDataOptions
-                    {
-                        Name = "Order Payment"
-                    },
-                },
-                Quantity = 1
-            },
-        },
-        SuccessUrl = Url.Action("Success", "Payment", null, Request.Scheme),
-        CancelUrl = Url.Action("Failed", "Payment", null, Request.Scheme),
-    };
-
-    var service = new SessionService();
-    var session = service.Create(options);
-
-    return Json(new { id = session.Id });
-}
-public async Task<IActionResult> Success()
-{
-    try
-    {
-        var amount = Convert.ToDecimal(TempData["TotalAmount"]);
-        var cartItemsJson = TempData["CartItems"]?.ToString();
-        var paymentMethod = TempData["PaymentMethod"]?.ToString();
-
-        if (string.IsNullOrEmpty(cartItemsJson) || string.IsNullOrEmpty(paymentMethod))
-        {
-            // If TempData expired, redirect to cart
-            return RedirectToAction("Index", "Cart");
-        }
-
-        var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItemDTO>>(cartItemsJson);
-
-        var order = new OrderDTO
-        {
-            Price = amount,
-            PaymentMethod = paymentMethod,
-            CartItems = cartItems,
-            StripeChargeId = "StripeHostedCheckout", // Or leave null / set later if using webhook
-        };
-
-        await _orderService.CreateOrderAsync(order);
-
-        ViewBag.Message = "Your payment was successful, and your order has been placed!";
-        return View();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Order creation error: {ex.Message}");
-        // Optionally log the error using your logger
-        return RedirectToAction("Failed");
-    }
-}
+her what happend the CreateCheckoutSession is called on but when i click pay then what happens it thriw me to login page whyy
