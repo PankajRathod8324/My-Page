@@ -1,53 +1,3 @@
- $.ajax({
-            url: "/Payment/StorePaymentData",
-            type: "POST",
-            contentType: "application/json; charset=utf-8",
-            data: JSON.stringify({
-                Amount: totalPrice,
-                CartItems: cartItems,
-                PaymentMethod: paymentMethod,
-            }),
-            success: function (response) {
-                if (response && response.success) {
-                    window.location.href = "/Payment/Index";
-                } else {
-                    alert("Failed to process payment. Please try again.");
-                }
-            },
-            error: function (xhr, status, error) {
-                console.error("Error:", error);
-                alert("Something went wrong while preparing payment.");
-            }
-        });
-
- [HttpPost]
-    public IActionResult StorePaymentData([FromBody] PaymentDTO dto)
-    {
-        try
-        {
-            TempData["TotalAmount"] = dto.Amount.ToString("F2");
-            TempData["CartItems"] = System.Text.Json.JsonSerializer.Serialize(dto.CartItems);
-            TempData["PaymentMethod"] = dto.PaymentMethod;
-            return Ok(new { success = true });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error storing payment data: {ex.Message}");
-            return BadRequest(new { success = false, message = "An error occurred while processing payment data." });
-        }
-
-    }
-
- public IActionResult Index()
-    {
-        ViewBag.StripePublishKey = _configuration["Stripe:PublishableKey"];
-        ViewBag.Amount = TempData["TotalAmount"];
-        TempData.Keep("TotalAmount");
-        TempData.Keep("CartItems");
-        TempData.Keep("PaymentMethod");
-        return View();
-    }
-
 @{
     ViewBag.Title = "Payment";
 }
@@ -59,22 +9,13 @@
                 <div class="card-header bg-primary text-white text-center py-3">
                     <h4 class="mb-0">Confirm Payment</h4>
                 </div>
-                <div class="card-body">
-                    <p class="text-muted text-center">
-                        You are about to pay <strong class="text-dark">₹@ViewBag.Amount</strong>
-                        for your order.
+                <div class="card-body text-center">
+                    <p class="text-muted">
+                        You are about to pay <strong class="text-dark">₹@ViewBag.Amount</strong> for your order.
                     </p>
-                    <div class="text-center my-4">
-                        <form action="/Payment/Charge" method="POST">
-                            <div id="stripe-button-container">
-                                <script src="https://checkout.stripe.com/checkout.js" class="stripe-button"
-                                    data-key="@ViewBag.StripePublishKey" data-amount="@((ViewBag.Amount))"
-                                    data-name="My E-Commerce" data-description="Secure Payment" data-currency="inr"
-                                    data-locale="auto">
-                                </script>
-                            </div>
-                        </form>
-                    </div>
+                    <button id="checkout-button" class="btn btn-primary btn-lg mt-4">
+                        Proceed to Payment
+                    </button>
                 </div>
                 <div class="card-footer text-center">
                     <p class="text-muted small mb-0">Powered by Stripe — Payment is 100% secure</p>
@@ -84,48 +25,92 @@
     </div>
 </div>
 
-<style>
-    .stripe-button-el {
-        background-color: #5469d4 !important;
-        border: none !important;
-        padding: 12px 24px !important;
-        font-size: 1rem !important;
-        border-radius: 6px !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-    }
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    const stripe = Stripe('@ViewBag.StripePublishKey');
 
-    .stripe-button-el span {
-        color: white !important;
-        font-weight: 600;
-    }
-</style>
-   [HttpPost]
-    public async Task<IActionResult> Charge(string stripeToken)
+    document.getElementById("checkout-button").addEventListener("click", function () {
+        fetch("/Payment/CreateCheckoutSession")
+            .then(response => response.json())
+            .then(session => stripe.redirectToCheckout({ sessionId: session.id }))
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Failed to initiate payment. Please try again.");
+            });
+    });
+</script>
+[HttpGet]
+public IActionResult CreateCheckoutSession()
+{
+    StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
+
+    decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
+    TempData.Keep("TotalAmount");
+    TempData.Keep("CartItems");
+    TempData.Keep("PaymentMethod");
+
+    var options = new SessionCreateOptions
     {
+        PaymentMethodTypes = new List<string> { "card", "upi", "netbanking" },
+        Mode = "payment",
+        LineItems = new List<SessionLineItemOptions>
+        {
+            new SessionLineItemOptions
+            {
+                PriceData = new SessionLineItemPriceDataOptions
+                {
+                    Currency = "inr",
+                    UnitAmount = (long)(amount * 100),
+                    ProductData = new SessionLineItemPriceDataProductDataOptions
+                    {
+                        Name = "Order Payment"
+                    },
+                },
+                Quantity = 1
+            },
+        },
+        SuccessUrl = Url.Action("Success", "Payment", null, Request.Scheme),
+        CancelUrl = Url.Action("Failed", "Payment", null, Request.Scheme),
+    };
 
-        decimal amount = Convert.ToDecimal(TempData["TotalAmount"]);
-        var cartItemsJson = TempData["CartItems"]!.ToString();
-        List<CartItemDTO>? cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItemDTO>>(cartItemsJson!);
+    var service = new SessionService();
+    var session = service.Create(options);
 
-        var (success, chargeId) = await _paymentService.ProcessToPaymentAsync(amount, stripeToken);
+    return Json(new { id = session.Id });
+}
+public async Task<IActionResult> Success()
+{
+    try
+    {
+        var amount = Convert.ToDecimal(TempData["TotalAmount"]);
+        var cartItemsJson = TempData["CartItems"]?.ToString();
+        var paymentMethod = TempData["PaymentMethod"]?.ToString();
+
+        if (string.IsNullOrEmpty(cartItemsJson) || string.IsNullOrEmpty(paymentMethod))
+        {
+            // If TempData expired, redirect to cart
+            return RedirectToAction("Index", "Cart");
+        }
+
+        var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItemDTO>>(cartItemsJson);
+
         var order = new OrderDTO
         {
             Price = amount,
-            PaymentMethod = TempData["PaymentMethod"].ToString(),
+            PaymentMethod = paymentMethod,
             CartItems = cartItems,
-            StripeChargeId = chargeId,
+            StripeChargeId = "StripeHostedCheckout", // Or leave null / set later if using webhook
         };
 
-        if (success)
-        {
-            await _orderService.CreateOrderAsync(order);
+        await _orderService.CreateOrderAsync(order);
 
-            return RedirectToAction("Success");
-        }
-
+        ViewBag.Message = "Your payment was successful, and your order has been placed!";
+        return View();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Order creation error: {ex.Message}");
+        // Optionally log the error using your logger
         return RedirectToAction("Failed");
     }
-
-    public IActionResult Success() => View();
-    public IActionResult Failed() => View();
-}this things now her i only get the card option in very small modal
+}
