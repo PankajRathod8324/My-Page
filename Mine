@@ -1,91 +1,64 @@
-public abstract class BaseEntity
-{
-    public int Id { get; set; } // Or Guid if you want globally unique Ids
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public string? CreatedBy { get; set; } // store UserId or email
-    public DateTime? UpdatedAt { get; set; }
-    public string? UpdatedBy { get; set; }
-    public bool IsDeleted { get; set; } = false; // Soft delete
-}
-public class User : BaseEntity
-{
-    public string Name { get; set; }
-    public string Email { get; set; }
-    public string PasswordHash { get; set; }
-    public string Role { get; set; }
+@{
+    ViewBag.Title = "Login";
 }
 
-public class Event : BaseEntity
-{
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public string Location { get; set; }
-    public DateTime EventDateTime { get; set; }
-    public decimal BasePrice { get; set; }
-    public int SeatsAvailable { get; set; }
-    public bool IsCancelled { get; set; }
-}
-public interface IRepository<T> where T : BaseEntity
-{
-    Task<T> GetByIdAsync(int id);
-    Task<IEnumerable<T>> GetAllAsync();
-    Task AddAsync(T entity);
-    void Update(T entity);
-    void Delete(T entity);
-}
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by TEXT NULL,
-    updated_at TIMESTAMPTZ NULL,
-    updated_by TEXT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
-);
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-CREATE TABLE events (
-    id SERIAL PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT NULL,
-    location TEXT NOT NULL,
-    event_date_time TIMESTAMPTZ NOT NULL,
-    base_price NUMERIC(18,2) NOT NULL,
-    seats_available INT NOT NULL,
-    is_cancelled BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by TEXT NULL,
-    updated_at TIMESTAMPTZ NULL,
-    updated_by TEXT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
-);
+<div class="container vh-100 d-flex justify-content-center align-items-center">
+    <div class="row w-100 justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow border-0 rounded-4 overflow-hidden">
+                <div class="row g-0">
+                    <!-- Optional Image Section -->
+                    <div class="col-md-6 d-none d-md-block">
+                        <img src="https://source.unsplash.com/600x800/?event,concert" alt="Event Image"
+                            class="img-fluid h-100 w-100 object-fit-cover">
+                    </div>
 
-CREATE TABLE bookings (
-    id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL REFERENCES users(id),
-    event_id INT NOT NULL REFERENCES events(id),
-    booking_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    final_price NUMERIC(18,2) NOT NULL,
-    refund_amount NUMERIC(18,2) NULL,
-    status TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by TEXT NULL,
-    updated_at TIMESTAMPTZ NULL,
-    updated_by TEXT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
-);
+                    <!-- Form Section -->
+                    <div class="col-md-6 bg-white p-4 p-md-5">
+                        <h3 class="fw-bold mb-3 text-primary text-center">EventHub</h3>
+                        <p class="text-muted text-center mb-4">Sign in to continue</p>
 
-CREATE TABLE refund_logs (
-    id SERIAL PRIMARY KEY,
-    booking_id INT NOT NULL REFERENCES bookings(id),
-    refund_percent NUMERIC(5,2) NOT NULL,
-    refund_amount NUMERIC(18,2) NOT NULL,
-    refunded_on TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by TEXT NULL,
-    updated_at TIMESTAMPTZ NULL,
-    updated_by TEXT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
-);
+                        <form method="post" action="/Account/Login">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email address</label>
+                                <input type="email" class="form-control" id="email" name="Email" placeholder="name@example.com" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" name="Password" placeholder="Enter your password" required>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="true" id="rememberMe" name="RememberMe">
+                                    <label class="form-check-label" for="rememberMe">
+                                        Remember me
+                                    </label>
+                                </div>
+                                <a href="/Account/ForgotPassword" class="text-decoration-none small">Forgot Password?</a>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">Login</button>
+                            </div>
+                        </form>
+
+                        <p class="text-center text-muted mt-4 mb-0">
+                            Don't have an account?
+                            <a href="/Account/Register" class="text-primary text-decoration-none fw-semibold">Sign Up</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .object-fit-cover {
+        object-fit: cover;
+    }
+</style>
