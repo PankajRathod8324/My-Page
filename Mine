@@ -1,219 +1,237 @@
-**Assignment: Build an Event Management System (Mini Project) – ASP.NET MVC**
- 
-#### 🎯 **Objective**
- 
-Develop an Event Management System with **Admin** and **End User** roles to manage event creation, booking, and cancellation, with dynamic pricing and refund policies based on time.
- 
-### 📌 **Roles & Functionalities**
- 
-#### 👨‍💼 **Admin Role**
- 
-* Admin can log in securely
-* Admin can **Create**, **Edit**, and **Delete** events
- 
-  * Event Fields: Name, Description, Event DateTime, Location, Base Price, Available Seats
-* Admin can **Cancel** an event:
- 
-  * Notify all users via email
-  * Process **full refund** for all bookings
- 
----
- 
-#### 👤 **User Role**
- 
-* User can **Register / Login**
- 
-* View list of **upcoming events**
- 
-* Book events with **dynamic discount** based on time before event:
- 
-  * **Before 12 hr** → **10% discount**
-  * **Before 6 hr** → **25% discount**
-  * **Before 3 hr** → **50% discount**
-  * **Before 1 hr** → **75% discount**
- 
-* Cancel booked events with **refund rules**:
- 
-  * **Before 24 hr** → **100% refund**
-  * **Before 12 hr** → **50% refund**
-  * **Before 6 hr** → **25% refund**
-  * **Before 3 hr** → **10% refund**
-  * **Less than 2 hr** → **No refund**
- 
----
- 
-### 🗃️ **Suggested Database Tables (structure only)**
- 
-1. **Users** – `UserID`, `Name`, `Email`, `PasswordHash`, `Role`
-2. **Events** – `EventID`, `Title`, `Description`, `Location`, `EventDateTime`, `BasePrice`, `SeatsAvailable`, `IsCancelled`
-3. **Bookings** – `BookingID`, `UserID`, `EventID`, `BookingTime`, `FinalPrice`, `RefundAmount`, `Status`
-4. **RefundLogs** – `RefundID`, `BookingID`, `RefundPercent`, `RefundAmount`, `RefundedOn`
- 
- 
-### 🔧 **Technical Implementation Guidelines**
- 
-* Use **ASP.NET MVC (.NET Framework)**
-* Use **Entity Framework** (Code First or DB First)
-* Use **Razor Views** for UI
-* Implement **Role-based access** (Admin/User) with ASP.NET Identity
-* Send **email notifications** when event is cancelled
-* Dynamic **price calculation** and **refund logic** based on time using `DateTime.Now` vs `EventDateTime`
- 
-### 📤 **Bonus Features (Optional)**
- 
-* Admin: Download booking report as PDF
-* User: Booking history with status and refund details
-* Display a countdown timer to each event
- 
-### 📚 **Deliverables**
- 
-* Full Visual Studio project (.sln)
-* SQL script or migration files (optional)
-* ReadMe.txt with setup guide
-* Screenshots or video demo
- 
-## 🎨 UI Design Overview
- 
-### 🔐 **1. Login Page**
- 
-```html
-+-----------------------------+
-|    [Logo] Event System      |
-+-----------------------------+
-|  Email:    [_____________]  |
-|  Password: [_____________]  |
-|  [ Login ]   [ Register ]   |
-+-----------------------------+
-```
- 
----
- 
-### 🧑‍💼 **2. Admin Dashboard – Event Management**
- 
-```html
-+----------------------------------------------------+
-| Admin Panel (Welcome, AdminName)                  |
-+----------------------------------------------------+
-| [ + Create New Event ]                            |
-|----------------------------------------------------|
-| Title       | Date/Time   | Seats | Status | Actions |
-|-------------|-------------|--------|--------|---------|
-| Music Fest  | 25 Jun 6 PM | 100    | Active | [Edit] [Delete] [Cancel] |
-| Tech Talk   | 26 Jun 2 PM | 80     | Cancelled | [View]              |
-+----------------------------------------------------+
-```
- 
----
- 
-### 📝 **3. Admin – Create/Edit Event**
- 
-```html
-+-----------------------------+
-| [Create/Edit Event]         |
-+-----------------------------+
-| Title:         [__________] |
-| Description:   [__________] |
-| Location:      [__________] |
-| Event DateTime:[___picker__]|
-| Base Price:    [__₹___]     |
-| Total Seats:   [__100__]    |
-| [ Save ]   [ Cancel ]       |
-+-----------------------------+
-```
- 
----
- 
-### 👤 **4. User Dashboard – Upcoming Events**
- 
-```html
-+------------------------------------------------------------+
-| Welcome, UserName                                           |
-|------------------------------------------------------------|
-| Event: Music Fest                                           |
-| Date: 25-Jun, 6 PM | Location: City Hall                   |
-| Base Price: ₹500 | Available Seats: 30                     |
-| Your Price: ₹250 (75% discount)                            |
-| [Book Now]                                                  |
-+------------------------------------------------------------+
-| Event: Tech Talk                                            |
-| Date: 26-Jun, 2 PM | Location: Online                      |
-| Base Price: ₹400 | Seats Left: 10                          |
-| Your Price: ₹300 (25% discount)                            |
-| [Book Now]                                                  |
-+------------------------------------------------------------+
-```
- 
----
- 
-### 💳 **5. Booking Confirmation Page**
- 
-```html
-+-----------------------------+
-| Confirm Booking             |
-+-----------------------------+
-| Event: Music Fest           |
-| Price: ₹500                 |
-| Discount: 75%               |
-| Final Price: ₹125           |
-| [ Confirm Booking ]         |
-+-----------------------------+
-```
- 
----
- 
-### 📜 **6. My Bookings Page (User)**
- 
-```html
-+-------------------------------------------------------------+
-| My Bookings                                                 |
-+-------------------------------------------------------------+
-| Event        | Date        | Price | Status   | Action       |
-|--------------|-------------|--------|----------|--------------|
-| Music Fest   | 25-Jun 6 PM | ₹125   | Booked   | [Cancel]     |
-| Tech Talk    | 26-Jun 2 PM | ₹300   | Refunded | [View Refund]|
-+-------------------------------------------------------------+
-```
- 
----
- 
-### 🔁 **7. Refund Summary Page (Optional Modal or Page)**
- 
-```html
-+-----------------------------+
-| Refund Details              |
-+-----------------------------+
-| Booking ID: #B1024          |
-| Original Amount: ₹300       |
-| Refund %: 50%               |
-| Refunded Amount: ₹150       |
-| Refunded On: 22-Jun         |
-+-----------------------------+
-```
- 
----
- 
-### 📧 **8. Email Notification Template**
- 
-```txt
-Subject: Event Cancellation Notice – [Event Title]
- 
-Dear [UserName],
- 
-We regret to inform you that the event "[Event Title]" scheduled for [Date/Time] has been cancelled.
-A full refund of ₹[Amount] has been processed to your account.
- 
-Thank you for understanding.
- 
-– Event Management Team
-```
- 
----
- 
-## 💡 UI Styling Tips (using Bootstrap):
- 
-* Use **Bootstrap cards** for events
-* Apply **Badges** for event status:
-  `badge-success` = "Active", `badge-danger` = "Cancelled"
-* Use **Tables** for admin list & booking history
-* Use **Modal dialogs** for confirmations and refund details
-* Use **DateTime picker** for event creation (e.g., `flatpickr` or Bootstrap DatePicker)
+public class AddEventRequest
+{
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public string Location { get; set; }
+    public DateTime EventDateTime { get; set; }
+    public decimal BasePrice { get; set; }
+    public int SeatsAvailable { get; set; }
+}
+public class AddEventResponse
+{
+    public int EventID { get; set; }
+    public bool IsSuccess { get; set; }
+}
+public class EditEventRequest
+{
+    public int EventID { get; set; }
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public string Location { get; set; }
+    public DateTime EventDateTime { get; set; }
+    public decimal BasePrice { get; set; }
+    public int SeatsAvailable { get; set; }
+}
+public class GetEventResponse
+{
+    public int EventID { get; set; }
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public string Location { get; set; }
+    public DateTime EventDateTime { get; set; }
+    public decimal BasePrice { get; set; }
+    public int SeatsAvailable { get; set; }
+    public bool IsCancelled { get; set; }
+}
+public interface IEventRepository
+{
+    Task<Event> AddEventAsync(Event evt);
+    Task<Event> GetEventByIdAsync(int eventId);
+    Task<IEnumerable<Event>> GetAllEventsAsync();
+    Task UpdateEventAsync(Event evt);
+    Task DeleteEventAsync(int eventId);
+}
+public class EventRepository : IEventRepository
+{
+    private readonly AppDbContext _context;
+    public EventRepository(AppDbContext context) => _context = context;
+
+    public async Task<Event> AddEventAsync(Event evt)
+    {
+        _context.Events.Add(evt);
+        await _context.SaveChangesAsync();
+        return evt;
+    }
+
+    public async Task<Event> GetEventByIdAsync(int eventId)
+        => await _context.Events.FindAsync(eventId);
+
+    public async Task<IEnumerable<Event>> GetAllEventsAsync()
+        => await _context.Events.ToListAsync();
+
+    public async Task UpdateEventAsync(Event evt)
+    {
+        _context.Events.Update(evt);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteEventAsync(int eventId)
+    {
+        var evt = await _context.Events.FindAsync(eventId);
+        if (evt != null)
+        {
+            _context.Events.Remove(evt);
+            await _context.SaveChangesAsync();
+        }
+    }
+}
+public interface IEventService
+{
+    Task<AddEventResponse> AddEventAsync(AddEventRequest request);
+    Task<EditEventResponse> EditEventAsync(EditEventRequest request);
+    Task<GetEventResponse> GetEventByIdAsync(int eventId);
+    Task<IEnumerable<GetEventResponse>> GetAllEventsAsync();
+    Task<bool> DeleteEventAsync(int eventId);
+}
+public class EventService : IEventService
+{
+    private readonly IEventRepository _repo;
+    public EventService(IEventRepository repo) => _repo = repo;
+
+    public async Task<AddEventResponse> AddEventAsync(AddEventRequest request)
+    {
+        var evt = new Event
+        {
+            Title = request.Title,
+            Description = request.Description,
+            Location = request.Location,
+            EventDateTime = request.EventDateTime,
+            BasePrice = request.BasePrice,
+            SeatsAvailable = request.SeatsAvailable
+        };
+
+        evt = await _repo.AddEventAsync(evt);
+
+        return new AddEventResponse
+        {
+            EventID = evt.EventID,
+            IsSuccess = true
+        };
+    }
+
+    public async Task<EditEventResponse> EditEventAsync(EditEventRequest request)
+    {
+        var evt = await _repo.GetEventByIdAsync(request.EventID);
+        if (evt == null) return new EditEventResponse { IsSuccess = false };
+
+        evt.Title = request.Title;
+        evt.Description = request.Description;
+        evt.Location = request.Location;
+        evt.EventDateTime = request.EventDateTime;
+        evt.BasePrice = request.BasePrice;
+        evt.SeatsAvailable = request.SeatsAvailable;
+
+        await _repo.UpdateEventAsync(evt);
+
+        return new EditEventResponse { IsSuccess = true };
+    }
+
+    public async Task<GetEventResponse> GetEventByIdAsync(int eventId)
+    {
+        var evt = await _repo.GetEventByIdAsync(eventId);
+        if (evt == null) return null;
+
+        return new GetEventResponse
+        {
+            EventID = evt.EventID,
+            Title = evt.Title,
+            Description = evt.Description,
+            Location = evt.Location,
+            EventDateTime = evt.EventDateTime,
+            BasePrice = evt.BasePrice,
+            SeatsAvailable = evt.SeatsAvailable,
+            IsCancelled = evt.IsCancelled
+        };
+    }
+
+    public async Task<IEnumerable<GetEventResponse>> GetAllEventsAsync()
+    {
+        var events = await _repo.GetAllEventsAsync();
+        return events.Select(evt => new GetEventResponse
+        {
+            EventID = evt.EventID,
+            Title = evt.Title,
+            Description = evt.Description,
+            Location = evt.Location,
+            EventDateTime = evt.EventDateTime,
+            BasePrice = evt.BasePrice,
+            SeatsAvailable = evt.SeatsAvailable,
+            IsCancelled = evt.IsCancelled
+        });
+    }
+
+    public async Task<bool> DeleteEventAsync(int eventId)
+    {
+        var evt = await _repo.GetEventByIdAsync(eventId);
+        if (evt == null) return false;
+
+        await _repo.DeleteEventAsync(eventId);
+        return true;
+    }
+}
+public class EventController : Controller
+{
+    private readonly IEventService _service;
+    public EventController(IEventService service) => _service = service;
+
+    [HttpGet]
+    public async Task<IActionResult> Index()
+    {
+        var events = await _service.GetAllEventsAsync();
+        return View(events);
+    }
+
+    [HttpGet]
+    public IActionResult Create() => View();
+
+    [HttpPost]
+    public async Task<IActionResult> Create(AddEventRequest request)
+    {
+        if (!ModelState.IsValid) return View(request);
+
+        var result = await _service.AddEventAsync(request);
+        if (result.IsSuccess) return RedirectToAction(nameof(Index));
+
+        ModelState.AddModelError("", "Failed to add event.");
+        return View(request);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
+    {
+        var evt = await _service.GetEventByIdAsync(id);
+        if (evt == null) return NotFound();
+
+        var editRequest = new EditEventRequest
+        {
+            EventID = evt.EventID,
+            Title = evt.Title,
+            Description = evt.Description,
+            Location = evt.Location,
+            EventDateTime = evt.EventDateTime,
+            BasePrice = evt.BasePrice,
+            SeatsAvailable = evt.SeatsAvailable
+        };
+
+        return View(editRequest);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Edit(EditEventRequest request)
+    {
+        if (!ModelState.IsValid) return View(request);
+
+        var result = await _service.EditEventAsync(request);
+        if (result.IsSuccess) return RedirectToAction(nameof(Index));
+
+        ModelState.AddModelError("", "Failed to update event.");
+        return View(request);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Delete(int id)
+    {
+        await _service.DeleteEventAsync(id);
+        return RedirectToAction(nameof(Index));
+    }
+}
