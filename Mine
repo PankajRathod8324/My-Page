@@ -1,307 +1,219 @@
-[Authorize(Roles = "Admin")]
-[ApiController]
-[Route("api/[controller]")]
-public class UserController : ControllerBase
-{
-    private readonly IUserService _userService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
-
-    public UserController(IUserService userService, IHttpContextAccessor httpContextAccessor)
-    {
-        _userService = userService;
-        _httpContextAccessor = httpContextAccessor;
-    }
-
-    private int GetCurrentUserId()
-    {
-        var userIdString = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.TryParse(userIdString, out int userId) ? userId : 0;
-    }
-
-    [HttpPost("AddUser")]
-    public async Task<IActionResult> AddUser([FromBody] AddUserRequestDTO dto)
-    {
-        var createdBy = GetCurrentUserId();
-        var user = await _userService.AddUserAsync(dto, createdBy);
-        return Ok(user);
-    }
-
-    [HttpPut("EditUser")]
-    public async Task<IActionResult> EditUser([FromBody] EditUserRequestDTO dto)
-    {
-        var updatedBy = GetCurrentUserId();
-        var user = await _userService.EditUserAsync(dto, updatedBy);
-        return Ok(user);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetUser(int id)
-    {
-        var user = await _userService.GetUserByIdAsync(id);
-        return Ok(user);
-    }
-
-    [HttpGet("All")]
-    public async Task<IActionResult> GetAllUsers()
-    {
-        var users = await _userService.GetAllUsersAsync();
-        return Ok(users);
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteUser(int id)
-    {
-        var result = await _userService.DeleteUserAsync(id);
-        if (!result) return NotFound();
-        return Ok(new { message = "User deleted successfully." });
-    }
-}
-public class UserService : IUserService
-{
-    private readonly IUserRepository _userRepository;
-    public UserService(IUserRepository userRepository)
-    {
-        _userRepository = userRepository;
-    }
-
-    public async Task<UserResponseDTO> AddUserAsync(AddUserRequestDTO dto, int createdBy)
-    {
-        var user = new User
-        {
-            Name = dto.Name,
-            Email = dto.Email,
-            Role = dto.Role,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-            CreatedBy = createdBy
-        };
-
-        var createdUser = await _userRepository.AddUserAsync(user);
-
-        return new UserResponseDTO
-        {
-            Id = createdUser.Id,
-            Name = createdUser.Name,
-            Email = createdUser.Email,
-            Role = createdUser.Role
-        };
-    }
-
-    public async Task<UserResponseDTO> EditUserAsync(EditUserRequestDTO dto, int updatedBy)
-    {
-        var user = await _userRepository.GetUserByIdAsync(dto.Id);
-        if (user == null) throw new Exception("User not found");
-
-        user.Name = dto.Name;
-        user.Role = dto.Role;
-        user.UpdatedAt = DateTime.UtcNow;
-        user.UpdatedBy = updatedBy;
-
-        var updatedUser = await _userRepository.UpdateUserAsync(user);
-
-        return new UserResponseDTO
-        {
-            Id = updatedUser.Id,
-            Name = updatedUser.Name,
-            Email = updatedUser.Email,
-            Role = updatedUser.Role
-        };
-    }
-
-    public async Task<UserResponseDTO> GetUserByIdAsync(int id)
-    {
-        var user = await _userRepository.GetUserByIdAsync(id);
-        if (user == null) throw new Exception("User not found");
-
-        return new UserResponseDTO
-        {
-            Id = user.Id,
-            Name = user.Name,
-            Email = user.Email,
-            Role = user.Role
-        };
-    }
-
-    public async Task<List<UserResponseDTO>> GetAllUsersAsync()
-    {
-        var users = await _userRepository.GetAllUsersAsync();
-        return users.Select(user => new UserResponseDTO
-        {
-            Id = user.Id,
-            Name = user.Name,
-            Email = user.Email,
-            Role = user.Role
-        }).ToList();
-    }
-
-    public async Task<bool> DeleteUserAsync(int id)
-    {
-        return await _userRepository.DeleteUserAsync(id);
-    }
-}
-public interface IUserService
-{
-    Task<UserResponseDTO> AddUserAsync(AddUserRequestDTO dto, int createdBy);
-    Task<UserResponseDTO> EditUserAsync(EditUserRequestDTO dto, int updatedBy);
-    Task<UserResponseDTO> GetUserByIdAsync(int id);
-    Task<List<UserResponseDTO>> GetAllUsersAsync();
-    Task<bool> DeleteUserAsync(int id);
-}
-public class UserRepository : IUserRepository
-{
-    private readonly ApplicationDbContext _context;
-
-    public UserRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<User> AddUserAsync(User user)
-    {
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-        return user;
-    }
-
-    public async Task<User> UpdateUserAsync(User user)
-    {
-        _context.Users.Update(user);
-        await _context.SaveChangesAsync();
-        return user;
-    }
-
-    public async Task<User> GetUserByIdAsync(int id)
-    {
-        return await _context.Users.FindAsync(id);
-    }
-
-    public async Task<List<User>> GetAllUsersAsync()
-    {
-        return await _context.Users.ToListAsync();
-    }
-
-    public async Task<bool> DeleteUserAsync(int id)
-    {
-        var user = await _context.Users.FindAsync(id);
-        if (user == null) return false;
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-        return true;
-    }
-}
-public interface IUserRepository
-{
-    Task<User> AddUserAsync(User user);
-    Task<User> UpdateUserAsync(User user);
-    Task<User> GetUserByIdAsync(int id);
-    Task<List<User>> GetAllUsersAsync();
-    Task<bool> DeleteUserAsync(int id);
-}
-public class UserResponseDTO
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public string Email { get; set; }
-    public string Role { get; set; }
-}
-public class EditUserRequestDTO
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public string Role { get; set; }
-}
-public class AddUserRequestDTO
-{
-    public string Name { get; set; }
-    public string Email { get; set; }
-    public string Role { get; set; }
-    public string Password { get; set; }
-}
-public class AddUserResponseDTO
-{
-    public int Id { get; set; }
-    public bool IsSuccess { get; set; }
-}public async Task<AddUserResponseDTO> AddUserAsync(AddUserRequestDTO dto, int createdBy)
-{
-    var user = new User
-    {
-        Name = dto.Name,
-        Email = dto.Email,
-        Role = dto.Role,
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-        CreatedBy = createdBy
-    };
-
-    var createdUser = await _userRepository.AddUserAsync(user);
-
-    return new AddUserResponseDTO
-    {
-        Id = createdUser.Id,
-        IsSuccess = createdUser.Id > 0
-    };
-}
-[HttpPost("AddUser")]
-public async Task<IActionResult> AddUser([FromBody] AddUserRequestDTO dto)
-{
-    var createdBy = GetCurrentUserId();
-    var response = await _userService.AddUserAsync(dto, createdBy);
-    return Ok(response);
-}
-using Microsoft.AspNetCore.Http;
-using System.Net;
-using System.Text.Json;
-
-public class ExceptionMiddleware
-{
-    private readonly RequestDelegate _next;
-    private readonly ILogger<ExceptionMiddleware> _logger;
-    private readonly IHostEnvironment _env;
-
-    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IHostEnvironment env)
-    {
-        _next = next;
-        _logger = logger;
-        _env = env;
-    }
-
-    public async Task InvokeAsync(HttpContext httpContext)
-    {
-        try
-        {
-            await _next(httpContext);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, ex.Message);
-
-            httpContext.Response.ContentType = "application/json";
-
-            var response = httpContext.Response;
-            response.StatusCode = (int)HttpStatusCode.InternalServerError;
-
-            var errorResponse = _env.IsDevelopment()
-                ? new ApiException(response.StatusCode, ex.Message, ex.StackTrace?.ToString())
-                : new ApiException(response.StatusCode, "An internal server error occurred");
-
-            var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
-            var json = JsonSerializer.Serialize(errorResponse, options);
-
-            await response.WriteAsync(json);
-        }
-    }
-}
-public class ApiException
-{
-    public int StatusCode { get; }
-    public string Message { get; }
-    public string Details { get; }
-
-    public ApiException(int statusCode, string message, string details = null)
-    {
-        StatusCode = statusCode;
-        Message = message;
-        Details = details;
-    }
-}
-app.UseMiddleware<ExceptionMiddleware>();
-
+**Assignment: Build an Event Management System (Mini Project) – ASP.NET MVC**
+ 
+#### 🎯 **Objective**
+ 
+Develop an Event Management System with **Admin** and **End User** roles to manage event creation, booking, and cancellation, with dynamic pricing and refund policies based on time.
+ 
+### 📌 **Roles & Functionalities**
+ 
+#### 👨‍💼 **Admin Role**
+ 
+* Admin can log in securely
+* Admin can **Create**, **Edit**, and **Delete** events
+ 
+  * Event Fields: Name, Description, Event DateTime, Location, Base Price, Available Seats
+* Admin can **Cancel** an event:
+ 
+  * Notify all users via email
+  * Process **full refund** for all bookings
+ 
+---
+ 
+#### 👤 **User Role**
+ 
+* User can **Register / Login**
+ 
+* View list of **upcoming events**
+ 
+* Book events with **dynamic discount** based on time before event:
+ 
+  * **Before 12 hr** → **10% discount**
+  * **Before 6 hr** → **25% discount**
+  * **Before 3 hr** → **50% discount**
+  * **Before 1 hr** → **75% discount**
+ 
+* Cancel booked events with **refund rules**:
+ 
+  * **Before 24 hr** → **100% refund**
+  * **Before 12 hr** → **50% refund**
+  * **Before 6 hr** → **25% refund**
+  * **Before 3 hr** → **10% refund**
+  * **Less than 2 hr** → **No refund**
+ 
+---
+ 
+### 🗃️ **Suggested Database Tables (structure only)**
+ 
+1. **Users** – `UserID`, `Name`, `Email`, `PasswordHash`, `Role`
+2. **Events** – `EventID`, `Title`, `Description`, `Location`, `EventDateTime`, `BasePrice`, `SeatsAvailable`, `IsCancelled`
+3. **Bookings** – `BookingID`, `UserID`, `EventID`, `BookingTime`, `FinalPrice`, `RefundAmount`, `Status`
+4. **RefundLogs** – `RefundID`, `BookingID`, `RefundPercent`, `RefundAmount`, `RefundedOn`
+ 
+ 
+### 🔧 **Technical Implementation Guidelines**
+ 
+* Use **ASP.NET MVC (.NET Framework)**
+* Use **Entity Framework** (Code First or DB First)
+* Use **Razor Views** for UI
+* Implement **Role-based access** (Admin/User) with ASP.NET Identity
+* Send **email notifications** when event is cancelled
+* Dynamic **price calculation** and **refund logic** based on time using `DateTime.Now` vs `EventDateTime`
+ 
+### 📤 **Bonus Features (Optional)**
+ 
+* Admin: Download booking report as PDF
+* User: Booking history with status and refund details
+* Display a countdown timer to each event
+ 
+### 📚 **Deliverables**
+ 
+* Full Visual Studio project (.sln)
+* SQL script or migration files (optional)
+* ReadMe.txt with setup guide
+* Screenshots or video demo
+ 
+## 🎨 UI Design Overview
+ 
+### 🔐 **1. Login Page**
+ 
+```html
++-----------------------------+
+|    [Logo] Event System      |
++-----------------------------+
+|  Email:    [_____________]  |
+|  Password: [_____________]  |
+|  [ Login ]   [ Register ]   |
++-----------------------------+
+```
+ 
+---
+ 
+### 🧑‍💼 **2. Admin Dashboard – Event Management**
+ 
+```html
++----------------------------------------------------+
+| Admin Panel (Welcome, AdminName)                  |
++----------------------------------------------------+
+| [ + Create New Event ]                            |
+|----------------------------------------------------|
+| Title       | Date/Time   | Seats | Status | Actions |
+|-------------|-------------|--------|--------|---------|
+| Music Fest  | 25 Jun 6 PM | 100    | Active | [Edit] [Delete] [Cancel] |
+| Tech Talk   | 26 Jun 2 PM | 80     | Cancelled | [View]              |
++----------------------------------------------------+
+```
+ 
+---
+ 
+### 📝 **3. Admin – Create/Edit Event**
+ 
+```html
++-----------------------------+
+| [Create/Edit Event]         |
++-----------------------------+
+| Title:         [__________] |
+| Description:   [__________] |
+| Location:      [__________] |
+| Event DateTime:[___picker__]|
+| Base Price:    [__₹___]     |
+| Total Seats:   [__100__]    |
+| [ Save ]   [ Cancel ]       |
++-----------------------------+
+```
+ 
+---
+ 
+### 👤 **4. User Dashboard – Upcoming Events**
+ 
+```html
++------------------------------------------------------------+
+| Welcome, UserName                                           |
+|------------------------------------------------------------|
+| Event: Music Fest                                           |
+| Date: 25-Jun, 6 PM | Location: City Hall                   |
+| Base Price: ₹500 | Available Seats: 30                     |
+| Your Price: ₹250 (75% discount)                            |
+| [Book Now]                                                  |
++------------------------------------------------------------+
+| Event: Tech Talk                                            |
+| Date: 26-Jun, 2 PM | Location: Online                      |
+| Base Price: ₹400 | Seats Left: 10                          |
+| Your Price: ₹300 (25% discount)                            |
+| [Book Now]                                                  |
++------------------------------------------------------------+
+```
+ 
+---
+ 
+### 💳 **5. Booking Confirmation Page**
+ 
+```html
++-----------------------------+
+| Confirm Booking             |
++-----------------------------+
+| Event: Music Fest           |
+| Price: ₹500                 |
+| Discount: 75%               |
+| Final Price: ₹125           |
+| [ Confirm Booking ]         |
++-----------------------------+
+```
+ 
+---
+ 
+### 📜 **6. My Bookings Page (User)**
+ 
+```html
++-------------------------------------------------------------+
+| My Bookings                                                 |
++-------------------------------------------------------------+
+| Event        | Date        | Price | Status   | Action       |
+|--------------|-------------|--------|----------|--------------|
+| Music Fest   | 25-Jun 6 PM | ₹125   | Booked   | [Cancel]     |
+| Tech Talk    | 26-Jun 2 PM | ₹300   | Refunded | [View Refund]|
++-------------------------------------------------------------+
+```
+ 
+---
+ 
+### 🔁 **7. Refund Summary Page (Optional Modal or Page)**
+ 
+```html
++-----------------------------+
+| Refund Details              |
++-----------------------------+
+| Booking ID: #B1024          |
+| Original Amount: ₹300       |
+| Refund %: 50%               |
+| Refunded Amount: ₹150       |
+| Refunded On: 22-Jun         |
++-----------------------------+
+```
+ 
+---
+ 
+### 📧 **8. Email Notification Template**
+ 
+```txt
+Subject: Event Cancellation Notice – [Event Title]
+ 
+Dear [UserName],
+ 
+We regret to inform you that the event "[Event Title]" scheduled for [Date/Time] has been cancelled.
+A full refund of ₹[Amount] has been processed to your account.
+ 
+Thank you for understanding.
+ 
+– Event Management Team
+```
+ 
+---
+ 
+## 💡 UI Styling Tips (using Bootstrap):
+ 
+* Use **Bootstrap cards** for events
+* Apply **Badges** for event status:
+  `badge-success` = "Active", `badge-danger` = "Cancelled"
+* Use **Tables** for admin list & booking history
+* Use **Modal dialogs** for confirmations and refund details
+* Use **DateTime picker** for event creation (e.g., `flatpickr` or Bootstrap DatePicker)
