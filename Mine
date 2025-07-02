@@ -1,237 +1,121 @@
-public class AddEventRequest
+[HttpGet]
+public async Task<IActionResult> UserEvents(int skip = 0, int take = 6)
 {
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public string Location { get; set; }
-    public DateTime EventDateTime { get; set; }
-    public decimal BasePrice { get; set; }
-    public int SeatsAvailable { get; set; }
+    var allEvents = await _eventService.GetUpcomingEventsAsync(); // Filtered, not cancelled, upcoming
+    var events = allEvents
+        .OrderBy(e => e.EventDateTime)
+        .Skip(skip)
+        .Take(take)
+        .ToList();
+
+    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+    {
+        return PartialView("_EventCardsPartial", events);
+    }
+
+    return View(events);
 }
-public class AddEventResponse
+public decimal GetDiscountedPrice()
 {
-    public int EventID { get; set; }
-    public bool IsSuccess { get; set; }
+    var hoursLeft = (EventDateTime - DateTime.Now).TotalHours;
+    decimal discount = 0;
+
+    if (hoursLeft > 12)
+        discount = 0.10m;
+    else if (hoursLeft > 6)
+        discount = 0.25m;
+    else if (hoursLeft > 3)
+        discount = 0.50m;
+    else if (hoursLeft > 1)
+        discount = 0.75m;
+
+    return BasePrice * (1 - discount);
 }
-public class EditEventRequest
+
+public int GetDiscountPercentage()
 {
-    public int EventID { get; set; }
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public string Location { get; set; }
-    public DateTime EventDateTime { get; set; }
-    public decimal BasePrice { get; set; }
-    public int SeatsAvailable { get; set; }
+    var hoursLeft = (EventDateTime - DateTime.Now).TotalHours;
+    if (hoursLeft > 12) return 10;
+    else if (hoursLeft > 6) return 25;
+    else if (hoursLeft > 3) return 50;
+    else if (hoursLeft > 1) return 75;
+    else return 0;
 }
-public class GetEventResponse
-{
-    public int EventID { get; set; }
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public string Location { get; set; }
-    public DateTime EventDateTime { get; set; }
-    public decimal BasePrice { get; set; }
-    public int SeatsAvailable { get; set; }
-    public bool IsCancelled { get; set; }
+@model List<GetEventResponse>
+
+@{
+    ViewBag.Title = "Upcoming Events";
 }
-public interface IEventRepository
+
+<div class="container py-4">
+    <h2 class="text-center mb-4">Upcoming Events</h2>
+    <div id="event-container" class="row g-4">
+        @Html.Partial("_EventCardsPartial", Model)
+    </div>
+    <div class="text-center mt-4">
+        <button id="load-more-btn" class="btn btn-primary">Load More</button>
+    </div>
+</div>
+
+<script>
+    let skip = @Model.Count;
+    const take = 6;
+
+    document.getElementById("load-more-btn").addEventListener("click", function () {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = "Loading...";
+
+        fetch(`/Event/UserEvents?skip=${skip}&take=${take}`, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById("event-container").insertAdjacentHTML("beforeend", html);
+                skip += take;
+                btn.disabled = false;
+                btn.textContent = "Load More";
+            })
+            .catch(error => {
+                console.error(error);
+                btn.textContent = "Error Loading";
+            });
+    });
+</script>
+@model IEnumerable<GetEventResponse>
+
+@foreach (var item in Model)
 {
-    Task<Event> AddEventAsync(Event evt);
-    Task<Event> GetEventByIdAsync(int eventId);
-    Task<IEnumerable<Event>> GetAllEventsAsync();
-    Task UpdateEventAsync(Event evt);
-    Task DeleteEventAsync(int eventId);
-}
-public class EventRepository : IEventRepository
-{
-    private readonly AppDbContext _context;
-    public EventRepository(AppDbContext context) => _context = context;
-
-    public async Task<Event> AddEventAsync(Event evt)
-    {
-        _context.Events.Add(evt);
-        await _context.SaveChangesAsync();
-        return evt;
-    }
-
-    public async Task<Event> GetEventByIdAsync(int eventId)
-        => await _context.Events.FindAsync(eventId);
-
-    public async Task<IEnumerable<Event>> GetAllEventsAsync()
-        => await _context.Events.ToListAsync();
-
-    public async Task UpdateEventAsync(Event evt)
-    {
-        _context.Events.Update(evt);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task DeleteEventAsync(int eventId)
-    {
-        var evt = await _context.Events.FindAsync(eventId);
-        if (evt != null)
-        {
-            _context.Events.Remove(evt);
-            await _context.SaveChangesAsync();
-        }
-    }
-}
-public interface IEventService
-{
-    Task<AddEventResponse> AddEventAsync(AddEventRequest request);
-    Task<EditEventResponse> EditEventAsync(EditEventRequest request);
-    Task<GetEventResponse> GetEventByIdAsync(int eventId);
-    Task<IEnumerable<GetEventResponse>> GetAllEventsAsync();
-    Task<bool> DeleteEventAsync(int eventId);
-}
-public class EventService : IEventService
-{
-    private readonly IEventRepository _repo;
-    public EventService(IEventRepository repo) => _repo = repo;
-
-    public async Task<AddEventResponse> AddEventAsync(AddEventRequest request)
-    {
-        var evt = new Event
-        {
-            Title = request.Title,
-            Description = request.Description,
-            Location = request.Location,
-            EventDateTime = request.EventDateTime,
-            BasePrice = request.BasePrice,
-            SeatsAvailable = request.SeatsAvailable
-        };
-
-        evt = await _repo.AddEventAsync(evt);
-
-        return new AddEventResponse
-        {
-            EventID = evt.EventID,
-            IsSuccess = true
-        };
-    }
-
-    public async Task<EditEventResponse> EditEventAsync(EditEventRequest request)
-    {
-        var evt = await _repo.GetEventByIdAsync(request.EventID);
-        if (evt == null) return new EditEventResponse { IsSuccess = false };
-
-        evt.Title = request.Title;
-        evt.Description = request.Description;
-        evt.Location = request.Location;
-        evt.EventDateTime = request.EventDateTime;
-        evt.BasePrice = request.BasePrice;
-        evt.SeatsAvailable = request.SeatsAvailable;
-
-        await _repo.UpdateEventAsync(evt);
-
-        return new EditEventResponse { IsSuccess = true };
-    }
-
-    public async Task<GetEventResponse> GetEventByIdAsync(int eventId)
-    {
-        var evt = await _repo.GetEventByIdAsync(eventId);
-        if (evt == null) return null;
-
-        return new GetEventResponse
-        {
-            EventID = evt.EventID,
-            Title = evt.Title,
-            Description = evt.Description,
-            Location = evt.Location,
-            EventDateTime = evt.EventDateTime,
-            BasePrice = evt.BasePrice,
-            SeatsAvailable = evt.SeatsAvailable,
-            IsCancelled = evt.IsCancelled
-        };
-    }
-
-    public async Task<IEnumerable<GetEventResponse>> GetAllEventsAsync()
-    {
-        var events = await _repo.GetAllEventsAsync();
-        return events.Select(evt => new GetEventResponse
-        {
-            EventID = evt.EventID,
-            Title = evt.Title,
-            Description = evt.Description,
-            Location = evt.Location,
-            EventDateTime = evt.EventDateTime,
-            BasePrice = evt.BasePrice,
-            SeatsAvailable = evt.SeatsAvailable,
-            IsCancelled = evt.IsCancelled
-        });
-    }
-
-    public async Task<bool> DeleteEventAsync(int eventId)
-    {
-        var evt = await _repo.GetEventByIdAsync(eventId);
-        if (evt == null) return false;
-
-        await _repo.DeleteEventAsync(eventId);
-        return true;
-    }
-}
-public class EventController : Controller
-{
-    private readonly IEventService _service;
-    public EventController(IEventService service) => _service = service;
-
-    [HttpGet]
-    public async Task<IActionResult> Index()
-    {
-        var events = await _service.GetAllEventsAsync();
-        return View(events);
-    }
-
-    [HttpGet]
-    public IActionResult Create() => View();
-
-    [HttpPost]
-    public async Task<IActionResult> Create(AddEventRequest request)
-    {
-        if (!ModelState.IsValid) return View(request);
-
-        var result = await _service.AddEventAsync(request);
-        if (result.IsSuccess) return RedirectToAction(nameof(Index));
-
-        ModelState.AddModelError("", "Failed to add event.");
-        return View(request);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> Edit(int id)
-    {
-        var evt = await _service.GetEventByIdAsync(id);
-        if (evt == null) return NotFound();
-
-        var editRequest = new EditEventRequest
-        {
-            EventID = evt.EventID,
-            Title = evt.Title,
-            Description = evt.Description,
-            Location = evt.Location,
-            EventDateTime = evt.EventDateTime,
-            BasePrice = evt.BasePrice,
-            SeatsAvailable = evt.SeatsAvailable
-        };
-
-        return View(editRequest);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Edit(EditEventRequest request)
-    {
-        if (!ModelState.IsValid) return View(request);
-
-        var result = await _service.EditEventAsync(request);
-        if (result.IsSuccess) return RedirectToAction(nameof(Index));
-
-        ModelState.AddModelError("", "Failed to update event.");
-        return View(request);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Delete(int id)
-    {
-        await _service.DeleteEventAsync(id);
-        return RedirectToAction(nameof(Index));
-    }
+    var discountedPrice = item.GetDiscountedPrice();
+    var discountPercent = item.GetDiscountPercentage();
+    <div class="col-md-4 col-sm-6">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title">@item.Title</h5>
+                <p class="text-muted small mb-1">
+                    @item.EventDateTime.ToString("dd MMM yyyy, hh:mm tt") | @item.Location
+                </p>
+                <p class="card-text flex-grow-1">
+                    @item.Description?.Substring(0, Math.Min(item.Description.Length, 100))...
+                </p>
+                <div>
+                    @if (discountPercent > 0)
+                    {
+                        <span class="badge bg-success">@discountPercent% OFF</span>
+                        <p class="mt-2 mb-0">
+                            <del class="text-muted">₹@item.BasePrice.ToString("F0")</del>
+                            <strong class="ms-2 text-primary">₹@discountedPrice.ToString("F0")</strong>
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="mt-2 mb-0">
+                            <strong class="text-primary">₹@item.BasePrice.ToString("F0")</strong>
+                        </p>
+                    }
+                </div>
+                <a href="@Url.Action("Book", "Event", new { id = item.EventID })" class="btn btn-outline-primary mt-3 w-100">
+                    Book Now
+                </a>
+            </div>
+        </div>
+    </div>
 }
