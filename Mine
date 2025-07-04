@@ -1,34 +1,79 @@
-<div class="mb-3">
-    <label for="eventDateTime" class="form-label">Event Date & Time</label>
-    <input type="datetime-local" class="form-control" id="eventDateTime" name="EventDateTime" required>
-    <div class="form-text text-danger" id="dateError" style="display:none;">Please select a date/time after tomorrow at the current time.</div>
-</div>
-<script>
-    window.addEventListener('DOMContentLoaded', function () {
-        const dateInput = document.getElementById('eventDateTime');
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iText.Kernel.Font;
+using iText.IO.Font.Constants;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.IO;
+using YourProject.Services;
+using System.Threading.Tasks;
 
-        const now = new Date();
-        // Add 1 day while preserving hours, minutes, seconds
-        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, now.getHours(), now.getMinutes(), now.getSeconds());
+[Authorize(Roles = "User")]
+public class BookingController : Controller
+{
+    private readonly IBookingService _bookingService;
+    private readonly IUserService _userService;
 
-        // Format to "YYYY-MM-DDTHH:MM" for datetime-local
-        const year = tomorrow.getFullYear();
-        const month = ('0' + (tomorrow.getMonth() + 1)).slice(-2);
-        const day = ('0' + tomorrow.getDate()).slice(-2);
-        const hours = ('0' + tomorrow.getHours()).slice(-2);
-        const minutes = ('0' + tomorrow.getMinutes()).slice(-2);
+    public BookingController(IBookingService bookingService, IUserService userService)
+    {
+        _bookingService = bookingService;
+        _userService = userService;
+    }
 
-        const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
-        dateInput.min = minDateTime;
+    [HttpGet]
+    public async Task<IActionResult> DownloadAllBookingsPdf()
+    {
+        var userId = _userService.GetCurrentUserId(); // implement via IHttpContextAccessor or Claims
+        var bookings = await _bookingService.GetBookingsByUserIdAsync(userId);
 
-        // Optional: Prevent form submission if the user tries to bypass using the inspector
-        const form = dateInput.form;
-        form.addEventListener('submit', function (e) {
-            if (new Date(dateInput.value) < tomorrow) {
-                e.preventDefault();
-                document.getElementById('dateError').style.display = 'block';
-                dateInput.focus();
+        if (bookings == null || !bookings.Any())
+        {
+            TempData["Error"] = "No bookings found to download.";
+            return RedirectToAction("MyBookings");
+        }
+
+        using (var ms = new MemoryStream())
+        {
+            PdfWriter writer = new PdfWriter(ms);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
+
+            PdfFont font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            document.SetFont(font);
+
+            document.Add(new Paragraph("Your Bookings Summary")
+                .SetFontSize(18)
+                .SetBold()
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetMarginBottom(20));
+
+            foreach (var booking in bookings)
+            {
+                Table table = new Table(2).UseAllAvailableWidth();
+                table.AddCell(new Cell().Add(new Paragraph("Booking ID").SetBold()));
+                table.AddCell(new Cell().Add(new Paragraph(booking.BookingId.ToString())));
+                table.AddCell(new Cell().Add(new Paragraph("Event Name").SetBold()));
+                table.AddCell(new Cell().Add(new Paragraph(booking.EventName)));
+                table.AddCell(new Cell().Add(new Paragraph("Date & Time").SetBold()));
+                table.AddCell(new Cell().Add(new Paragraph(booking.EventDateTime.ToString("dd-MM-yyyy hh:mm tt"))));
+                table.AddCell(new Cell().Add(new Paragraph("Location").SetBold()));
+                table.AddCell(new Cell().Add(new Paragraph(booking.EventLocation)));
+                table.AddCell(new Cell().Add(new Paragraph("Seats Booked").SetBold()));
+                table.AddCell(new Cell().Add(new Paragraph(booking.SeatsBooked.ToString())));
+                table.AddCell(new Cell().Add(new Paragraph("Final Price").SetBold()));
+                table.AddCell(new Cell().Add(new Paragraph("₹" + booking.FinalPrice)));
+                table.AddCell(new Cell().Add(new Paragraph("Status").SetBold()));
+                table.AddCell(new Cell().Add(new Paragraph(booking.Status)));
+
+                document.Add(table);
+                document.Add(new Paragraph("\n"));
             }
-        });
-    });
-</script>
+
+            document.Close();
+            byte[] pdfBytes = ms.ToArray();
+            return File(pdfBytes, "application/pdf", "Your_Bookings.pdf");
+        }
+    }
+}
