@@ -1,79 +1,227 @@
-using iText.Kernel.Pdf;
-using iText.Layout;
-using iText.Layout.Element;
-using iText.Layout.Properties;
-using iText.Kernel.Font;
-using iText.IO.Font.Constants;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using System.IO;
-using YourProject.Services;
-using System.Threading.Tasks;
+// Repositories/IEmployeeRepository.cs
+using YourNamespace.Models;
 
-[Authorize(Roles = "User")]
-public class BookingController : Controller
+namespace YourNamespace.Repositories
 {
-    private readonly IBookingService _bookingService;
-    private readonly IUserService _userService;
-
-    public BookingController(IBookingService bookingService, IUserService userService)
+    public interface IEmployeeRepository
     {
-        _bookingService = bookingService;
-        _userService = userService;
+        Task<IEnumerable<Employee>> GetAllAsync();
+        Task<Employee> GetByIdAsync(int id);
+        Task<Employee> AddAsync(Employee employee);
+        Task<Employee> UpdateAsync(Employee employee);
+        Task<bool> DeleteAsync(int id);
     }
+}
+// Repositories/EmployeeRepository.cs
+using Microsoft.EntityFrameworkCore;
+using YourNamespace.Data;
+using YourNamespace.Models;
 
-    [HttpGet]
-    public async Task<IActionResult> DownloadAllBookingsPdf()
+namespace YourNamespace.Repositories
+{
+    public class EmployeeRepository : IEmployeeRepository
     {
-        var userId = _userService.GetCurrentUserId(); // implement via IHttpContextAccessor or Claims
-        var bookings = await _bookingService.GetBookingsByUserIdAsync(userId);
+        private readonly AppDbContext _context;
 
-        if (bookings == null || !bookings.Any())
+        public EmployeeRepository(AppDbContext context)
         {
-            TempData["Error"] = "No bookings found to download.";
-            return RedirectToAction("MyBookings");
+            _context = context;
         }
 
-        using (var ms = new MemoryStream())
+        public async Task<IEnumerable<Employee>> GetAllAsync()
         {
-            PdfWriter writer = new PdfWriter(ms);
-            PdfDocument pdf = new PdfDocument(writer);
-            Document document = new Document(pdf);
+            return await _context.Employees.ToListAsync();
+        }
 
-            PdfFont font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
-            document.SetFont(font);
+        public async Task<Employee> GetByIdAsync(int id)
+        {
+            return await _context.Employees.FindAsync(id);
+        }
 
-            document.Add(new Paragraph("Your Bookings Summary")
-                .SetFontSize(18)
-                .SetBold()
-                .SetTextAlignment(TextAlignment.CENTER)
-                .SetMarginBottom(20));
+        public async Task<Employee> AddAsync(Employee employee)
+        {
+            _context.Employees.Add(employee);
+            await _context.SaveChangesAsync();
+            return employee;
+        }
 
-            foreach (var booking in bookings)
-            {
-                Table table = new Table(2).UseAllAvailableWidth();
-                table.AddCell(new Cell().Add(new Paragraph("Booking ID").SetBold()));
-                table.AddCell(new Cell().Add(new Paragraph(booking.BookingId.ToString())));
-                table.AddCell(new Cell().Add(new Paragraph("Event Name").SetBold()));
-                table.AddCell(new Cell().Add(new Paragraph(booking.EventName)));
-                table.AddCell(new Cell().Add(new Paragraph("Date & Time").SetBold()));
-                table.AddCell(new Cell().Add(new Paragraph(booking.EventDateTime.ToString("dd-MM-yyyy hh:mm tt"))));
-                table.AddCell(new Cell().Add(new Paragraph("Location").SetBold()));
-                table.AddCell(new Cell().Add(new Paragraph(booking.EventLocation)));
-                table.AddCell(new Cell().Add(new Paragraph("Seats Booked").SetBold()));
-                table.AddCell(new Cell().Add(new Paragraph(booking.SeatsBooked.ToString())));
-                table.AddCell(new Cell().Add(new Paragraph("Final Price").SetBold()));
-                table.AddCell(new Cell().Add(new Paragraph("₹" + booking.FinalPrice)));
-                table.AddCell(new Cell().Add(new Paragraph("Status").SetBold()));
-                table.AddCell(new Cell().Add(new Paragraph(booking.Status)));
+        public async Task<Employee> UpdateAsync(Employee employee)
+        {
+            _context.Employees.Update(employee);
+            await _context.SaveChangesAsync();
+            return employee;
+        }
 
-                document.Add(table);
-                document.Add(new Paragraph("\n"));
-            }
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var employee = await _context.Employees.FindAsync(id);
+            if (employee == null) return false;
 
-            document.Close();
-            byte[] pdfBytes = ms.ToArray();
-            return File(pdfBytes, "application/pdf", "Your_Bookings.pdf");
+            _context.Employees.Remove(employee);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }
+// Services/IEmployeeService.cs
+using YourNamespace.DTOs;
+using YourNamespace.Models;
+
+namespace YourNamespace.Services
+{
+    public interface IEmployeeService
+    {
+        Task<IEnumerable<Employee>> GetAllAsync();
+        Task<Employee> GetByIdAsync(int id);
+        Task<Employee> CreateAsync(EmployeeDTO employeeDto);
+        Task<Employee> UpdateAsync(int id, EmployeeDTO employeeDto);
+        Task<bool> DeleteAsync(int id);
+    }
+}
+// Services/EmployeeService.cs
+using YourNamespace.DTOs;
+using YourNamespace.Models;
+using YourNamespace.Repositories;
+
+namespace YourNamespace.Services
+{
+    public class EmployeeService : IEmployeeService
+    {
+        private readonly IEmployeeRepository _repository;
+
+        public EmployeeService(IEmployeeRepository repository)
+        {
+            _repository = repository;
+        }
+
+        public async Task<IEnumerable<Employee>> GetAllAsync()
+        {
+            return await _repository.GetAllAsync();
+        }
+
+        public async Task<Employee> GetByIdAsync(int id)
+        {
+            return await _repository.GetByIdAsync(id);
+        }
+
+        public async Task<Employee> CreateAsync(EmployeeDTO dto)
+        {
+            var employee = new Employee
+            {
+                FullName = dto.FullName,
+                Position = dto.Position,
+                Salary = dto.Salary
+            };
+
+            return await _repository.AddAsync(employee);
+        }
+
+        public async Task<Employee> UpdateAsync(int id, EmployeeDTO dto)
+        {
+            var existing = await _repository.GetByIdAsync(id);
+            if (existing == null) return null;
+
+            existing.FullName = dto.FullName;
+            existing.Position = dto.Position;
+            existing.Salary = dto.Salary;
+
+            return await _repository.UpdateAsync(existing);
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            return await _repository.DeleteAsync(id);
+        }
+    }
+}
+// Controllers/EmployeeController.cs
+using Microsoft.AspNetCore.Mvc;
+using YourNamespace.DTOs;
+using YourNamespace.Services;
+
+namespace YourNamespace.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class EmployeeController : ControllerBase
+    {
+        private readonly IEmployeeService _service;
+
+        public EmployeeController(IEmployeeService service)
+        {
+            _service = service;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var employees = await _service.GetAllAsync();
+            return Ok(employees);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> Get(int id)
+        {
+            var employee = await _service.GetByIdAsync(id);
+            if (employee == null) return NotFound();
+            return Ok(employee);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(EmployeeDTO dto)
+        {
+            var created = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, EmployeeDTO dto)
+        {
+            var updated = await _service.UpdateAsync(id, dto);
+            if (updated == null) return NotFound();
+            return Ok(updated);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var deleted = await _service.DeleteAsync(id);
+            if (!deleted) return NotFound();
+            return NoContent();
+        }
+    }
+}
+// Program.cs
+using Microsoft.EntityFrameworkCore;
+using YourNamespace.Data;
+using YourNamespace.Repositories;
+using YourNamespace.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// DB Context
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
+
+// DI
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
