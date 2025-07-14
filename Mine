@@ -1,50 +1,36 @@
-using System.Data;
-using Dapper;
-using Npgsql;
-
-public interface IUserRepository
-{
-    Task AddUserAsync(User user);
-}
-
-public class UserRepository : IUserRepository
-{
-    private readonly IConfiguration _configuration;
-    private readonly string _connectionString;
-
-    public UserRepository(IConfiguration configuration)
-    {
-        _configuration = configuration;
-        _connectionString = _configuration.GetConnectionString("DefaultConnection");
-    }
-
-    public async Task AddUserAsync(User user)
-    {
-        using (var connection = new NpgsqlConnection(_connectionString))
-        {
-            var parameters = new DynamicParameters();
-            parameters.Add("p_UserName", user.UserName, DbType.String);
-            parameters.Add("p_Email", user.Email, DbType.String);
-            parameters.Add("p_PasswordHash", user.PasswordHash, DbType.String);
-            parameters.Add("p_Role", user.Role, DbType.String);
-
-            await connection.ExecuteAsync(
-                "AddUser",
-                parameters,
-                commandType: CommandType.StoredProcedure);
-        }
-    }
-}
-CREATE OR REPLACE FUNCTION AddUser(
-    p_UserName VARCHAR,
-    p_Email VARCHAR,
-    p_PasswordHash TEXT,
-    p_Role VARCHAR
+CREATE OR REPLACE FUNCTION AddUserFromJson(
+    p_UserData JSONB
 )
-RETURNS VOID AS
+RETURNS JSONB AS
 $$
+DECLARE
+    inserted_user JSONB;
 BEGIN
-    INSERT INTO Users (UserName, Email, PasswordHash, Role)
-    VALUES (p_UserName, p_Email, p_PasswordHash, p_Role);
+    INSERT INTO Users (UserName, Email, PasswordHash, Role, Age)
+    VALUES (
+        p_UserData->>'UserName',
+        p_UserData->>'Email',
+        p_UserData->>'PasswordHash',
+        p_UserData->>'Role',
+        (p_UserData->>'Age')::INT
+    )
+    RETURNING to_jsonb(Users) INTO inserted_user;
+
+    RETURN inserted_user;
 END;
 $$ LANGUAGE plpgsql;
+public async Task<string> AddUserAsync(User user)
+{
+    using var connection = new NpgsqlConnection(_connectionString);
+
+    var userJson = JsonSerializer.Serialize(user);
+    var parameters = new DynamicParameters();
+    parameters.Add("p_UserData", userJson, DbType.String);
+
+    var insertedUserJson = await connection.QuerySingleAsync<string>(
+        "AddUserFromJson",
+        parameters,
+        commandType: CommandType.StoredProcedure);
+
+    return insertedUserJson;
+}
