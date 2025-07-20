@@ -1,36 +1,299 @@
-CREATE OR REPLACE FUNCTION AddUserFromJson(
-    p_UserData JSONB
-)
-RETURNS JSONB AS
-$$
-DECLARE
-    inserted_user JSONB;
-BEGIN
-    INSERT INTO Users (UserName, Email, PasswordHash, Role, Age)
-    VALUES (
-        p_UserData->>'UserName',
-        p_UserData->>'Email',
-        p_UserData->>'PasswordHash',
-        p_UserData->>'Role',
-        (p_UserData->>'Age')::INT
-    )
-    RETURNING to_jsonb(Users) INTO inserted_user;
+Here is a clean, realistic, complete Angular 2–3 day learning plan to learn all core Angular basics to build clean, production-level UI confidently, with concept-wise breakdown + example outlines so you can implement them directly and truly upgrade your skill.
 
-    RETURN inserted_user;
-END;
-$$ LANGUAGE plpgsql;
-public async Task<string> AddUserAsync(User user)
-{
-    using var connection = new NpgsqlConnection(_connectionString);
+⚡ 0️⃣ Prerequisites (setup before starting)
+✅ Node.js (LTS)
+✅ npm / yarn
+✅ VS Code with Angular Essentials extension
+✅ Basic HTML, CSS, JavaScript knowledge
+✅ CLI familiarity (commands in terminal)
 
-    var userJson = JsonSerializer.Serialize(user);
-    var parameters = new DynamicParameters();
-    parameters.Add("p_UserData", userJson, DbType.String);
+⚡ 1️⃣ Day 1: Core Fundamentals & Project Setup
+1. What is Angular?
+Framework for building single-page applications using components.
 
-    var insertedUserJson = await connection.QuerySingleAsync<string>(
-        "AddUserFromJson",
-        parameters,
-        commandType: CommandType.StoredProcedure);
+Uses TypeScript.
 
-    return insertedUserJson;
+Built-in tools for routing, HTTP, forms, state management, animations.
+
+2. Installing Angular CLI
+bash
+Copy code
+npm install -g @angular/cli
+Create a new project:
+
+bash
+Copy code
+ng new my-angular-app
+cd my-angular-app
+ng serve
+Run on http://localhost:4200.
+
+3. Project Structure Understanding
+src/app: your application code.
+
+app.module.ts: main module where you register components and imports.
+
+app.component.ts / .html / .css: root component.
+
+4. Components
+Angular uses components to build UI blocks.
+
+Create a component:
+bash
+Copy code
+ng generate component header
+Basic example:
+header.component.html
+
+html
+Copy code
+<h1>Welcome to My App</h1>
+header.component.ts
+
+ts
+Copy code
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-header',
+  templateUrl: './header.component.html',
+})
+export class HeaderComponent {}
+Use it in app.component.html:
+
+html
+Copy code
+<app-header></app-header>
+📌 What to practice:
+
+Create 2–3 components (Header, Footer, ProductCard).
+
+Pass static content to see rendering.
+
+5. Data Binding
+Learn:
+
+Interpolation: {{ title }}
+
+Property binding: <img [src]="imageUrl">
+
+Event binding: <button (click)="doSomething()">Click</button>
+
+Two-way binding: [(ngModel)]="username"
+
+Example:
+app.component.ts
+
+ts
+Copy code
+title = 'Angular Demo';
+counter = 0;
+increase() {
+  this.counter++;
 }
+app.component.html
+
+html
+Copy code
+<h2>{{ title }}</h2>
+<p>Counter: {{ counter }}</p>
+<button (click)="increase()">Increase</button>
+6. Directives
+Structural directives: *ngIf, *ngFor
+
+Attribute directives: [ngClass], [ngStyle]
+
+Example:
+html
+Copy code
+<p *ngIf="isLoggedIn">Welcome User</p>
+<ul>
+  <li *ngFor="let item of items">{{ item }}</li>
+</ul>
+⚡ 2️⃣ Day 2: Services, Routing, Forms, HTTP
+7. Services and Dependency Injection
+Used to share data and logic across components.
+
+Create a service:
+bash
+Copy code
+ng generate service data
+data.service.ts
+
+ts
+Copy code
+import { Injectable } from '@angular/core';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class DataService {
+  getProducts() {
+    return ['Apple', 'Banana', 'Orange'];
+  }
+}
+Use in component:
+
+ts
+Copy code
+constructor(private dataService: DataService) {}
+ngOnInit() {
+  this.products = this.dataService.getProducts();
+}
+8. Routing
+Used for navigation between pages without reload.
+
+Setup Routing:
+app-routing.module.ts
+
+ts
+Copy code
+const routes: Routes = [
+  { path: 'home', component: HomeComponent },
+  { path: 'products', component: ProductComponent },
+  { path: '', redirectTo: '/home', pathMatch: 'full' }
+];
+Add <router-outlet></router-outlet> in app.component.html.
+
+Add navigation:
+
+html
+Copy code
+<a routerLink="/home">Home</a>
+<a routerLink="/products">Products</a>
+9. Forms
+Template-driven form:
+Use FormsModule in app.module.ts.
+
+html
+Copy code
+<form #form="ngForm" (ngSubmit)="onSubmit(form)">
+  <input name="username" ngModel>
+  <button type="submit">Submit</button>
+</form>
+Reactive Forms:
+Use ReactiveFormsModule in app.module.ts.
+
+ts
+Copy code
+form = this.fb.group({
+  name: [''],
+  email: ['']
+});
+html
+Copy code
+<form [formGroup]="form" (ngSubmit)="submit()">
+  <input formControlName="name">
+  <input formControlName="email">
+  <button>Submit</button>
+</form>
+10. HTTP Requests
+Use HttpClientModule for REST API calls.
+
+Example:
+
+ts
+Copy code
+constructor(private http: HttpClient) {}
+ngOnInit() {
+  this.http.get('https://jsonplaceholder.typicode.com/posts')
+      .subscribe(data => console.log(data));
+}
+⚡ 3️⃣ Day 3: Practical UI Building + Extras
+11. Building a Mini Project
+Goal: Create a simple Product Listing app:
+
+Home page with a welcome message.
+
+Products page fetching products using a service.
+
+Detail page showing selected product detail using route params.
+
+12. Using Angular Material (optional, for beautiful UI)
+bash
+Copy code
+ng add @angular/material
+Add buttons, cards, nav bars easily for professional UI.
+
+13. Parent-Child Communication
+Use @Input() and @Output() for passing data/events between components.
+
+Example:
+parent.component.html
+
+html
+Copy code
+<child [data]="parentData" (notify)="handleNotify($event)"></child>
+child.component.ts
+
+ts
+Copy code
+@Input() data: string;
+@Output() notify = new EventEmitter<string>();
+
+trigger() {
+  this.notify.emit('Data from child');
+}
+14. Pipes
+For transforming data in templates.
+
+html
+Copy code
+<p>{{ today | date }}</p>
+<p>{{ price | currency }}</p>
+You can also create custom pipes.
+
+15. Environment Config
+Use environment.ts for storing API URLs, environment variables.
+
+⚡ What you should build after this:
+✅ A CRUD application (product add, edit, delete, view).
+✅ Use routing for navigation.
+✅ Use services for managing data.
+✅ Use Angular Material for UI.
+✅ Deploy using Firebase or Vercel.
+
+✅ Complete Consolidation
+Concept	Practice
+CLI & Project Setup	ng new, ng serve, folder structure
+Components	Create multiple, use in app.component.html
+Data Binding	One-way, two-way, event
+Directives	*ngIf, *ngFor, [ngClass]
+Services	Create & inject, manage data
+Routing	Navigation, params, routerLink
+Forms	Template & Reactive
+HTTP	HttpClient with REST APIs
+Pipes	Built-in and custom
+Angular Material	Professional UI
+Mini Project	CRUD app for practice
+
+✅ Result: By the end of 3 days:
+✨ You will confidently:
+✅ Understand and use Angular structure
+✅ Build clean, reusable UI components
+✅ Bind data dynamically and handle user input
+✅ Perform API calls and display data
+✅ Navigate between pages
+✅ Use forms for user input and validation
+✅ Build a deployable, professional-looking UI with Angular
+
+🚀 Next Level After Basics
+After mastering this in 3 days:
+
+Learn advanced RxJS (Observables, Subjects).
+
+State management with NgRx.
+
+Lazy loading modules.
+
+Unit testing with Jasmine & Karma.
+
+Performance optimization and best practices.
+
+If you want, I can prepare:
+
+✅ A fully clean sample project structure following these practices for you to clone and run.
+✅ Mini UI challenges to practice each concept actively.
+✅ Flashcards / cheat sheet for Angular commands and concepts to revise quickly during implementation.
+
+If you want these next, let me know so you can upgrade your skill rapidly and systematically without confusion
